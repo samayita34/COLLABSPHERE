@@ -1,492 +1,272 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
-type Project = {
-  name: string;
-  description: string;
-  progress: number;
-  members: number;
-  tasks: string;
-  status: "On Track" | "At Risk" | "Completed";
-};
+function BackgroundParticles() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-const projects: Project[] = [
-  {
-    name: "Website Redesign",
-    description: "Redesign the company website and improve user experience.",
-    progress: 76,
-    members: 8,
-    tasks: "18/24",
-    status: "On Track",
-  },
-  {
-    name: "Mobile Application",
-    description: "Build the next-generation mobile experience.",
-    progress: 52,
-    members: 6,
-    tasks: "13/25",
-    status: "On Track",
-  },
-  {
-    name: "Marketing Campaign",
-    description: "Launch the Q3 product marketing campaign.",
-    progress: 90,
-    members: 5,
-    tasks: "27/30",
-    status: "Completed",
-  },
-];
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-const navigation = [
-  { name: "Overview", icon: "⌂" },
-  { name: "Projects", icon: "▣" },
-  { name: "Tasks", icon: "✓" },
-  { name: "Documents", icon: "▤" },
-  { name: "Chat", icon: "◌" },
-  { name: "Files", icon: "▱" },
-  { name: "Analytics", icon: "◫" },
-];
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    const particleCount = 60;
+    const particles = Array.from({ length: particleCount }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      radius: Math.random() * 1.2 + 0.4,
+      alpha: Math.random() * 0.35 + 0.1,
+      speedX: (Math.random() - 0.5) * 0.12,
+      speedY: (Math.random() - 0.5) * 0.12,
+      pulseSpeed: Math.random() * 0.006 + 0.002,
+      pulseDir: Math.random() > 0.5 ? 1 : -1,
+    }));
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      particles.forEach((p) => {
+        p.x += p.speedX;
+        p.y += p.speedY;
+
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+
+        p.alpha += p.pulseSpeed * p.pulseDir;
+        if (p.alpha > 0.45) p.pulseDir = -1;
+        if (p.alpha < 0.1) p.pulseDir = 1;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(199, 210, 254, ${p.alpha})`;
+        ctx.fill();
+      });
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="particles-canvas" />;
+}
 
 function App() {
-  const [activePage, setActivePage] = useState("Overview");
-  const [search, setSearch] = useState("");
-
-  const filteredProjects = projects.filter((project) =>
-    project.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <div className="app-shell">
-      {/* Sidebar */}
-      <aside className="sidebar">
+    <div className="login-page">
+      {/* Dynamic ambient particles */}
+      <BackgroundParticles />
+
+
+
+      <svg
+        className="bg-ribbons"
+        viewBox="0 0 1440 900"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        preserveAspectRatio="xMidYMid slice"
+      >
+        <defs>
+          {/* Subtle low-opacity gradients */}
+          <linearGradient id="ribbonGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#1e1b4b" stopOpacity="0.45" />
+            <stop offset="50%" stopColor="#0f172a" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#060810" stopOpacity="0.05" />
+          </linearGradient>
+
+          <linearGradient id="ribbonGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#312e81" stopOpacity="0.35" />
+            <stop offset="60%" stopColor="#1e293b" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#080b13" stopOpacity="0.02" />
+          </linearGradient>
+
+          <linearGradient id="ribbonGrad3" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#2e1065" stopOpacity="0.3" />
+            <stop offset="50%" stopColor="#1e1b4b" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#090d16" stopOpacity="0.0" />
+          </linearGradient>
+
+          <linearGradient id="ribbonGrad4" x1="30%" y1="0%" x2="70%" y2="100%">
+            <stop offset="0%" stopColor="#1e293b" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#0b0f19" stopOpacity="0.1" />
+          </linearGradient>
+
+          {/* Faint metallic edge stroke highlights */}
+          <linearGradient id="edgeStroke1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#a5b4fc" stopOpacity="0.35" />
+            <stop offset="50%" stopColor="#818cf8" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+          </linearGradient>
+
+          <linearGradient id="edgeStroke2" x1="100%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#c7d2fe" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#4338ca" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Layer 1: Outer sweeping curved ribbon from top-right to bottom-left */}
+        <path
+          d="M 680 -150 C 980 50, 1550 150, 1500 680 C 1450 950, 1100 1050, 750 980 C 400 910, 100 750, -200 600 C -200 350, 200 -50, 680 -150 Z"
+          fill="url(#ribbonGrad1)"
+        />
+        <path
+          d="M 680 -150 C 980 50, 1550 150, 1500 680"
+          stroke="url(#edgeStroke1)"
+          strokeWidth="1.2"
+        />
+
+        {/* Layer 2: Deep left-side curved wave fold */}
+        <path
+          d="M -250 150 C 150 50, 520 400, 380 880 C 250 1100, -150 1080, -350 820 Z"
+          fill="url(#ribbonGrad2)"
+        />
+        <path
+          d="M -250 150 C 150 50, 520 400, 380 880"
+          stroke="url(#edgeStroke2)"
+          strokeWidth="1"
+        />
+
+        {/* Layer 3: Soft top-left geometric curtain */}
+        <path
+          d="M -150 -120 C 350 -100, 580 120, 320 450 C 120 650, -220 450, -220 -20 Z"
+          fill="url(#ribbonGrad3)"
+        />
+
+        {/* Layer 4: Deep right-hand backdrop shape */}
+        <path
+          d="M 920 50 C 1280 -50, 1620 250, 1420 720 C 1220 950, 880 750, 920 50 Z"
+          fill="url(#ribbonGrad4)"
+        />
+        <path
+          d="M 920 50 C 1280 -50, 1620 250, 1420 720"
+          stroke="url(#edgeStroke1)"
+          strokeWidth="1"
+        />
+      </svg>
+
+      {/* Main card container */}
+      <div className="login-container">
         <div className="brand">
-          <div className="brand-mark">C</div>
-
-          <div>
-            <div className="brand-name">COLLABSPHERE</div>
-            <div className="brand-subtitle">Workspace</div>
-          </div>
+          <span className="brand-wordmark">
+            <span className="brand-collab">COLLAB</span><span className="brand-sphere">SPHERE</span>
+          </span>
         </div>
 
-        <div className="workspace-selector">
-          <div className="workspace-avatar">A</div>
-
-          <div className="workspace-info">
-            <span>Acme Corporation</span>
-            <small>Engineering Workspace</small>
+        <div className="login-card">
+          <div className="login-header">
+            <h1>Welcome back</h1>
+            <p>Sign in to continue to your workspace.</p>
           </div>
 
-          <span className="chevron">⌄</span>
-        </div>
-
-        <div className="nav-section">
-          <p className="nav-title">WORKSPACE</p>
-
-          {navigation.map((item) => (
-            <button
-              key={item.name}
-              className={`nav-item ${activePage === item.name ? "active" : ""
-                }`}
-              onClick={() => setActivePage(item.name)}
+          <button type="button" className="google-btn">
+            <svg
+              className="google-icon"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
             >
-              <span className="nav-icon">{item.icon}</span>
-              <span>{item.name}</span>
-
-              {item.name === "Chat" && <span className="nav-badge">4</span>}
-            </button>
-          ))}
-        </div>
-
-        <div className="sidebar-bottom">
-          <button className="nav-item">
-            <span className="nav-icon">⚙</span>
-            <span>Settings</span>
-          </button>
-
-          <button className="nav-item">
-            <span className="nav-icon">?</span>
-            <span>Help & Support</span>
-          </button>
-
-          <div className="user-card">
-            <div className="user-avatar">SR</div>
-
-            <div className="user-info">
-              <strong>Samayita Ray</strong>
-              <span>Workspace Admin</span>
-            </div>
-
-            <span className="more">•••</span>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="main-content">
-        {/* Topbar */}
-        <header className="topbar">
-          <div className="breadcrumb">
-            Workspace <span>/</span> {activePage}
-          </div>
-
-          <div className="topbar-actions">
-            <div className="search-box">
-              <span>⌕</span>
-
-              <input
-                type="text"
-                placeholder="Search anything..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
               />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+              />
+            </svg>
+            Continue with Google
+          </button>
 
-              <kbd>⌘ K</kbd>
-            </div>
-
-            <button className="icon-button notification">
-              ♧
-              <span></span>
-            </button>
-
-            <div className="top-avatar">SR</div>
-          </div>
-        </header>
-
-        {/* Dashboard */}
-        <div className="content">
-          <section className="welcome-section">
-            <div>
-              <p className="eyebrow">MONDAY, AUGUST 10, 2026</p>
-
-              <h1>
-                Good evening, <span>Samayita</span> 👋
-              </h1>
-
-              <p className="welcome-text">
-                Here's what's happening across your workspace today.
-              </p>
-            </div>
-
-            <button className="primary-button">
-              <span>＋</span>
-              Create new
-            </button>
-          </section>
-
-          {/* Statistics */}
-          <section className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-top">
-                <span className="stat-label">ACTIVE PROJECTS</span>
-                <span className="stat-icon purple">▣</span>
-              </div>
-
-              <div className="stat-value">08</div>
-
-              <div className="stat-change positive">
-                ↑ 12.5% <span>from last month</span>
-              </div>
-            </div>
-
-            <div className="stat-card">
-              <div className="stat-top">
-                <span className="stat-label">PENDING TASKS</span>
-                <span className="stat-icon blue">✓</span>
-              </div>
-
-              <div className="stat-value">24</div>
-
-              <div className="stat-change positive">
-                ↓ 8.2% <span>from last week</span>
-              </div>
-            </div>
-
-            <div className="stat-card">
-              <div className="stat-top">
-                <span className="stat-label">DUE TODAY</span>
-                <span className="stat-icon orange">◷</span>
-              </div>
-
-              <div className="stat-value">05</div>
-
-              <div className="stat-change warning">
-                2 <span>need your attention</span>
-              </div>
-            </div>
-
-            <div className="stat-card">
-              <div className="stat-top">
-                <span className="stat-label">TEAM MEMBERS</span>
-                <span className="stat-icon green">♧</span>
-              </div>
-
-              <div className="stat-value">12</div>
-
-              <div className="stat-change positive">
-                ↑ 2 <span>new this month</span>
-              </div>
-            </div>
-          </section>
-
-          <div className="dashboard-grid">
-            {/* Projects */}
-            <section className="panel projects-panel">
-              <div className="panel-header">
-                <div>
-                  <h2>Active Projects</h2>
-                  <p>Track progress across your workspace</p>
-                </div>
-
-                <button className="view-all">View all →</button>
-              </div>
-
-              <div className="project-list">
-                {filteredProjects.map((project) => (
-                  <div className="project-row" key={project.name}>
-                    <div className="project-color"></div>
-
-                    <div className="project-main">
-                      <div className="project-title-row">
-                        <h3>{project.name}</h3>
-
-                        <span
-                          className={`status ${project.status
-                            .toLowerCase()
-                            .replace(" ", "-")}`}
-                        >
-                          {project.status}
-                        </span>
-                      </div>
-
-                      <p>{project.description}</p>
-
-                      <div className="progress-container">
-                        <div className="progress-bar">
-                          <div
-                            className="progress-fill"
-                            style={{ width: `${project.progress}%` }}
-                          />
-                        </div>
-
-                        <span>{project.progress}%</span>
-                      </div>
-                    </div>
-
-                    <div className="project-meta">
-                      <div className="mini-members">
-                        <span>SR</span>
-                        <span>AK</span>
-                        <span>+</span>
-                      </div>
-
-                      <small>
-                        {project.tasks} tasks
-                      </small>
-                    </div>
-                  </div>
-                ))}
-
-                {filteredProjects.length === 0 && (
-                  <div className="empty-state">
-                    No projects found.
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* Activity */}
-            <section className="panel activity-panel">
-              <div className="panel-header">
-                <div>
-                  <h2>Team Activity</h2>
-                  <p>Latest workspace updates</p>
-                </div>
-
-                <button className="more-button">•••</button>
-              </div>
-
-              <div className="activity-list">
-                <Activity
-                  avatar="AK"
-                  name="Ankit Kumar"
-                  action="completed a task"
-                  detail="Design authentication flow"
-                  time="8 min ago"
-                />
-
-                <Activity
-                  avatar="PR"
-                  name="Priya Roy"
-                  action="commented on"
-                  detail="Website Redesign"
-                  time="24 min ago"
-                />
-
-                <Activity
-                  avatar="RM"
-                  name="Rahul Mehta"
-                  action="uploaded a document"
-                  detail="Q3 Product Requirements"
-                  time="1 hr ago"
-                />
-
-                <Activity
-                  avatar="SR"
-                  name="Samayita Ray"
-                  action="created a task"
-                  detail="Implement Google OAuth"
-                  time="2 hrs ago"
-                />
-              </div>
-
-              <button className="activity-footer">
-                View all activity →
-              </button>
-            </section>
+          <div className="divider">
+            <span>OR</span>
           </div>
 
-          {/* Bottom Row */}
-          <div className="bottom-grid">
-            <section className="panel deadline-panel">
-              <div className="panel-header">
-                <div>
-                  <h2>Upcoming Deadlines</h2>
-                  <p>Keep track of important dates</p>
-                </div>
+          <form>
+            <div className="form-group">
+              <label htmlFor="email">Email address</label>
+              <input
+                id="email"
+                type="email"
+                placeholder="you@company.com"
+              />
+            </div>
 
-                <button className="view-all">View calendar →</button>
+            <div className="form-group">
+              <div className="password-row">
+                <label htmlFor="password">Password</label>
+
+                <button type="button" className="forgot-password">
+                  Forgot password?
+                </button>
               </div>
 
-              <div className="deadline-list">
-                <Deadline
-                  day="12"
-                  month="AUG"
-                  title="Authentication module"
-                  project="Website Redesign"
-                  priority="High"
+              <div className="password-wrapper">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
                 />
 
-                <Deadline
-                  day="15"
-                  month="AUG"
-                  title="Mobile UI review"
-                  project="Mobile Application"
-                  priority="Medium"
-                />
-
-                <Deadline
-                  day="18"
-                  month="AUG"
-                  title="Marketing assets"
-                  project="Marketing Campaign"
-                  priority="Low"
-                />
+                <button
+                  type="button"
+                  className="show-password"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
               </div>
-            </section>
+            </div>
 
-            <section className="panel productivity-panel">
-              <div className="panel-header">
-                <div>
-                  <h2>Workspace Productivity</h2>
-                  <p>Task completion this week</p>
-                </div>
+            <label className="remember-me">
+              <input type="checkbox" />
+              <span>Remember me</span>
+            </label>
 
-                <span className="period">This week ⌄</span>
-              </div>
+            <button type="submit" className="sign-in-btn">
+              Sign in
+            </button>
+          </form>
 
-              <div className="chart">
-                <div className="chart-y">
-                  <span>100</span>
-                  <span>75</span>
-                  <span>50</span>
-                  <span>25</span>
-                  <span>0</span>
-                </div>
-
-                <div className="bars">
-                  {[45, 62, 48, 78, 68, 88, 74].map(
-                    (height, index) => (
-                      <div className="bar-wrapper" key={index}>
-                        <div
-                          className="bar"
-                          style={{ height: `${height}%` }}
-                        ></div>
-
-                        <span>
-                          {["M", "T", "W", "T", "F", "S", "S"][index]}
-                        </span>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-            </section>
+          <div className="signup">
+            <span>Don't have an account?</span>
+            <button type="button">Create an account</button>
           </div>
         </div>
-      </main>
-    </div>
-  );
-}
 
-function Activity({
-  avatar,
-  name,
-  action,
-  detail,
-  time,
-}: {
-  avatar: string;
-  name: string;
-  action: string;
-  detail: string;
-  time: string;
-}) {
-  return (
-    <div className="activity-item">
-      <div className="activity-avatar">{avatar}</div>
-
-      <div className="activity-content">
-        <p>
-          <strong>{name}</strong> {action}
+        <p className="footer">
+          © 2026 COLLABSPHERE
         </p>
 
-        <span>{detail}</span>
-        <small>{time}</small>
       </div>
-    </div>
-  );
-}
-
-function Deadline({
-  day,
-  month,
-  title,
-  project,
-  priority,
-}: {
-  day: string;
-  month: string;
-  title: string;
-  project: string;
-  priority: string;
-}) {
-  return (
-    <div className="deadline-item">
-      <div className="date-box">
-        <strong>{day}</strong>
-        <span>{month}</span>
-      </div>
-
-      <div className="deadline-info">
-        <strong>{title}</strong>
-        <span>{project}</span>
-      </div>
-
-      <span
-        className={`priority ${priority.toLowerCase()}`}
-      >
-        {priority}
-      </span>
     </div>
   );
 }
