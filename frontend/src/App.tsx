@@ -1,169 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import { useState } from "react";
+import PageBackground from "./components/PageBackground";
 import "./App.css";
-
-function BackgroundParticles() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animationFrameId: number;
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
-
-    const handleResize = () => {
-      if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    };
-
-    window.addEventListener("resize", handleResize);
-
-    const particleCount = 60;
-    const particles = Array.from({ length: particleCount }, () => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      radius: Math.random() * 1.2 + 0.4,
-      alpha: Math.random() * 0.35 + 0.1,
-      speedX: (Math.random() - 0.5) * 0.12,
-      speedY: (Math.random() - 0.5) * 0.12,
-      pulseSpeed: Math.random() * 0.006 + 0.002,
-      pulseDir: Math.random() > 0.5 ? 1 : -1,
-    }));
-
-    const render = () => {
-      ctx.clearRect(0, 0, width, height);
-
-      particles.forEach((p) => {
-        p.x += p.speedX;
-        p.y += p.speedY;
-
-        if (p.x < 0) p.x = width;
-        if (p.x > width) p.x = 0;
-        if (p.y < 0) p.y = height;
-        if (p.y > height) p.y = 0;
-
-        p.alpha += p.pulseSpeed * p.pulseDir;
-        if (p.alpha > 0.45) p.pulseDir = -1;
-        if (p.alpha < 0.1) p.pulseDir = 1;
-
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(199, 210, 254, ${p.alpha})`;
-        ctx.fill();
-      });
-
-      animationFrameId = requestAnimationFrame(render);
-    };
-
-    render();
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} className="particles-canvas" />;
-}
 
 function App() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
     <div className="login-page">
-      {/* Dynamic ambient particles */}
-      <BackgroundParticles />
-
-
-
-      <svg
-        className="bg-ribbons"
-        viewBox="0 0 1440 900"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        preserveAspectRatio="xMidYMid slice"
-      >
-        <defs>
-          {/* Subtle low-opacity gradients */}
-          <linearGradient id="ribbonGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#1e1b4b" stopOpacity="0.45" />
-            <stop offset="50%" stopColor="#0f172a" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#060810" stopOpacity="0.05" />
-          </linearGradient>
-
-          <linearGradient id="ribbonGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#312e81" stopOpacity="0.35" />
-            <stop offset="60%" stopColor="#1e293b" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#080b13" stopOpacity="0.02" />
-          </linearGradient>
-
-          <linearGradient id="ribbonGrad3" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#2e1065" stopOpacity="0.3" />
-            <stop offset="50%" stopColor="#1e1b4b" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#090d16" stopOpacity="0.0" />
-          </linearGradient>
-
-          <linearGradient id="ribbonGrad4" x1="30%" y1="0%" x2="70%" y2="100%">
-            <stop offset="0%" stopColor="#1e293b" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#0b0f19" stopOpacity="0.1" />
-          </linearGradient>
-
-          {/* Faint metallic edge stroke highlights */}
-          <linearGradient id="edgeStroke1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#a5b4fc" stopOpacity="0.35" />
-            <stop offset="50%" stopColor="#818cf8" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
-          </linearGradient>
-
-          <linearGradient id="edgeStroke2" x1="100%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#c7d2fe" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#4338ca" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-
-        {/* Layer 1: Outer sweeping curved ribbon from top-right to bottom-left */}
-        <path
-          d="M 680 -150 C 980 50, 1550 150, 1500 680 C 1450 950, 1100 1050, 750 980 C 400 910, 100 750, -200 600 C -200 350, 200 -50, 680 -150 Z"
-          fill="url(#ribbonGrad1)"
-        />
-        <path
-          d="M 680 -150 C 980 50, 1550 150, 1500 680"
-          stroke="url(#edgeStroke1)"
-          strokeWidth="1.2"
-        />
-
-        {/* Layer 2: Deep left-side curved wave fold */}
-        <path
-          d="M -250 150 C 150 50, 520 400, 380 880 C 250 1100, -150 1080, -350 820 Z"
-          fill="url(#ribbonGrad2)"
-        />
-        <path
-          d="M -250 150 C 150 50, 520 400, 380 880"
-          stroke="url(#edgeStroke2)"
-          strokeWidth="1"
-        />
-
-        {/* Layer 3: Soft top-left geometric curtain */}
-        <path
-          d="M -150 -120 C 350 -100, 580 120, 320 450 C 120 650, -220 450, -220 -20 Z"
-          fill="url(#ribbonGrad3)"
-        />
-
-        {/* Layer 4: Deep right-hand backdrop shape */}
-        <path
-          d="M 920 50 C 1280 -50, 1620 250, 1420 720 C 1220 950, 880 750, 920 50 Z"
-          fill="url(#ribbonGrad4)"
-        />
-        <path
-          d="M 920 50 C 1280 -50, 1620 250, 1420 720"
-          stroke="url(#edgeStroke1)"
-          strokeWidth="1"
-        />
-      </svg>
+      <PageBackground />
 
       {/* Main card container */}
       <div className="login-container">
@@ -258,8 +103,9 @@ function App() {
 
           <div className="signup">
             <span>Don't have an account?</span>
-            <button type="button">Create an account</button>
+            <Link to="/signup">Create an account</Link>
           </div>
+
         </div>
 
         <p className="footer">

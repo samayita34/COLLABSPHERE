@@ -7,7 +7,7 @@ body {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
   color: #1f2937;
-  background-color: #080b13;
+  background-color: #0b0e17;
 }
 
 button,
@@ -26,32 +26,25 @@ button {
   min-height: 100vh;
   width: 100%;
   overflow: hidden;
-  background-color: #060911;
-  background-image: 
-    radial-gradient(ellipse at 50% 15%, #0d1222 0%, #060911 75%),
-    radial-gradient(circle at 85% 85%, #0e101f 0%, transparent 50%);
+  background-color: #0b0e17;
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 40px 20px;
 }
 
-/* Background Canvas Particles */
+/* Star particles canvas */
 
-.particles-canvas {
+.stars-canvas {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
   z-index: 1;
 }
 
-
-
-
-/* SVG Abstract Ribbon Flowing Shapes */
+/* SVG Flowing Fabric Ribbon Shapes */
 
 .bg-ribbons {
   position: absolute;
@@ -60,8 +53,9 @@ button {
   height: 100%;
   pointer-events: none;
   z-index: 2;
-  opacity: 0.9;
+  opacity: 1;
 }
+
 
 /* Container */
 
