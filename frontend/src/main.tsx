@@ -5,6 +5,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import App from "./App";
 import SignUp from "./pages/SignUp";
 import Dashboard from "./pages/dashboard";
+import Projects from "./pages/Projects";
+import ProjectWorkspace from "./pages/ProjectWorkspace";
 
 import "./index.css";
 
@@ -15,6 +17,8 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/" element={<App />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/projects" element={<Projects />} />
+        <Route path="/projects/:slug" element={<ProjectWorkspace />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>

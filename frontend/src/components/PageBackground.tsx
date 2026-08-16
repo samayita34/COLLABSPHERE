@@ -9,7 +9,7 @@ function StarParticles() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let raf: number;
+    let raf: number | null = null;
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -40,7 +40,7 @@ function StarParticles() {
 
     return () => {
       window.removeEventListener("resize", resize);
-      cancelAnimationFrame(raf);
+      if (raf) cancelAnimationFrame(raf);
     };
   }, []);
 
