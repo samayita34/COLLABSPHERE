@@ -74,9 +74,19 @@ function formatProject(project: any, includeTasks = false) {
  * GET /api/projects
  * Get list of all projects with owner, members, and derived task progress.
  */
-export const getProjects = async (_req: Request, res: Response): Promise<void> => {
+export const getProjects = async (req: Request, res: Response): Promise<void> => {
     try {
+        const whereClause = req.user
+            ? {
+                  OR: [
+                      { ownerId: req.user.id },
+                      { members: { some: { userId: req.user.id } } },
+                  ],
+              }
+            : {};
+
         const projects = await prisma.project.findMany({
+            where: whereClause,
             include: {
                 owner: {
                     select: safeUserSelect,
@@ -158,6 +168,18 @@ export const getProjectById = async (req: Request, res: Response): Promise<void>
             return;
         }
 
+        if (
+            req.user &&
+            project.ownerId !== req.user.id &&
+            !project.members.some((m: any) => m.userId === req.user?.id)
+        ) {
+            res.status(403).json({
+                success: false,
+                error: "Access denied. You are not a member or owner of this project.",
+            });
+            return;
+        }
+
         res.status(200).json({
             success: true,
             data: formatProject(project, true),
@@ -181,6 +203,8 @@ export const createProject = async (req: Request, res: Response): Promise<void> 
     try {
         const { name, ownerId, description, category, status, code, dueDate } = req.body;
 
+        const effectiveOwnerId = req.user ? req.user.id : ownerId;
+
         // Validation
         if (!name || typeof name !== "string" || name.trim() === "") {
             res.status(400).json({
@@ -190,7 +214,7 @@ export const createProject = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
-        if (!ownerId || typeof ownerId !== "string" || ownerId.trim() === "") {
+        if (!effectiveOwnerId || typeof effectiveOwnerId !== "string" || effectiveOwnerId.trim() === "") {
             res.status(400).json({
                 success: false,
                 error: "Owner ID (ownerId) is required and must be a non-empty string",
@@ -222,13 +246,13 @@ export const createProject = async (req: Request, res: Response): Promise<void> 
 
         // Check if owner user exists
         const ownerExists = await prisma.user.findUnique({
-            where: { id: ownerId.trim() },
+            where: { id: effectiveOwnerId.trim() },
         });
 
         if (!ownerExists) {
             res.status(400).json({
                 success: false,
-                error: `User specified by ownerId '${ownerId}' does not exist`,
+                error: `User specified by ownerId '${effectiveOwnerId}' does not exist`,
             });
             return;
         }
@@ -242,10 +266,10 @@ export const createProject = async (req: Request, res: Response): Promise<void> 
                 status: status || ProjectStatus.ACTIVE,
                 code: code ? String(code).trim() : null,
                 dueDate: parsedDueDate,
-                ownerId: ownerId.trim(),
+                ownerId: effectiveOwnerId.trim(),
                 members: {
                     create: {
-                        userId: ownerId.trim(),
+                        userId: effectiveOwnerId.trim(),
                         role: "ADMIN",
                     },
                 },

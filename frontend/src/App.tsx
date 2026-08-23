@@ -1,10 +1,34 @@
-import { Link } from "react-router-dom";
-import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useState, type FormEvent } from "react";
 import PageBackground from "./components/PageBackground";
+import { loginApi } from "./services/authApi";
 import "./App.css";
 
 function App() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!email.trim() || !password) {
+      setError("Please enter your email and password.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await loginApi(email, password);
+      navigate("/projects");
+    } catch (err: any) {
+      setError(err.message || "Failed to log in");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="login-page">
@@ -23,6 +47,12 @@ function App() {
             <h1>Welcome back</h1>
             <p>Sign in to continue to your workspace.</p>
           </div>
+
+          {error && (
+            <div style={{ color: "#ef4444", fontSize: "0.875rem", marginBottom: "1rem", textAlign: "center" }}>
+              {error}
+            </div>
+          )}
 
           <button type="button" className="google-btn">
             <svg
@@ -55,13 +85,15 @@ function App() {
             <span>OR</span>
           </div>
 
-          <form>
+          <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label htmlFor="email">Email address</label>
               <input
                 id="email"
                 type="email"
                 placeholder="you@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
@@ -79,6 +111,8 @@ function App() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
 
                 <button
@@ -96,8 +130,8 @@ function App() {
               <span>Remember me</span>
             </label>
 
-            <button type="submit" className="sign-in-btn">
-              Sign in
+            <button type="submit" className="sign-in-btn" disabled={loading}>
+              {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
 

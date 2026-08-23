@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchProjects, MappedProject } from "../services/projectApi";
+import { fetchProjects } from "../services/projectApi";
+import type { MappedProject } from "../services/projectApi";
 import "./Projects.css";
 
 export default function Projects() {

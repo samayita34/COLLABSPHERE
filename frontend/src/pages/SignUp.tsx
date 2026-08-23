@@ -1,11 +1,51 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import PageBackground from "../components/PageBackground";
+import { signupApi } from "../services/authApi";
 import "../App.css";
 
 function SignUp() {
+    const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+        setError(null);
+
+        if (!name.trim()) {
+            setError("Full name is required");
+            return;
+        }
+        if (!email.trim() || !email.includes("@")) {
+            setError("Valid work email is required");
+            return;
+        }
+        if (!password || password.length < 6) {
+            setError("Password must be at least 6 characters long");
+            return;
+        }
+        if (password !== confirmPassword) {
+            setError("Passwords do not match");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await signupApi(name, email, password);
+            navigate("/projects");
+        } catch (err: any) {
+            setError(err.message || "Failed to create account");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="login-page">
@@ -27,6 +67,12 @@ function SignUp() {
                         <p>Set up your account to get started with COLLABSPHERE.</p>
                     </div>
 
+                    {error && (
+                        <div style={{ color: "#ef4444", fontSize: "0.875rem", marginBottom: "1rem", textAlign: "center" }}>
+                            {error}
+                        </div>
+                    )}
+
                     <button type="button" className="google-btn">
                         <span className="google-letter">G</span>
                         Continue with Google
@@ -36,7 +82,7 @@ function SignUp() {
                         <span>OR</span>
                     </div>
 
-                    <form>
+                    <form onSubmit={handleSubmit}>
 
                         <div className="form-group">
                             <label htmlFor="name">Full name</label>
@@ -44,6 +90,8 @@ function SignUp() {
                                 id="name"
                                 type="text"
                                 placeholder="Your name"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
                             />
                         </div>
 
@@ -53,6 +101,8 @@ function SignUp() {
                                 id="email"
                                 type="email"
                                 placeholder="you@company.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
 
@@ -64,6 +114,8 @@ function SignUp() {
                                     id="password"
                                     type={showPassword ? "text" : "password"}
                                     placeholder="Create a password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                 />
 
                                 <button
@@ -86,6 +138,8 @@ function SignUp() {
                                     id="confirmPassword"
                                     type={showConfirmPassword ? "text" : "password"}
                                     placeholder="Confirm your password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
                                 />
 
                                 <button
@@ -100,8 +154,8 @@ function SignUp() {
                             </div>
                         </div>
 
-                        <button type="submit" className="sign-in-btn">
-                            Create account
+                        <button type="submit" className="sign-in-btn" disabled={loading}>
+                            {loading ? "Creating account..." : "Create account"}
                         </button>
 
                     </form>

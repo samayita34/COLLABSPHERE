@@ -7,14 +7,8 @@ import { MemberDetailModal, AddMemberModal } from "./MemberModal";
 import { DocumentDetailModal, AddDocumentModal } from "./DocumentModal";
 import { FileDetailModal, AddFileModal } from "./FileModal";
 import ProjectChat, { type ChatMessage } from "./ProjectChat";
-import {
-    TaskStatus,
-    TaskPriority,
-    Task,
-    Member,
-    MappedProject as Project,
-    fetchProjectById,
-} from "../services/projectApi";
+import { fetchProjectById, createTaskApi, updateTaskApi, updateTaskStatusApi, deleteTaskApi, addMemberApi, fetchDocuments, createDocumentApi, fetchFiles, createFileApi, fetchChatMessages, sendChatMessageApi } from "../services/projectApi";
+import type { TaskStatus, TaskPriority, Task, Member, MappedProject as Project } from "../services/projectApi";
 
 /* =========================
    TYPES
@@ -179,8 +173,22 @@ export default function ProjectWorkspace() {
         let isMounted = true;
         setLoading(true);
 
-        fetchProjectById(routeParam)
-            .then((data) => {
+        Promise.all([
+            fetchProjectById(routeParam),
+            fetchDocuments(routeParam).catch((err) => {
+                console.error("Error fetching documents:", err);
+                return null;
+            }),
+            fetchFiles(routeParam).catch((err) => {
+                console.error("Error fetching files:", err);
+                return null;
+            }),
+            fetchChatMessages(routeParam).catch((err) => {
+                console.error("Error fetching chat messages:", err);
+                return null;
+            }),
+        ])
+            .then(([data, apiDocs, apiFiles, apiMessages]) => {
                 if (isMounted) {
                     setProject(data);
                     setTasks(data.tasks);
@@ -190,9 +198,9 @@ export default function ProjectWorkspace() {
                         (m) => m.slug === routeParam || m.id === routeParam
                     ) || defaultMockWorkspaceData;
 
-                    setDocuments(mockMatch.documents);
-                    setFiles(mockMatch.files);
-                    setMessages(mockMatch.messages);
+                    setDocuments(apiDocs !== null ? apiDocs : mockMatch.documents);
+                    setFiles(apiFiles !== null ? apiFiles : mockMatch.files);
+                    setMessages(apiMessages !== null ? apiMessages : mockMatch.messages);
                     setError(null);
                 }
             })
@@ -230,9 +238,20 @@ export default function ProjectWorkspace() {
         e.preventDefault();
         const taskId = e.dataTransfer.getData("text/plain") || draggingId;
         if (taskId) {
+            // Optimistic update
             setTasks((prev) =>
                 prev.map((t) => (t.id === taskId ? { ...t, status: columnKey } : t))
             );
+            // Persist to backend
+            updateTaskStatusApi(taskId, columnKey).then((updated) => {
+                setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+            }).catch((err) => {
+                console.error("Failed to update task status:", err);
+                // Revert on failure — refetch the task list
+                if (routeParam) {
+                    fetchProjectById(routeParam).then((data) => setTasks(data.tasks)).catch(() => {});
+                }
+            });
         }
         setDraggingId(null);
         setDragOverColumn(null);
@@ -260,16 +279,54 @@ export default function ProjectWorkspace() {
     const closeModal = () => setModalOpen(false);
 
     const saveTask = (task: Task) => {
-        setTasks((prev) => {
-            const exists = prev.some((t) => t.id === task.id);
-            return exists ? prev.map((t) => (t.id === task.id ? task : t)) : [...prev, task];
-        });
+        const isNew = !tasks.some((t) => t.id === task.id) || task.id.startsWith("t-");
+
+        if (isNew) {
+            // POST: create
+            createTaskApi(routeParam, {
+                title: task.title,
+                description: task.description,
+                status: task.status,
+                priority: task.priority,
+                due: task.due,
+                assignee: task.assignee,
+                members,
+            })
+                .then((created) => {
+                    setTasks((prev) => [...prev, created]);
+                })
+                .catch((err) => console.error("Failed to create task:", err));
+        } else {
+            // PATCH: update — optimistic first, then sync with DB response
+            setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
+            updateTaskApi(task.id, {
+                title: task.title,
+                description: task.description,
+                status: task.status,
+                priority: task.priority,
+                due: task.due,
+                assignee: task.assignee,
+                members,
+            })
+                .then((updated) => {
+                    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+                })
+                .catch((err) => console.error("Failed to update task:", err));
+        }
         setModalOpen(false);
     };
 
     const deleteTask = (id: string) => {
+        // Optimistic removal
         setTasks((prev) => prev.filter((t) => t.id !== id));
         setModalOpen(false);
+        deleteTaskApi(id).catch((err) => {
+            console.error("Failed to delete task:", err);
+            // Revert on failure
+            if (routeParam) {
+                fetchProjectById(routeParam).then((data) => setTasks(data.tasks)).catch(() => {});
+            }
+        });
     };
 
     const memberName = (initials: string) =>
@@ -280,18 +337,35 @@ export default function ProjectWorkspace() {
     ========================= */
     const [addMemberOpen, setAddMemberOpen] = useState(false);
     const [detailMember, setDetailMember] = useState<Member | null>(null);
+    const [memberError, setMemberError] = useState<string | null>(null);
 
-    const handleAddMember = (newMember: Member) => {
-        setMembers((prev) => {
-            if (prev.some((m) => m.initials === newMember.initials)) return prev;
-            return [...prev, newMember];
-        });
-        setAddMemberOpen(false);
+    /* AddMemberModal.onSave receives { name, email, role }.
+     * We look up the user by email via the backend — no stub creation. */
+    const handleAddMemberSave = (form: { name: string; email: string; role: string }) => {
+        setMemberError(null);
+        addMemberApi(routeParam, form.email, form.role)
+            .then((newMember) => {
+                setMembers((prev) => {
+                    // Guard against duplicate initials in local state
+                    if (prev.some((m) => m.userId && m.userId === newMember.userId)) return prev;
+                    return [...prev, newMember];
+                });
+                setAddMemberOpen(false);
+            })
+            .catch((err: Error) => {
+                setMemberError(err.message);
+            });
     };
 
-    const handleRemoveMember = (initials: string) => {
-        setMembers((prev) => prev.filter((m) => m.initials !== initials));
-        setDetailMember(null);
+    /* MemberDetailModal doesn't expose onRemoveMember; removal is not supported via modal */
+    const memberStats = (member: Member) => {
+        const assignedTasks = tasks.filter((t) => t.assignee === member.initials);
+        return {
+            assignedTasks,
+            assigned: assignedTasks.length,
+            completed: assignedTasks.filter((t) => t.status === "done").length,
+            remaining: assignedTasks.filter((t) => t.status !== "done").length,
+        };
     };
 
     /* =========================
@@ -313,14 +387,16 @@ export default function ProjectWorkspace() {
         return typeMatch && searchMatch;
     });
 
-    const handleAddDocument = (newDoc: ProjectDocument) => {
-        setDocuments((prev) => [newDoc, ...prev]);
-        setAddDocOpen(false);
-    };
-
-    const handleDeleteDocument = (docId: string) => {
-        setDocuments((prev) => prev.filter((d) => d.id !== docId));
-        setDetailDoc(null);
+    /* AddDocumentModal.onSave receives partial doc; we call createDocumentApi */
+    const handleAddDocumentSave = (form: { name: string; description: string; type: DocType; owner: string; size?: string }) => {
+        createDocumentApi(routeParam, form)
+            .then((newDoc) => {
+                setDocuments((prev) => [newDoc, ...prev]);
+                setAddDocOpen(false);
+            })
+            .catch((err) => {
+                console.error("Failed to create document:", err);
+            });
     };
 
     /* =========================
@@ -343,14 +419,16 @@ export default function ProjectWorkspace() {
         return catMatch && searchMatch;
     });
 
-    const handleAddFile = (newFile: ProjectFile) => {
-        setFiles((prev) => [newFile, ...prev]);
-        setAddFileOpen(false);
-    };
-
-    const handleDeleteFile = (fileId: string) => {
-        setFiles((prev) => prev.filter((f) => f.id !== fileId));
-        setDetailFile(null);
+    /* AddFileModal.onSave receives partial file; we call createFileApi */
+    const handleAddFileSave = (form: { name: string; type: FileType; size: string; uploadedBy: string; description?: string }) => {
+        createFileApi(routeParam, form)
+            .then((newFile) => {
+                setFiles((prev) => [newFile, ...prev]);
+                setAddFileOpen(false);
+            })
+            .catch((err) => {
+                console.error("Failed to create file:", err);
+            });
     };
 
     /* =========================
@@ -363,13 +441,13 @@ export default function ProjectWorkspace() {
             role: "Workspace Admin",
             email: "samayita.ray@acmecorp.com",
         };
-        const newMsg: ChatMessage = {
-            id: `m_${Date.now()}`,
-            senderInitials: currentSender.initials,
-            text,
-            timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, newMsg]);
+        sendChatMessageApi(routeParam, text, currentSender.initials)
+            .then((newMsg) => {
+                setMessages((prev) => [...prev, newMsg]);
+            })
+            .catch((err) => {
+                console.error("Failed to send chat message:", err);
+            });
     };
 
     if (loading) {
@@ -950,6 +1028,12 @@ export default function ProjectWorkspace() {
                                 </button>
                             </div>
 
+                            {memberError && (
+                                <p role="alert" style={{ color: "var(--danger, #e53e3e)", margin: "0 0 12px", fontSize: "0.875rem" }}>
+                                    ⚠ {memberError}
+                                </p>
+                            )}
+
                             <div className="members-grid">
                                 {members.map((m) => (
                                     <div
@@ -1116,7 +1200,7 @@ export default function ProjectWorkspace() {
                             <ProjectChat
                                 messages={messages}
                                 members={members}
-                                onSendMessage={handleSendMessage}
+                                onSend={handleSendMessage}
                             />
                         </div>
                     )}
@@ -1152,7 +1236,6 @@ export default function ProjectWorkspace() {
             {/* MODALS */}
             {modalOpen && (
                 <TaskModal
-                    isOpen={modalOpen}
                     mode={modalMode}
                     task={modalTask}
                     defaultStatus={modalDefaultStatus}
@@ -1165,54 +1248,45 @@ export default function ProjectWorkspace() {
 
             {addMemberOpen && (
                 <AddMemberModal
-                    isOpen={addMemberOpen}
-                    onClose={() => setAddMemberOpen(false)}
-                    onAddMember={handleAddMember}
+                    onClose={() => { setAddMemberOpen(false); setMemberError(null); }}
+                    onSave={handleAddMemberSave}
                 />
             )}
 
             {detailMember && (
                 <MemberDetailModal
-                    isOpen={Boolean(detailMember)}
                     member={detailMember}
+                    stats={memberStats(detailMember)}
                     onClose={() => setDetailMember(null)}
-                    onRemoveMember={handleRemoveMember}
+                    onOpenTask={openEditModal}
                 />
             )}
 
             {addDocOpen && (
                 <AddDocumentModal
-                    isOpen={addDocOpen}
-                    currentUserName={members[0]?.name ?? "Samayita Ray"}
                     onClose={() => setAddDocOpen(false)}
-                    onAddDocument={handleAddDocument}
+                    onSave={handleAddDocumentSave}
                 />
             )}
 
             {detailDoc && (
                 <DocumentDetailModal
-                    isOpen={Boolean(detailDoc)}
                     document={detailDoc}
                     onClose={() => setDetailDoc(null)}
-                    onDeleteDocument={handleDeleteDocument}
                 />
             )}
 
             {addFileOpen && (
                 <AddFileModal
-                    isOpen={addFileOpen}
-                    currentUserName={members[0]?.name ?? "Samayita Ray"}
                     onClose={() => setAddFileOpen(false)}
-                    onAddFile={handleAddFile}
+                    onSave={handleAddFileSave}
                 />
             )}
 
             {detailFile && (
                 <FileDetailModal
-                    isOpen={Boolean(detailFile)}
                     file={detailFile}
                     onClose={() => setDetailFile(null)}
-                    onDeleteFile={handleDeleteFile}
                 />
             )}
 
