@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import projectRoutes from "./routes/projectRoutes";
 
 dotenv.config();
 
@@ -21,6 +22,8 @@ app.get("/api/health", (_req, res) => {
         message: "COLLABSPHERE backend is running",
     });
 });
+
+app.use("/api/projects", projectRoutes);
 
 const PORT = process.env.PORT || 3000;
 
