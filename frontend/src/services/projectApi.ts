@@ -658,5 +658,29 @@ export async function sendChatMessageApi(
     return mapApiChatMessageToFrontend(json.data);
 }
 
+/**
+ * POST /api/projects
+ * Create a new project. Backend derives ownerId automatically from authenticated user context.
+ */
+export async function createProjectApi(payload: {
+    name: string;
+    description?: string;
+    category?: string;
+    code?: string;
+}): Promise<MappedProject> {
+    const res = await fetch(`${API_BASE_URL}/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(json.error || `Failed to create project (HTTP ${res.status})`);
+    }
+    return mapApiProjectToFrontend(json.data);
+}
+
+
 
 

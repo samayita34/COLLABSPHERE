@@ -2,14 +2,18 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchProjects } from "../services/projectApi";
 import type { MappedProject } from "../services/projectApi";
+import { useAuth } from "../context/AuthContext";
+import { CreateProjectModal } from "./CreateProjectModal";
 import "./Projects.css";
 
 export default function Projects() {
   const navigate = useNavigate();
+  const { userFullName, userInitials, logout } = useAuth();
   const [projectsList, setProjectsList] = useState<MappedProject[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"All" | "Active" | "Completed" | "Archived">("All");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -56,7 +60,7 @@ export default function Projects() {
         </div>
 
         <div className="workspace">
-          <div className="workspace-logo">AC</div>
+          <div className="workspace-logo">{userInitials}</div>
 
           <div>
             <strong>Acme Corp</strong>
@@ -83,12 +87,29 @@ export default function Projects() {
         </nav>
 
         <div className="profile">
-          <div className="profile-avatar">SR</div>
+          <div className="profile-avatar">{userInitials}</div>
 
-          <div>
-            <strong>Samayita Ray</strong>
-            <span>Workspace Admin</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <strong style={{ display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{userFullName}</strong>
+            <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Workspace Member</span>
           </div>
+
+          <button
+            onClick={logout}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#ef4444",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              padding: "4px 8px",
+              borderRadius: "4px",
+            }}
+            title="Sign out"
+          >
+            Sign out
+          </button>
         </div>
 
       </aside>
@@ -110,7 +131,7 @@ export default function Projects() {
 
             <button className="notification">♢</button>
 
-            <div className="profile-avatar">SR</div>
+            <div className="profile-avatar">{userInitials}</div>
           </div>
 
         </header>
@@ -126,7 +147,7 @@ export default function Projects() {
               </p>
             </div>
 
-            <button className="new-project">
+            <button className="new-project" onClick={() => setIsCreateModalOpen(true)}>
               + New project
             </button>
 
@@ -263,6 +284,12 @@ export default function Projects() {
         </section>
 
       </main>
+
+      <CreateProjectModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onProjectCreated={(newProj) => setProjectsList((prev) => [newProj, ...prev])}
+      />
 
     </div>
   );

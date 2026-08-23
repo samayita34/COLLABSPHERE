@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import "./Dashboard.css";
 
 const projects = [
@@ -58,6 +59,7 @@ const nav = [
 ];
 
 function Dashboard() {
+  const { userFullName, userInitials } = useAuth();
   const [taskList, setTaskList] = useState(tasks);
 
   const toggleTask = (id: number) => {
@@ -81,7 +83,7 @@ function Dashboard() {
 
         {/* Workspace Switcher */}
         <div className="cs-workspace-card">
-          <div className="cs-ws-icon">AC</div>
+          <div className="cs-ws-icon">{userInitials}</div>
           <div className="cs-ws-details">
             <strong className="cs-ws-title">Acme Corp</strong>
             <span className="cs-ws-sub">Enterprise Plan</span>
@@ -114,10 +116,10 @@ function Dashboard() {
           </div>
 
           <div className="cs-user-pill">
-            <div className="cs-user-avatar">SR</div>
+            <div className="cs-user-avatar">{userInitials}</div>
             <div className="cs-user-meta">
-              <strong className="cs-user-name">Samayita Ray</strong>
-              <span className="cs-user-role">Workspace Admin</span>
+              <strong className="cs-user-name">{userFullName}</strong>
+              <span className="cs-user-role">Workspace Member</span>
             </div>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
           </div>
@@ -151,7 +153,7 @@ function Dashboard() {
             <div className="cs-divider-v" />
 
             <div className="cs-user-quick-profile">
-              <div className="cs-avatar-sm">SR</div>
+              <div className="cs-avatar-sm">{userInitials}</div>
               <span className="cs-status-dot online" />
             </div>
           </div>
@@ -167,7 +169,7 @@ function Dashboard() {
                 <span className="cs-chip-pulse" />
                 MONDAY, AUGUST 10, 2026
               </div>
-              <h1 className="cs-page-headline">Welcome back, Samayita</h1>
+              <h1 className="cs-page-headline">Welcome back, {userFullName}</h1>
               <p className="cs-page-subtext">Here is your high-level workspace summary and active team telemetry.</p>
             </div>
 

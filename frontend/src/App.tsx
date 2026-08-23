@@ -2,10 +2,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState, type FormEvent } from "react";
 import PageBackground from "./components/PageBackground";
 import { loginApi } from "./services/authApi";
+import { useAuth } from "./context/AuthContext";
 import "./App.css";
 
 function App() {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +24,7 @@ function App() {
     setLoading(true);
     try {
       await loginApi(email, password);
+      await refreshUser();
       navigate("/projects");
     } catch (err: any) {
       setError(err.message || "Failed to log in");

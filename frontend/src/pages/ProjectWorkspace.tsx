@@ -9,6 +9,7 @@ import { FileDetailModal, AddFileModal } from "./FileModal";
 import ProjectChat, { type ChatMessage } from "./ProjectChat";
 import { fetchProjectById, createTaskApi, updateTaskApi, updateTaskStatusApi, deleteTaskApi, addMemberApi, fetchDocuments, createDocumentApi, fetchFiles, createFileApi, fetchChatMessages, sendChatMessageApi } from "../services/projectApi";
 import type { TaskStatus, TaskPriority, Task, Member, MappedProject as Project } from "../services/projectApi";
+import { useAuth } from "../context/AuthContext";
 
 /* =========================
    TYPES
@@ -52,46 +53,6 @@ interface ProjectFile {
     modifiedAt?: string;
     description?: string;
 }
-
-interface MockWorkspaceData {
-    slug: string;
-    id?: string;
-    documents: ProjectDocument[];
-    files: ProjectFile[];
-    messages: ChatMessage[];
-}
-
-const HOUR = 60 * 60 * 1000;
-const chatTime = (hoursAgo: number) => new Date(Date.now() - hoursAgo * HOUR).toISOString();
-
-const mockWorkspaceDataList: MockWorkspaceData[] = [
-    {
-        slug: "website-redesign",
-        documents: [
-            { id: "d1", name: "Project Requirements", description: "Scope, goals, and success criteria for the redesign.", type: "DOC", owner: "Samayita Ray", createdAt: "Jul 02, 2026", updatedAt: "Aug 10, 2026", size: "184 KB" },
-            { id: "d2", name: "Product Specification", description: "Detailed functional spec for the new component library.", type: "DOC", owner: "Aditi Rao", createdAt: "Jul 08, 2026", updatedAt: "Aug 14, 2026", size: "412 KB" },
-            { id: "d3", name: "Meeting Notes — August 2026", description: "Notes and decisions from the weekly design sync.", type: "DOC", owner: "Jordan Mehta", createdAt: "Aug 05, 2026", updatedAt: "Aug 12, 2026", size: "96 KB" },
-            { id: "d4", name: "UI Guidelines", description: "Typography, spacing, and component usage guidelines.", type: "PDF", owner: "Aditi Rao", createdAt: "Jul 15, 2026", updatedAt: "Aug 09, 2026", size: "2.3 MB" },
-            { id: "d5", name: "API Documentation", description: "Endpoints and payloads for the marketing site integration.", type: "DOC", owner: "Pranav Sen", createdAt: "Jul 20, 2026", updatedAt: "Aug 15, 2026", size: "268 KB" },
-            { id: "d6", name: "Project Roadmap", description: "Milestones and delivery timeline through Q3.", type: "PPT", owner: "Samayita Ray", createdAt: "Jun 28, 2026", updatedAt: "Aug 01, 2026", size: "1.1 MB" },
-        ],
-        files: [
-            { id: "f1", name: "brand-assets.zip", type: "ZIP", size: "48.2 MB", uploadedBy: "Aditi Rao", uploadedAt: "Jul 03, 2026", modifiedAt: "Aug 09, 2026", description: "Logos, color tokens, and icon set for the redesign." },
-            { id: "f2", name: "homepage-final.fig", type: "FIG", size: "12.6 MB", uploadedBy: "Aditi Rao", uploadedAt: "Aug 12, 2026", description: "Final approved homepage layout and components." },
-            { id: "f3", name: "project-presentation.pptx", type: "PPT", size: "6.8 MB", uploadedBy: "Samayita Ray", uploadedAt: "Jul 30, 2026", modifiedAt: "Aug 01, 2026" },
-            { id: "f4", name: "user-research.pdf", type: "PDF", size: "3.1 MB", uploadedBy: "Jordan Mehta", uploadedAt: "Jul 18, 2026", description: "Usability findings from the June research round." },
-            { id: "f5", name: "database-schema.png", type: "PNG", size: "820 KB", uploadedBy: "Pranav Sen", uploadedAt: "Aug 05, 2026" },
-        ],
-        messages: [
-            { id: "m1", senderInitials: "PS", text: "Audit of the existing component library is complete. I've added the findings to the project documentation.", timestamp: chatTime(29) },
-            { id: "m2", senderInitials: "AR", text: "I've updated the hero section based on the latest design feedback.", timestamp: chatTime(26) },
-            { id: "m3", senderInitials: "JM", text: "QA pass is ready for review. I found two issues with the interactive states.", timestamp: chatTime(4) },
-            { id: "m4", senderInitials: "SR", text: "I'll review the remaining tasks and update the project timeline today.", timestamp: chatTime(3) },
-        ],
-    },
-];
-
-const defaultMockWorkspaceData: MockWorkspaceData = mockWorkspaceDataList[0];
 
 const activity = [
     { text: "Pranav Sen marked \"Audit existing component library\" as done", time: "2h ago" },
@@ -151,6 +112,7 @@ const FILE_CATEGORY_FILTERS: { key: "all" | FileCategory; label: string }[] = [
 
 export default function ProjectWorkspace() {
     const { id, slug } = useParams<{ id?: string; slug?: string }>();
+    const { userFullName, userInitials, logout } = useAuth();
     const routeParam = id || slug || "";
 
     const [project, setProject] = useState<Project | null>(null);
@@ -194,13 +156,9 @@ export default function ProjectWorkspace() {
                     setTasks(data.tasks);
                     setMembers(data.members);
 
-                    const mockMatch = mockWorkspaceDataList.find(
-                        (m) => m.slug === routeParam || m.id === routeParam
-                    ) || defaultMockWorkspaceData;
-
-                    setDocuments(apiDocs !== null ? apiDocs : mockMatch.documents);
-                    setFiles(apiFiles !== null ? apiFiles : mockMatch.files);
-                    setMessages(apiMessages !== null ? apiMessages : mockMatch.messages);
+                    setDocuments(apiDocs !== null ? apiDocs : []);
+                    setFiles(apiFiles !== null ? apiFiles : []);
+                    setMessages(apiMessages !== null ? apiMessages : []);
                     setError(null);
                 }
             })
@@ -435,13 +393,8 @@ export default function ProjectWorkspace() {
        CHAT TAB
     ========================= */
     const handleSendMessage = (text: string) => {
-        const currentSender = members[0] ?? {
-            initials: "SR",
-            name: "Samayita Ray",
-            role: "Workspace Admin",
-            email: "samayita.ray@acmecorp.com",
-        };
-        sendChatMessageApi(routeParam, text, currentSender.initials)
+        const senderInitialsToUse = userInitials || "US";
+        sendChatMessageApi(routeParam, text, senderInitialsToUse)
             .then((newMsg) => {
                 setMessages((prev) => [...prev, newMsg]);
             })
@@ -518,7 +471,7 @@ export default function ProjectWorkspace() {
                 </div>
 
                 <div className="workspace">
-                    <div className="workspace-logo">AC</div>
+                    <div className="workspace-logo">{userInitials}</div>
 
                     <div>
                         <strong>Acme Corp</strong>
@@ -545,12 +498,29 @@ export default function ProjectWorkspace() {
                 </nav>
 
                 <div className="profile">
-                    <div className="profile-avatar">SR</div>
+                    <div className="profile-avatar">{userInitials}</div>
 
-                    <div>
-                        <strong>Samayita Ray</strong>
-                        <span>Workspace Admin</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <strong style={{ display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{userFullName}</strong>
+                        <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Workspace Member</span>
                     </div>
+
+                    <button
+                        onClick={logout}
+                        style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "#ef4444",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                        }}
+                        title="Sign out"
+                    >
+                        Sign out
+                    </button>
                 </div>
 
             </aside>
@@ -572,7 +542,7 @@ export default function ProjectWorkspace() {
 
                         <button className="notification">♢</button>
 
-                        <div className="profile-avatar">SR</div>
+                        <div className="profile-avatar">{userInitials}</div>
                     </div>
 
                 </header>

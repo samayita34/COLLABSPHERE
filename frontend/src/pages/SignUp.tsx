@@ -2,10 +2,12 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PageBackground from "../components/PageBackground";
 import { signupApi } from "../services/authApi";
+import { useAuth } from "../context/AuthContext";
 import "../App.css";
 
 function SignUp() {
     const navigate = useNavigate();
+    const { refreshUser } = useAuth();
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [name, setName] = useState("");
@@ -39,6 +41,7 @@ function SignUp() {
         setLoading(true);
         try {
             await signupApi(name, email, password);
+            await refreshUser();
             navigate("/projects");
         } catch (err: any) {
             setError(err.message || "Failed to create account");
