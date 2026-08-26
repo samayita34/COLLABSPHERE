@@ -709,7 +709,11 @@ export default function ProjectWorkspace() {
 
                                     <div className="task-list">
                                         {tasks.slice(0, 4).map((t) => (
-                                            <div className="task-row" key={t.id} onClick={() => openEditModal(t)}>
+                                            <div
+                                                className={`task-row ${t.status === "done" ? "done" : ""} clickable`}
+                                                key={t.id}
+                                                onClick={() => openEditModal(t)}
+                                            >
                                                 <div className={`task-check ${t.status === "done" ? "checked" : ""}`}>
                                                     {t.status === "done" ? "✓" : ""}
                                                 </div>
@@ -717,15 +721,17 @@ export default function ProjectWorkspace() {
                                                 <div className="task-body">
                                                     <div className="task-title-row">
                                                         <span className="task-title">{t.title}</span>
-                                                        <span className={`priority-tag ${t.priority}`}>
+                                                        <span className={`priority-tag ${t.priority ? t.priority.toLowerCase() : "medium"}`}>
                                                             {t.priority}
                                                         </span>
                                                     </div>
 
                                                     <div className="task-meta">
-                                                        <span>Status: {TAG_LABEL[t.status]}</span>
-                                                        <span>Due: {t.due}</span>
-                                                        <span>Assignee: {memberName(t.assignee)}</span>
+                                                        <span className={`status-badge ${t.status}`}>{TAG_LABEL[t.status] || t.status}</span>
+                                                        <span className="meta-sep">·</span>
+                                                        <span>Due {t.due}</span>
+                                                        <span className="meta-sep">·</span>
+                                                        <span>{memberName(t.assignee)}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -854,7 +860,7 @@ export default function ProjectWorkspace() {
                                 ) : (
                                     filteredTasks.map((t) => (
                                         <div
-                                            className="task-row clickable"
+                                            className={`task-row ${t.status === "done" ? "done" : ""} clickable`}
                                             key={t.id}
                                             onClick={() => openEditModal(t)}
                                         >
@@ -865,7 +871,7 @@ export default function ProjectWorkspace() {
                                             <div className="task-body">
                                                 <div className="task-title-row">
                                                     <span className="task-title">{t.title}</span>
-                                                    <span className={`priority-tag ${t.priority}`}>
+                                                    <span className={`priority-tag ${t.priority ? t.priority.toLowerCase() : "medium"}`}>
                                                         {t.priority}
                                                     </span>
                                                 </div>
@@ -875,9 +881,11 @@ export default function ProjectWorkspace() {
                                                 )}
 
                                                 <div className="task-meta">
-                                                    <span>Status: {TAG_LABEL[t.status]}</span>
-                                                    <span>Due: {t.due}</span>
-                                                    <span>Assignee: {memberName(t.assignee)}</span>
+                                                    <span className={`status-badge ${t.status}`}>{TAG_LABEL[t.status] || t.status}</span>
+                                                    <span className="meta-sep">·</span>
+                                                    <span>Due {t.due}</span>
+                                                    <span className="meta-sep">·</span>
+                                                    <span>{memberName(t.assignee)}</span>
                                                 </div>
                                             </div>
                                         </div>
