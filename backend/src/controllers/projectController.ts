@@ -3,6 +3,7 @@ import prisma from "../lib/prisma";
 import { redisClient } from "../lib/redis";
 import { ProjectStatus } from "../../generated/prisma/enums";
 import { Permission, hasPermission } from "../lib/permissions";
+import { logAuditAction } from "../services/auditService";
 
 // Non-sensitive fields select for User
 const safeUserSelect = {
@@ -266,6 +267,19 @@ export const createProject = async (req: Request, res: Response): Promise<void> 
             }
         }
 
+        // Audit Log: PROJECT_CREATED
+        logAuditAction({
+            userId: req.user!.id,
+            workspaceId,
+            projectId: project.id,
+            action: "PROJECT_CREATED",
+            entityType: "Project",
+            entityId: project.id,
+            details: { name: project.name },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
+
         res.status(201).json({ success: true, project: formatProject(project) });
     } catch (error: any) {
         console.error("Error creating project:", error);
@@ -384,6 +398,20 @@ export const updateProject = async (req: Request, res: Response): Promise<void> 
             isWsAdmin,
         };
 
+        // Audit Log: PROJECT_ARCHIVED or PROJECT_UPDATED
+        const actionType = status === "ARCHIVED" ? "PROJECT_ARCHIVED" : "PROJECT_UPDATED";
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: project.workspaceId,
+            projectId: project.id,
+            action: actionType,
+            entityType: "Project",
+            entityId: project.id,
+            details: { name: project.name, status: project.status },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
+
         res.status(200).json({ success: true, project: formatProject(project, false, userContext) });
     } catch (error: any) {
         console.error("Error updating project:", error);
@@ -414,6 +442,19 @@ export const deleteProject = async (req: Request, res: Response): Promise<void> 
         await prisma.project.delete({
             where: { id },
         });
+
+        // Audit Log: PROJECT_DELETED
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: project.workspaceId,
+            projectId: project.id,
+            action: "PROJECT_DELETED",
+            entityType: "Project",
+            entityId: project.id,
+            details: { name: project.name },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
 
         // Invalidate cache
         if (redisClient.isOpen) {

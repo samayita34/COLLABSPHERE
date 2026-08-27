@@ -41,15 +41,16 @@ export const createWorkspace = async (req: Request, res: Response): Promise<void
             },
         });
 
-        // Audit Log: Workspace Create
+        // Audit Log: WORKSPACE_CREATED
         logAuditAction({
             userId,
             workspaceId: ws.id,
-            action: AuditAction.WORKSPACE_CREATE,
+            action: "WORKSPACE_CREATED",
             entityType: "Workspace",
             entityId: ws.id,
             details: { name: ws.name, slug: ws.slug },
             ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
         res.status(201).json({ success: true, workspace: ws });
@@ -142,6 +143,18 @@ export const updateWorkspace = async (req: Request, res: Response): Promise<void
             data: { name, description },
         });
 
+        // Audit Log: WORKSPACE_UPDATED
+        logAuditAction({
+            userId,
+            workspaceId: ws.id,
+            action: "WORKSPACE_UPDATED",
+            entityType: "Workspace",
+            entityId: ws.id,
+            details: { name: ws.name },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
+
         res.status(200).json({ success: true, workspace: ws });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message || "Failed to update workspace" });
@@ -196,15 +209,27 @@ export const addWorkspaceMember = async (req: Request, res: Response): Promise<v
             }
         });
 
-        // Audit Log: Role Update / Member Add
+        // Audit Log: WORKSPACE_MEMBER_ADDED & ROLE_UPDATED
         logAuditAction({
             userId,
             workspaceId: (Array.isArray(id) ? id[0] : id) as string,
-            action: AuditAction.ROLE_UPDATE,
+            action: "WORKSPACE_MEMBER_ADDED",
             entityType: "WorkspaceMember",
             entityId: member.id,
             details: { targetUserId: targetUser.id, role: memberRole },
             ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
+
+        logAuditAction({
+            userId,
+            workspaceId: (Array.isArray(id) ? id[0] : id) as string,
+            action: "ROLE_UPDATED",
+            entityType: "WorkspaceMember",
+            entityId: member.id,
+            details: { targetUserId: targetUser.id, role: memberRole },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
         res.status(200).json({ success: true, member });
@@ -223,6 +248,18 @@ export const removeWorkspaceMember = async (req: Request, res: Response): Promis
         await prisma.workspaceMember.delete({
             where: { workspaceId_userId: { workspaceId: id, userId: targetUserId } },
         });
+
+        // Audit Log: WORKSPACE_MEMBER_REMOVED
+        logAuditAction({
+            userId,
+            workspaceId: (Array.isArray(id) ? id[0] : id) as string,
+            action: "WORKSPACE_MEMBER_REMOVED",
+            entityType: "WorkspaceMember",
+            entityId: (Array.isArray(targetUserId) ? targetUserId[0] : targetUserId) as string,
+            details: { removedUserId: targetUserId },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err: any) => console.error("Audit log error:", err));
 
         res.status(200).json({ success: true, message: "Member removed" });
     } catch (error: any) {

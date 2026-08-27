@@ -142,16 +142,17 @@ export const addMember = async (req: Request, res: Response): Promise<void> => {
             link: `/projects/${projectId}`,
         }).catch((err) => console.error("Notification error:", err));
 
-        // Audit Log: Member Add
+        // Audit Log: MEMBER_INVITED
         logAuditAction({
             userId: req.user?.id,
             workspaceId: req.workspace?.id,
             projectId: projectId as string,
-            action: AuditAction.MEMBER_ADD,
+            action: "MEMBER_INVITED",
             entityType: "ProjectMember",
             entityId: member.id,
             details: { targetUserId: user.id, role: member.role },
             ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
         res.status(201).json({
@@ -203,16 +204,17 @@ export const removeMember = async (req: Request, res: Response): Promise<void> =
 
         await prisma.projectMember.delete({ where: { id: memberId as string } });
 
-        // Audit Log: Member Remove
+        // Audit Log: MEMBER_REMOVED
         logAuditAction({
             userId: req.user?.id,
             workspaceId: req.workspace?.id,
             projectId: (Array.isArray(projectId) ? projectId[0] : projectId) as string,
-            action: AuditAction.MEMBER_REMOVE,
+            action: "MEMBER_REMOVED",
             entityType: "ProjectMember",
             entityId: (Array.isArray(memberId) ? memberId[0] : memberId) as string,
             details: { removedUserId: member.userId },
             ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
         res.status(200).json({

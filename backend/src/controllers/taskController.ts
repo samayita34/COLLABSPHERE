@@ -264,17 +264,32 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             }).catch((err) => console.error("Notification error:", err));
         }
 
-        // Audit Log: Task Create
+        // Audit Log: TASK_CREATED
         logAuditAction({
             userId: req.user?.id,
             workspaceId: req.workspace?.id,
             projectId: projectId as string,
-            action: AuditAction.TASK_CREATE,
+            action: "TASK_CREATED",
             entityType: "Task",
             entityId: task.id,
             details: { title: task.title, status: task.status, assigneeId: task.assigneeId },
             ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
+
+        if (task.assigneeId) {
+            logAuditAction({
+                userId: req.user?.id,
+                workspaceId: req.workspace?.id,
+                projectId: projectId as string,
+                action: "TASK_ASSIGNED",
+                entityType: "Task",
+                entityId: task.id,
+                details: { title: task.title, assigneeId: task.assigneeId },
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"] as string,
+            }).catch((err) => console.error("Audit log error:", err));
+        }
 
         res.status(201).json({
             success: true,
@@ -411,16 +426,45 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             }).catch((err) => console.error("Notification error:", err));
         }
 
-        // Audit Log: Task Update
+        // Audit Logs: TASK_STATUS_CHANGED, TASK_ASSIGNED, TASK_UPDATED
+        if (status !== undefined && existingTask?.status !== updated.status) {
+            logAuditAction({
+                userId: req.user?.id,
+                workspaceId: req.workspace?.id,
+                projectId: req.project?.id,
+                action: "TASK_STATUS_CHANGED",
+                entityType: "Task",
+                entityId: updated.id,
+                details: { title: updated.title, oldStatus: existingTask?.status, newStatus: updated.status },
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"] as string,
+            }).catch((err) => console.error("Audit log error:", err));
+        }
+
+        if (assigneeId !== undefined && existingTask?.assigneeId !== updated.assigneeId && updated.assigneeId) {
+            logAuditAction({
+                userId: req.user?.id,
+                workspaceId: req.workspace?.id,
+                projectId: req.project?.id,
+                action: "TASK_ASSIGNED",
+                entityType: "Task",
+                entityId: updated.id,
+                details: { title: updated.title, assigneeId: updated.assigneeId },
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"] as string,
+            }).catch((err) => console.error("Audit log error:", err));
+        }
+
         logAuditAction({
             userId: req.user?.id,
             workspaceId: req.workspace?.id,
             projectId: req.project?.id,
-            action: AuditAction.TASK_UPDATE,
+            action: "TASK_UPDATED",
             entityType: "Task",
             entityId: updated.id,
             details: { title: updated.title, updates: updateData },
             ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
         res.status(200).json({
@@ -453,16 +497,17 @@ export const deleteTask = async (req: Request, res: Response): Promise<void> => 
             console.error("Failed to emit taskDeleted event", e);
         }
 
-        // Audit Log: Task Delete
+        // Audit Log: TASK_DELETED
         logAuditAction({
             userId: req.user?.id,
             workspaceId: req.workspace?.id,
             projectId: req.project?.id,
-            action: AuditAction.TASK_DELETE,
+            action: "TASK_DELETED",
             entityType: "Task",
             entityId: id as string,
             details: { title: taskToDelete?.title || id },
             ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
         res.status(200).json({

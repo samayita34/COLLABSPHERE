@@ -94,16 +94,17 @@ export const createDocument = async (req: Request, res: Response): Promise<void>
             },
         });
 
-        // Audit Log: Document Create
+        // Audit Log: DOCUMENT_CREATED
         logAuditAction({
             userId: req.user?.id,
             workspaceId: req.workspace?.id,
             projectId: projectId as string,
-            action: AuditAction.DOCUMENT_CREATE,
+            action: "DOCUMENT_CREATED",
             entityType: "Document",
             entityId: newDocument.id,
             details: { name: newDocument.name },
             ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
         res.status(201).json({
@@ -141,8 +142,8 @@ export const updateDocument = async (req: Request, res: Response): Promise<void>
             data: updateData,
         });
 
-        // Audit Log: Document Restore / Document Update
-        const auditAction = isRestore ? AuditAction.DOCUMENT_RESTORE : AuditAction.DOCUMENT_UPDATE;
+        // Audit Log: DOCUMENT_RESTORED / DOCUMENT_UPDATED
+        const auditAction = isRestore ? "DOCUMENT_RESTORED" : "DOCUMENT_UPDATED";
         logAuditAction({
             userId: req.user?.id,
             workspaceId: req.workspace?.id,
@@ -152,6 +153,7 @@ export const updateDocument = async (req: Request, res: Response): Promise<void>
             entityId: updatedDocument.id,
             details: { name: updatedDocument.name, isRestore: Boolean(isRestore) },
             ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
         // Trigger Notification if doc edited/restored by another user
@@ -189,10 +191,24 @@ export const deleteDocument = async (req: Request, res: Response): Promise<void>
         const { id } = req.params;
 
         // requireDocumentAccess has verified access and document existence.
+        const docToDelete = (req as any).document;
 
         await prisma.document.delete({
             where: { id },
         });
+
+        // Audit Log: DOCUMENT_DELETED
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: req.workspace?.id,
+            projectId: req.project?.id,
+            action: "DOCUMENT_DELETED",
+            entityType: "Document",
+            entityId: (Array.isArray(id) ? id[0] : id) as string,
+            details: { name: docToDelete?.name || id },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
 
         res.status(200).json({
             success: true,

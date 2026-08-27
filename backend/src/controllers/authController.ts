@@ -90,6 +90,16 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
 
         await generateSession(res, newUser);
 
+        // Audit Log: User Signup
+        logAuditAction({
+            userId: newUser.id,
+            action: "USER_SIGNUP",
+            entityType: "User",
+            entityId: newUser.id,
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
+
         res.status(201).json({
             success: true,
             message: "Account created successfully",
@@ -366,6 +376,16 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
         // Optionally revoke all active sessions to force login
         await prisma.session.deleteMany({ where: { userId: resetRecord.userId } });
 
+        // Audit Log: Password Reset
+        logAuditAction({
+            userId: resetRecord.userId,
+            action: "PASSWORD_RESET",
+            entityType: "User",
+            entityId: resetRecord.userId,
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
+
         res.json({ success: true, message: "Password updated successfully" });
     } catch (error) {
         res.status(500).json({ success: false, error: "Failed to reset password" });
@@ -390,6 +410,16 @@ export const verifyEmail = async (req: Request, res: Response): Promise<void> =>
 
         await prisma.user.update({ where: { id: record.userId }, data: { isEmailVerified: true } });
         await prisma.verificationToken.update({ where: { id: record.id }, data: { usedAt: new Date() } });
+
+        // Audit Log: Email Verified
+        logAuditAction({
+            userId: record.userId,
+            action: "EMAIL_VERIFIED",
+            entityType: "User",
+            entityId: record.userId,
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
 
         res.json({ success: true, message: "Email verified successfully" });
     } catch (error) {

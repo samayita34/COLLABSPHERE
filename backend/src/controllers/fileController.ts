@@ -114,16 +114,17 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
             },
         });
 
-        // Audit Log: File Upload
+        // Audit Log: FILE_UPLOADED
         logAuditAction({
             userId: req.user?.id,
             workspaceId: req.workspace?.id,
             projectId: projectId as string,
-            action: AuditAction.FILE_UPLOAD,
+            action: "FILE_UPLOADED",
             entityType: "File",
             entityId: newFile.id,
             details: { name: newFile.name, size: newFile.size, type: newFile.type },
             ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
         // Trigger Notification: File Uploaded
@@ -161,10 +162,24 @@ export const deleteFile = async (req: Request, res: Response): Promise<void> => 
         const { id } = req.params;
 
         // requireFileAccess has verified access and file existence.
+        const fileToDelete = (req as any).fileRecord;
 
         await prisma.file.delete({
             where: { id },
         });
+
+        // Audit Log: FILE_DELETED
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: req.workspace?.id,
+            projectId: req.project?.id,
+            action: "FILE_DELETED",
+            entityType: "File",
+            entityId: (Array.isArray(id) ? id[0] : id) as string,
+            details: { name: fileToDelete?.name || id },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
 
         res.status(200).json({
             success: true,

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import { getIO } from "../lib/socket";
 import { createAndSendNotification } from "../services/notificationService";
+import { logAuditAction } from "../services/auditService";
 import { NotificationType } from "../../generated/prisma/enums";
 
 function formatMessage(msg: any) {
@@ -173,6 +174,19 @@ export const sendProjectMessage = async (req: Request, res: Response): Promise<v
         } catch (notifErr) {
             console.error("Chat notification error:", notifErr);
         }
+
+        // Audit Log: MESSAGE_SENT
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: req.workspace?.id,
+            projectId: (Array.isArray(projectId) ? projectId[0] : projectId) as string,
+            action: "MESSAGE_SENT",
+            entityType: "ChatMessage",
+            entityId: newMessage.id,
+            details: { textSnippet: text.slice(0, 50) },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
 
         res.status(201).json({
             success: true,
