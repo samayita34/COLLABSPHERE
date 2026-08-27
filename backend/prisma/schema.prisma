@@ -64,7 +64,72 @@ model User {
   organizations      OrganizationMember[]
   workspaces         WorkspaceMember[]
   teams              TeamMember[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
 }
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_UPDATED
+  MENTION
+  DOCUMENT_EDITED
+  FILE_UPLOADED
+  CHAT_MESSAGE
+  WORKSPACE_INVITATION
+  DUE_DATE_REMINDER
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String?
+  type        NotificationType
+  title       String
+  message     String
+  link        String?
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([workspaceId])
+}
+
+enum AuditAction {
+  USER_LOGIN
+  USER_LOGOUT
+  FILE_UPLOAD
+  TASK_DELETE
+  DOCUMENT_RESTORE
+  ROLE_UPDATE
+  PERMISSION_CHANGE
+  TASK_CREATE
+  TASK_UPDATE
+  DOCUMENT_CREATE
+  DOCUMENT_UPDATE
+  WORKSPACE_CREATE
+  MEMBER_ADD
+  MEMBER_REMOVE
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  workspaceId String?
+  projectId   String?
+  action      AuditAction
+  entityType  String
+  entityId    String?
+  details     Json?
+  ipAddress   String?
+  createdAt   DateTime    @default(now())
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
 
 model Session {
   id               String    @id @default(cuid())

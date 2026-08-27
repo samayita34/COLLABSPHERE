@@ -14,6 +14,8 @@ import authRoutes from "./routes/authRoutes";
 import orgRoutes from "./routes/orgRoutes";
 import workspaceRoutes from "./routes/workspaceRoutes";
 import teamRoutes from "./routes/teamRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
+import auditRoutes from "./routes/auditRoutes";
 import { authenticate } from "./middleware/auth";
 import { requireProjectAccess, requireTaskAccess, requireDocumentAccess, requireFileAccess, requirePermission } from "./middleware/rbac";
 import { Permission } from "./lib/permissions";
@@ -92,6 +94,10 @@ app.use("/api/organizations", orgRoutes);
 app.use("/api/workspaces", workspaceRoutes);
 app.use("/api/teams", teamRoutes);
 
+// Protected Notifications & Audit Logs
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/audit-logs", auditRoutes);
+
 // Protect all project workspace data APIs with authenticate middleware
 app.use("/api/projects", authenticate, projectRoutes);
 
@@ -122,9 +128,11 @@ app.use("/api/projects/:projectId/messages", authenticate, requireProjectAccess,
 
 const PORT = process.env.PORT || 3000;
 
-connectRedis().then(() => {
-    initSocket(server);
-    server.listen(PORT, () => {
-        console.log(`COLLABSPHERE backend running on http://localhost:${PORT}`);
-    });
+initSocket(server);
+server.listen(PORT, () => {
+    console.log(`COLLABSPHERE backend running on http://localhost:${PORT}`);
+});
+
+connectRedis().catch((err) => {
+    console.log("Redis optional connection note:", err.message || err);
 });

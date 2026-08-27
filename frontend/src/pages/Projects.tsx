@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { CreateProjectModal } from "./CreateProjectModal";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
+import NotificationCenter from "../components/NotificationCenter";
 import "./Projects.css";
 
 export default function Projects() {
@@ -82,6 +83,7 @@ export default function Projects() {
           <Link to="/documents">Documents</Link>
           <Link to="/files">Files</Link>
           <Link to="/messages">Messages</Link>
+          <Link to="/activity-log">Activity Log</Link>
           <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Analytics</a>
           <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Settings</a>
         </nav>
@@ -129,7 +131,7 @@ export default function Projects() {
               <kbd>⌘ K</kbd>
             </div>
 
-            <button className="notification">♢</button>
+            <NotificationCenter workspaceId={activeWorkspace?.id} />
 
             <div className="profile-avatar">{userInitials}</div>
           </div>

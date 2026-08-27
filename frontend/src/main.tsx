@@ -17,6 +17,7 @@ import MyTasks from "./pages/MyTasks";
 import Documents from "./pages/Documents";
 import Files from "./pages/Files";
 import Messages from "./pages/Messages";
+import ActivityLog from "./pages/ActivityLog";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -49,6 +50,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/documents" element={<Documents />} />
             <Route path="/files" element={<Files />} />
             <Route path="/messages" element={<Messages />} />
+            <Route path="/activity-log" element={<ActivityLog />} />
           </Route>
         </Routes>
         </WorkspaceProvider>

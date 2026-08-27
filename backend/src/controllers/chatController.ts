@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import { getIO } from "../lib/socket";
+import { createAndSendNotification } from "../services/notificationService";
+import { NotificationType } from "../../generated/prisma/enums";
 
 function formatMessage(msg: any) {
     let senderName: string | undefined = undefined;
@@ -134,6 +136,42 @@ export const sendProjectMessage = async (req: Request, res: Response): Promise<v
             getIO().to(projectId).emit("newMessage", formattedMessage);
         } catch (e) {
             console.error("Failed to emit socket event", e);
+        }
+
+        // Trigger Notifications for @mentions or project members
+        try {
+            const projectMembers = await prisma.projectMember.findMany({
+                where: { projectId },
+                select: { userId: true, user: { select: { email: true, firstName: true } } },
+            });
+            const projectOwnerId = req.project?.ownerId;
+            const allUserIds = new Set<string>();
+            if (projectOwnerId) allUserIds.add(projectOwnerId);
+            projectMembers.forEach((pm: any) => allUserIds.add(pm.userId));
+            allUserIds.delete(req.user?.id || "");
+
+            // Detect @mentions in text
+            const lowerText = text.toLowerCase();
+            for (const userId of allUserIds) {
+                const memberUser = projectMembers.find((m: any) => m.userId === userId)?.user;
+                const isMentioned = memberUser && (
+                    lowerText.includes(`@${memberUser.firstName.toLowerCase()}`) ||
+                    lowerText.includes(`@${memberUser.email.toLowerCase()}`)
+                );
+
+                if (isMentioned) {
+                    createAndSendNotification({
+                        userId,
+                        workspaceId: req.workspace?.id,
+                        type: NotificationType.MENTION,
+                        title: "You were mentioned in chat",
+                        message: `${formattedMessage.senderName || senderInitials} mentioned you in project ${req.project?.name || ""}: "${text.slice(0, 60)}"`,
+                        link: `/projects/${projectId}`,
+                    }).catch(console.error);
+                }
+            }
+        } catch (notifErr) {
+            console.error("Chat notification error:", notifErr);
         }
 
         res.status(201).json({

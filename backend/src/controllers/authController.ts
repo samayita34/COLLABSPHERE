@@ -5,6 +5,7 @@ import prisma from "../lib/prisma";
 import { getJwtSecret } from "../middleware/auth";
 import { generateToken, hashToken, setAuthCookies, clearAuthCookies } from "../lib/tokens";
 import { sendEmail } from "../services/emailService";
+import { logAuditAction } from "../services/auditService";
 
 const safeUserSelect = {
     id: true,
@@ -126,6 +127,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         await generateSession(res, user);
         const { password: _, ...safeUser } = user;
 
+        // Audit Log: User Login
+        logAuditAction({
+            userId: user.id,
+            action: "USER_LOGIN",
+            entityType: "User",
+            entityId: user.id,
+            ipAddress: req.ip,
+        }).catch((err) => console.error("Audit log error:", err));
+
         res.status(200).json({
             success: true,
             message: "Logged in successfully",
@@ -171,6 +181,17 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
             const hash = hashToken(refreshToken);
             await prisma.session.deleteMany({ where: { refreshTokenHash: hash } });
         }
+
+        if (req.user?.id) {
+            logAuditAction({
+                userId: req.user.id,
+                action: "USER_LOGOUT",
+                entityType: "User",
+                entityId: req.user.id,
+                ipAddress: req.ip,
+            }).catch((err) => console.error("Audit log error:", err));
+        }
+
         clearAuthCookies(res);
         res.status(200).json({ success: true, message: "Logged out successfully" });
     } catch (error) {

@@ -1,0 +1,174 @@
+.activity-page {
+    min-height: 100vh;
+    background-color: #0b0f19;
+    color: #f8fafc;
+    display: flex;
+    flex-direction: column;
+}
+
+.activity-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    width: 100%;
+}
+
+.activity-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+}
+
+.activity-title h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 6px 0;
+}
+
+.activity-title p {
+    color: #94a3b8;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.activity-filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.activity-select {
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f1f5f9;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    outline: none;
+}
+
+.activity-select:focus {
+    border-color: #6366f1;
+}
+
+.audit-card {
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+}
+
+.audit-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.88rem;
+}
+
+.audit-table th {
+    background: rgba(15, 23, 42, 0.6);
+    color: #94a3b8;
+    font-weight: 600;
+    padding: 12px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.audit-table td {
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+    vertical-align: middle;
+}
+
+.audit-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.audit-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.audit-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #6366f1;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.audit-user-name {
+    font-weight: 600;
+    color: #f1f5f9;
+}
+
+.audit-user-email {
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+.action-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.action-badge.USER_LOGIN, .action-badge.DOCUMENT_RESTORE {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.action-badge.USER_LOGOUT, .action-badge.TASK_DELETE {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.action-badge.FILE_UPLOAD {
+    background: rgba(236, 72, 153, 0.15);
+    color: #f472b6;
+    border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+.action-badge.ROLE_UPDATE, .action-badge.PERMISSION_CHANGE {
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.action-badge.TASK_CREATE, .action-badge.DOCUMENT_CREATE, .action-badge.WORKSPACE_CREATE {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.audit-ip {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.audit-time {
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
+.activity-empty {
+    padding: 48px;
+    text-align: center;
+    color: #64748b;
+}

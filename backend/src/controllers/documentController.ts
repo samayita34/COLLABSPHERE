@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
-import { DocumentType } from "../../generated/prisma/enums";
+import { DocumentType, NotificationType, AuditAction } from "../../generated/prisma/enums";
+import { createAndSendNotification } from "../services/notificationService";
+import { logAuditAction } from "../services/auditService";
 
 /**
  * Helper to format document object if needed.
@@ -92,6 +94,18 @@ export const createDocument = async (req: Request, res: Response): Promise<void>
             },
         });
 
+        // Audit Log: Document Create
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: req.workspace?.id,
+            projectId: projectId as string,
+            action: AuditAction.DOCUMENT_CREATE,
+            entityType: "Document",
+            entityId: newDocument.id,
+            details: { name: newDocument.name },
+            ipAddress: req.ip,
+        }).catch((err) => console.error("Audit log error:", err));
+
         res.status(201).json({
             success: true,
             message: "Document created successfully",
@@ -108,12 +122,12 @@ export const createDocument = async (req: Request, res: Response): Promise<void>
 
 /**
  * PATCH /api/documents/:id
- * Update an existing document (e.g. saving TipTap content)
+ * Update an existing document (e.g. saving TipTap content or restoring version)
  */
 export const updateDocument = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
-        const { name, description, content } = req.body;
+        const { name, description, content, isRestore } = req.body;
 
         // requireDocumentAccess has verified access and document existence.
 
@@ -127,9 +141,34 @@ export const updateDocument = async (req: Request, res: Response): Promise<void>
             data: updateData,
         });
 
+        // Audit Log: Document Restore / Document Update
+        const auditAction = isRestore ? AuditAction.DOCUMENT_RESTORE : AuditAction.DOCUMENT_UPDATE;
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: req.workspace?.id,
+            projectId: req.project?.id,
+            action: auditAction,
+            entityType: "Document",
+            entityId: updatedDocument.id,
+            details: { name: updatedDocument.name, isRestore: Boolean(isRestore) },
+            ipAddress: req.ip,
+        }).catch((err) => console.error("Audit log error:", err));
+
+        // Trigger Notification if doc edited/restored by another user
+        if (req.project?.ownerId && req.project.ownerId !== req.user?.id) {
+            createAndSendNotification({
+                userId: req.project.ownerId,
+                workspaceId: req.workspace?.id,
+                type: NotificationType.DOCUMENT_EDITED,
+                title: isRestore ? "Document Restored" : "Document Edited",
+                message: `Document "${updatedDocument.name}" in project "${req.project.name}" was ${isRestore ? "restored" : "edited"}.`,
+                link: `/projects/${updatedDocument.projectId}`,
+            }).catch((err) => console.error("Notification error:", err));
+        }
+
         res.status(200).json({
             success: true,
-            message: "Document updated successfully",
+            message: isRestore ? "Document restored successfully" : "Document updated successfully",
             data: formatDocument(updatedDocument),
         });
     } catch (error) {

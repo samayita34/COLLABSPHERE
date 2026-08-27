@@ -13,6 +13,7 @@ import type { TaskStatus, TaskPriority, Task, Member, MappedProject as Project }
 import { useAuth } from "../context/AuthContext";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import { socketService } from "../services/socket";
+import NotificationCenter from "../components/NotificationCenter";
 
 /* =========================
    TYPES
@@ -549,6 +550,7 @@ export default function ProjectWorkspace() {
                     <Link to="/documents">Documents</Link>
                     <Link to="/files">Files</Link>
                     <Link to="/messages">Messages</Link>
+                    <Link to="/activity-log">Activity Log</Link>
                     <Link to="/projects">Analytics</Link>
                     <a href="#" onClick={(e) => { e.preventDefault(); setIsSettingsOpen(true); }}>Settings</a>
                 </nav>
@@ -596,7 +598,7 @@ export default function ProjectWorkspace() {
                             <kbd>⌘ K</kbd>
                         </div>
 
-                        <button className="notification">♢</button>
+                        <NotificationCenter workspaceId={project?.workspaceId} />
 
                         <div className="profile-avatar">{userInitials}</div>
                     </div>

@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
-import { FileType } from "../../generated/prisma/enums";
+import { FileType, NotificationType, AuditAction } from "../../generated/prisma/enums";
+import { createAndSendNotification } from "../services/notificationService";
+import { logAuditAction } from "../services/auditService";
 
 function formatFile(file: any) {
     return {
@@ -111,6 +113,30 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
                 projectId,
             },
         });
+
+        // Audit Log: File Upload
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: req.workspace?.id,
+            projectId: projectId as string,
+            action: AuditAction.FILE_UPLOAD,
+            entityType: "File",
+            entityId: newFile.id,
+            details: { name: newFile.name, size: newFile.size, type: newFile.type },
+            ipAddress: req.ip,
+        }).catch((err) => console.error("Audit log error:", err));
+
+        // Trigger Notification: File Uploaded
+        if (req.project?.ownerId && req.project.ownerId !== req.user?.id) {
+            createAndSendNotification({
+                userId: req.project.ownerId,
+                workspaceId: req.workspace?.id,
+                type: NotificationType.FILE_UPLOADED,
+                title: "New File Uploaded",
+                message: `File "${newFile.name}" was uploaded to project "${req.project.name}".`,
+                link: `/projects/${projectId}`,
+            }).catch((err) => console.error("Notification error:", err));
+        }
 
         res.status(201).json({
             success: true,

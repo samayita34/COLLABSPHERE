@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
+import { logAuditAction } from "../services/auditService";
+import { AuditAction } from "../../generated/prisma/enums";
 
 export const createWorkspace = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -38,6 +40,17 @@ export const createWorkspace = async (req: Request, res: Response): Promise<void
                 },
             },
         });
+
+        // Audit Log: Workspace Create
+        logAuditAction({
+            userId,
+            workspaceId: ws.id,
+            action: AuditAction.WORKSPACE_CREATE,
+            entityType: "Workspace",
+            entityId: ws.id,
+            details: { name: ws.name, slug: ws.slug },
+            ipAddress: req.ip,
+        }).catch((err) => console.error("Audit log error:", err));
 
         res.status(201).json({ success: true, workspace: ws });
     } catch (error: any) {
@@ -182,6 +195,17 @@ export const addWorkspaceMember = async (req: Request, res: Response): Promise<v
                 role: memberRole,
             }
         });
+
+        // Audit Log: Role Update / Member Add
+        logAuditAction({
+            userId,
+            workspaceId: (Array.isArray(id) ? id[0] : id) as string,
+            action: AuditAction.ROLE_UPDATE,
+            entityType: "WorkspaceMember",
+            entityId: member.id,
+            details: { targetUserId: targetUser.id, role: memberRole },
+            ipAddress: req.ip,
+        }).catch((err) => console.error("Audit log error:", err));
 
         res.status(200).json({ success: true, member });
     } catch (error: any) {

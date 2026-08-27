@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
-import { ProjectMemberRole } from "../../generated/prisma/enums";
+import { ProjectMemberRole, NotificationType, AuditAction } from "../../generated/prisma/enums";
 import { sendEmail } from "../services/emailService";
+import { createAndSendNotification } from "../services/notificationService";
+import { logAuditAction } from "../services/auditService";
 
 // Non-sensitive fields — identical to projectController.safeUserSelect
 const safeUserSelect = {
@@ -130,13 +132,27 @@ export const addMember = async (req: Request, res: Response): Promise<void> => {
             include: { user: { select: safeUserSelect } },
         });
 
-        // Send email notification (non-blocking)
-        sendEmail(
-            email,
-            `You've been added to ${project.name}`,
-            `You have been added to the project ${project.name} as a ${member.role}.`,
-            `<p>You have been added to the project <strong>${project.name}</strong> as a <strong>${member.role}</strong>.</p>`
-        ).catch(console.error);
+        // Trigger Notification: Workspace / Project Invitation
+        createAndSendNotification({
+            userId: user.id,
+            workspaceId: req.workspace?.id,
+            type: NotificationType.WORKSPACE_INVITATION,
+            title: "Project Invitation",
+            message: `You were added to project "${project.name}" as ${member.role}`,
+            link: `/projects/${projectId}`,
+        }).catch((err) => console.error("Notification error:", err));
+
+        // Audit Log: Member Add
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: req.workspace?.id,
+            projectId: projectId as string,
+            action: AuditAction.MEMBER_ADD,
+            entityType: "ProjectMember",
+            entityId: member.id,
+            details: { targetUserId: user.id, role: member.role },
+            ipAddress: req.ip,
+        }).catch((err) => console.error("Audit log error:", err));
 
         res.status(201).json({
             success: true,
@@ -170,8 +186,8 @@ export const removeMember = async (req: Request, res: Response): Promise<void> =
 
         const project = req.project;
 
-        const member = await prisma.projectMember.findUnique({ where: { id: memberId } });
-        if (!member || member.projectId !== projectId) {
+        const member = await prisma.projectMember.findUnique({ where: { id: memberId as string } });
+        if (!member || member.projectId !== (projectId as string)) {
             res.status(404).json({ success: false, error: "Member not found in this project" });
             return;
         }
@@ -185,7 +201,19 @@ export const removeMember = async (req: Request, res: Response): Promise<void> =
             return;
         }
 
-        await prisma.projectMember.delete({ where: { id: memberId } });
+        await prisma.projectMember.delete({ where: { id: memberId as string } });
+
+        // Audit Log: Member Remove
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: req.workspace?.id,
+            projectId: (Array.isArray(projectId) ? projectId[0] : projectId) as string,
+            action: AuditAction.MEMBER_REMOVE,
+            entityType: "ProjectMember",
+            entityId: (Array.isArray(memberId) ? memberId[0] : memberId) as string,
+            details: { removedUserId: member.userId },
+            ipAddress: req.ip,
+        }).catch((err) => console.error("Audit log error:", err));
 
         res.status(200).json({
             success: true,

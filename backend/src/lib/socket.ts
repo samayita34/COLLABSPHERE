@@ -14,6 +14,16 @@ export const initSocket = (httpServer: HttpServer) => {
     io.on("connection", (socket) => {
         console.log("Client connected", socket.id);
 
+        socket.on("joinUser", (userId) => {
+            socket.join(`user:${userId}`);
+            console.log(`Socket ${socket.id} joined user room user:${userId}`);
+        });
+
+        socket.on("leaveUser", (userId) => {
+            socket.leave(`user:${userId}`);
+            console.log(`Socket ${socket.id} left user room user:${userId}`);
+        });
+
         socket.on("joinProject", (projectId) => {
             socket.join(projectId);
             console.log(`Socket ${socket.id} joined project ${projectId}`);

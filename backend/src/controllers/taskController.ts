@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
-import { TaskStatus, TaskPriority } from "../../generated/prisma/enums";
+import { TaskStatus, TaskPriority, NotificationType, AuditAction } from "../../generated/prisma/enums";
 import { getIO } from "../lib/socket";
+import { createAndSendNotification } from "../services/notificationService";
+import { logAuditAction } from "../services/auditService";
 
 // Non-sensitive fields — identical to projectController.safeUserSelect
 const safeUserSelect = {
@@ -250,6 +252,30 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             console.error("Failed to emit taskUpdated event", e);
         }
 
+        // Notification: Task Assigned
+        if (task.assigneeId && task.assigneeId !== req.user?.id) {
+            createAndSendNotification({
+                userId: task.assigneeId,
+                workspaceId: req.workspace?.id,
+                type: NotificationType.TASK_ASSIGNED,
+                title: "New Task Assigned",
+                message: `You were assigned to task "${task.title}" in ${req.project?.name || "a project"}`,
+                link: `/projects/${projectId}`,
+            }).catch((err) => console.error("Notification error:", err));
+        }
+
+        // Audit Log: Task Create
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: req.workspace?.id,
+            projectId: projectId as string,
+            action: AuditAction.TASK_CREATE,
+            entityType: "Task",
+            entityId: task.id,
+            details: { title: task.title, status: task.status, assigneeId: task.assigneeId },
+            ipAddress: req.ip,
+        }).catch((err) => console.error("Audit log error:", err));
+
         res.status(201).json({
             success: true,
             message: "Task created successfully",
@@ -272,6 +298,7 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
         const { title, description, status, priority, dueDate, assigneeId } = req.body;
 
         // requireTaskAccess has already verified task existence and project access.
+        const existingTask = await prisma.task.findUnique({ where: { id } });
 
         const updateData: Record<string, unknown> = {};
 
@@ -369,6 +396,33 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             console.error("Failed to emit taskUpdated event", e);
         }
 
+        // Trigger Notifications
+        if (updated.assigneeId && updated.assigneeId !== req.user?.id) {
+            const isNewAssignee = existingTask && existingTask.assigneeId !== updated.assigneeId;
+            createAndSendNotification({
+                userId: updated.assigneeId,
+                workspaceId: req.workspace?.id,
+                type: isNewAssignee ? NotificationType.TASK_ASSIGNED : NotificationType.TASK_UPDATED,
+                title: isNewAssignee ? "Task Assigned" : "Task Updated",
+                message: isNewAssignee
+                    ? `You were assigned to task "${updated.title}"`
+                    : `Task "${updated.title}" was updated to status ${updated.status}`,
+                link: `/projects/${updated.projectId}`,
+            }).catch((err) => console.error("Notification error:", err));
+        }
+
+        // Audit Log: Task Update
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: req.workspace?.id,
+            projectId: req.project?.id,
+            action: AuditAction.TASK_UPDATE,
+            entityType: "Task",
+            entityId: updated.id,
+            details: { title: updated.title, updates: updateData },
+            ipAddress: req.ip,
+        }).catch((err) => console.error("Audit log error:", err));
+
         res.status(200).json({
             success: true,
             message: "Task updated successfully",
@@ -389,6 +443,7 @@ export const deleteTask = async (req: Request, res: Response): Promise<void> => 
         const { id } = req.params;
 
         // requireTaskAccess has already verified task existence and project access.
+        const taskToDelete = await prisma.task.findUnique({ where: { id } });
 
         await prisma.task.delete({ where: { id } });
 
@@ -397,6 +452,18 @@ export const deleteTask = async (req: Request, res: Response): Promise<void> => 
         } catch (e) {
             console.error("Failed to emit taskDeleted event", e);
         }
+
+        // Audit Log: Task Delete
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: req.workspace?.id,
+            projectId: req.project?.id,
+            action: AuditAction.TASK_DELETE,
+            entityType: "Task",
+            entityId: id as string,
+            details: { title: taskToDelete?.title || id },
+            ipAddress: req.ip,
+        }).catch((err) => console.error("Audit log error:", err));
 
         res.status(200).json({
             success: true,

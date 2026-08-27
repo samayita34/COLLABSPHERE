@@ -5,6 +5,7 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchWorkspaceOverviewApi, type WorkspaceOverviewData } from "../services/workspaceApi";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import { CreateProjectModal } from "./CreateProjectModal";
+import NotificationCenter from "../components/NotificationCenter";
 import "./Dashboard.css";
 
 function NavIcon({ t }: { t: string }) {
@@ -175,18 +176,20 @@ export default function Dashboard() {
                 color: "#ef4444",
                 cursor: "pointer",
                 fontSize: "0.75rem",
-                fontWeight: 600,
-                padding: "4px",
-              }}
-              title="Sign out"
-            >
-              Exit
-            </button>
+        {/* User Footer Card */}
+        <div className="cs-user-card">
+          <div className="cs-user-avatar">{userInitials}</div>
+          <div className="cs-user-meta">
+            <span className="cs-user-name">{userFullName}</span>
+            <span className="cs-user-role">Workspace Member</span>
           </div>
+          <button className="cs-logout-btn" onClick={logout} title="Sign Out">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
       </aside>
 
-      {/* MAIN VIEWPORT */}
+      {/* MAIN CONTAINER */}
       <div className="cs-main-container">
 
         {/* Topbar */}
@@ -203,6 +206,8 @@ export default function Dashboard() {
               <input type="text" placeholder="Search projects, tasks..." />
               <kbd>⌘K</kbd>
             </div>
+
+            <NotificationCenter workspaceId={activeWorkspace?.id} />
 
             <div className="cs-divider-v" />
 
