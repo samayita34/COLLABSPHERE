@@ -1,203 +1,205 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import { getIO } from "../lib/socket";
-import { createAndSendNotification } from "../services/notificationService";
-import { logAuditAction } from "../services/auditService";
-import { NotificationType } from "../../generated/prisma/enums";
 
-function formatMessage(msg: any) {
-    let senderName: string | undefined = undefined;
-    if (msg.project) {
-        const getInitials = (fn?: string | null, ln?: string | null, email?: string) => {
-            const f = (fn || "").trim()[0] || "";
-            const l = (ln || "").trim()[0] || "";
-            if (f || l) return (f + l).toUpperCase();
-            return (email || "").slice(0, 2).toUpperCase();
-        };
-
-        const owner = msg.project.owner;
-        if (owner && getInitials(owner.firstName, owner.lastName, owner.email) === msg.senderInitials) {
-            senderName = `${owner.firstName || ""} ${owner.lastName || ""}`.trim() || owner.email;
-        } else if (Array.isArray(msg.project.members)) {
-            const match = msg.project.members.find((m: any) => 
-                m.user && getInitials(m.user.firstName, m.user.lastName, m.user.email) === msg.senderInitials
-            );
-            if (match?.user) {
-                senderName = `${match.user.firstName || ""} ${match.user.lastName || ""}`.trim() || match.user.email;
-            }
-        }
-    }
-
-    return {
-        id: msg.id,
-        senderInitials: msg.senderInitials,
-        senderName,
-        text: msg.text,
-        timestamp: msg.createdAt.toISOString(),
-        projectId: msg.projectId,
-        projectName: msg.project?.name || "",
-        projectCode: msg.project?.code || null,
-        projectStatus: msg.project?.status || "",
-        createdAt: msg.createdAt,
-        updatedAt: msg.updatedAt,
-    };
-}
-
-/**
- * GET /api/projects/:projectId/messages
- * Fetch all chat messages for a project ordered chronologically (asc).
- */
-export const getProjectMessages = async (req: Request, res: Response): Promise<void> => {
+export const getChannels = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { projectId } = req.params;
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ success: false, error: "Unauthorized" });
+            return;
+        }
 
-        // requireProjectAccess has verified access and project existence.
-
-        const messages = await prisma.chatMessage.findMany({
-            where: { projectId },
+        const members = await prisma.channelMember.findMany({
+            where: { userId },
             include: {
-                project: {
-                    select: {
-                        id: true,
-                        name: true,
-                        code: true,
-                        status: true,
-                        owner: { select: { firstName: true, lastName: true, email: true } },
-                        members: { select: { user: { select: { firstName: true, lastName: true, email: true } } } },
-                    },
-                },
-            },
-            orderBy: { createdAt: "asc" },
+                channel: {
+                    include: {
+                        members: {
+                            include: {
+                                user: { select: { id: true, firstName: true, lastName: true, email: true } }
+                            }
+                        }
+                    }
+                }
+            }
         });
 
-        res.status(200).json({
-            success: true,
-            count: messages.length,
-            data: messages.map(formatMessage),
-        });
-    } catch (error) {
-        console.error("Error fetching project messages:", error);
-        res.status(500).json({
-            success: false,
-            error: "Failed to fetch project messages",
-        });
+        const channels = members.map(m => m.channel);
+        res.status(200).json({ success: true, channels });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
     }
 };
 
-/**
- * POST /api/projects/:projectId/messages
- * Post a new chat message to a project.
- */
-export const sendProjectMessage = async (req: Request, res: Response): Promise<void> => {
+export const createDirectMessage = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { projectId } = req.params;
-        const { text, senderInitials } = req.body;
-
-        // requireProjectAccess has verified access and project existence.
-
-        if (!text || typeof text !== "string" || text.trim() === "") {
-            res.status(400).json({
-                success: false,
-                error: "Message text is required and must be a non-empty string",
-            });
+        const userId = req.user?.id;
+        const { targetUserId, workspaceId } = req.body;
+        
+        if (!userId || !targetUserId) {
+            res.status(400).json({ success: false, error: "Missing users" });
             return;
         }
 
-        if (!senderInitials || typeof senderInitials !== "string" || senderInitials.trim() === "") {
-            res.status(400).json({
-                success: false,
-                error: "senderInitials is required and must be a non-empty string",
-            });
+        // Check if DM already exists
+        const existingChannels = await prisma.channel.findMany({
+            where: { type: "DIRECT_MESSAGE", workspaceId },
+            include: { members: true }
+        });
+
+        const dm = existingChannels.find(c => 
+            c.members.length === 2 && 
+            c.members.some(m => m.userId === userId) && 
+            c.members.some(m => m.userId === targetUserId)
+        );
+
+        if (dm) {
+            res.status(200).json({ success: true, channel: dm });
             return;
         }
 
-        const newMessage = await prisma.chatMessage.create({
+        // Create new DM
+        const newDm = await prisma.channel.create({
             data: {
-                text: text.trim(),
-                senderInitials: senderInitials.trim().toUpperCase(),
-                projectId,
+                type: "DIRECT_MESSAGE",
+                workspaceId,
+                members: {
+                    create: [{ userId }, { userId: targetUserId }]
+                }
             },
             include: {
-                project: {
-                    select: {
-                        id: true,
-                        name: true,
-                        code: true,
-                        status: true,
-                        owner: { select: { firstName: true, lastName: true, email: true } },
-                        members: { select: { user: { select: { firstName: true, lastName: true, email: true } } } },
-                    },
-                },
-            },
-        });
-
-        const formattedMessage = formatMessage(newMessage);
-
-        try {
-            getIO().to(projectId).emit("newMessage", formattedMessage);
-        } catch (e) {
-            console.error("Failed to emit socket event", e);
-        }
-
-        // Trigger Notifications for @mentions or project members
-        try {
-            const projectMembers = await prisma.projectMember.findMany({
-                where: { projectId },
-                select: { userId: true, user: { select: { email: true, firstName: true } } },
-            });
-            const projectOwnerId = req.project?.ownerId;
-            const allUserIds = new Set<string>();
-            if (projectOwnerId) allUserIds.add(projectOwnerId);
-            projectMembers.forEach((pm: any) => allUserIds.add(pm.userId));
-            allUserIds.delete(req.user?.id || "");
-
-            // Detect @mentions in text
-            const lowerText = text.toLowerCase();
-            for (const userId of allUserIds) {
-                const memberUser = projectMembers.find((m: any) => m.userId === userId)?.user;
-                const isMentioned = memberUser && (
-                    lowerText.includes(`@${memberUser.firstName.toLowerCase()}`) ||
-                    lowerText.includes(`@${memberUser.email.toLowerCase()}`)
-                );
-
-                if (isMentioned) {
-                    createAndSendNotification({
-                        userId,
-                        workspaceId: req.workspace?.id,
-                        type: NotificationType.MENTION,
-                        title: "You were mentioned in chat",
-                        message: `${formattedMessage.senderName || senderInitials} mentioned you in project ${req.project?.name || ""}: "${text.slice(0, 60)}"`,
-                        link: `/projects/${projectId}`,
-                    }).catch(console.error);
+                members: {
+                    include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } }
                 }
             }
-        } catch (notifErr) {
-            console.error("Chat notification error:", notifErr);
+        });
+
+        res.status(201).json({ success: true, channel: newDm });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+export const getMessages = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { channelId } = req.params;
+        const userId = req.user?.id;
+
+        if (!userId) {
+            res.status(401).json({ success: false, error: "Unauthorized" });
+            return;
         }
 
-        // Audit Log: MESSAGE_SENT
-        logAuditAction({
-            userId: req.user?.id,
-            workspaceId: req.workspace?.id,
-            projectId: (Array.isArray(projectId) ? projectId[0] : projectId) as string,
-            action: "MESSAGE_SENT",
-            entityType: "ChatMessage",
-            entityId: newMessage.id,
-            details: { textSnippet: text.slice(0, 50) },
-            ipAddress: req.ip,
-            userAgent: req.headers["user-agent"] as string,
-        }).catch((err) => console.error("Audit log error:", err));
+        // Verify membership
+        const membership = await prisma.channelMember.findUnique({
+            where: { channelId_userId: { channelId, userId } }
+        });
 
-        res.status(201).json({
-            success: true,
-            message: "Message sent successfully",
-            data: formattedMessage,
+        if (!membership) {
+            res.status(403).json({ success: false, error: "Not a member of this channel" });
+            return;
+        }
+
+        const messages = await prisma.chatMessage.findMany({
+            where: { channelId, parentId: null },
+            include: {
+                sender: { select: { id: true, firstName: true, lastName: true, email: true } },
+                file: true,
+                reactions: true,
+                replies: {
+                    include: { sender: { select: { id: true, firstName: true, lastName: true, email: true } } }
+                }
+            },
+            orderBy: { createdAt: "asc" }
         });
-    } catch (error) {
-        console.error("Error sending project message:", error);
-        res.status(500).json({
-            success: false,
-            error: "Failed to send message",
+
+        // Update lastReadAt
+        await prisma.channelMember.update({
+            where: { id: membership.id },
+            data: { lastReadAt: new Date() }
         });
+
+        res.status(200).json({ success: true, messages });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+export const sendMessage = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { channelId } = req.params;
+        const { text, fileId, parentId } = req.body;
+        const userId = req.user?.id;
+
+        if (!userId || (!text && !fileId)) {
+            res.status(400).json({ success: false, error: "Invalid payload" });
+            return;
+        }
+
+        const membership = await prisma.channelMember.findUnique({
+            where: { channelId_userId: { channelId, userId } }
+        });
+
+        if (!membership) {
+            res.status(403).json({ success: false, error: "Not a member" });
+            return;
+        }
+
+        const message = await prisma.chatMessage.create({
+            data: {
+                channelId,
+                senderId: userId,
+                text,
+                fileId,
+                parentId
+            },
+            include: {
+                sender: { select: { id: true, firstName: true, lastName: true, email: true } },
+                file: true,
+                reactions: true,
+                replies: true
+            }
+        });
+
+        const io = getIO();
+        io.to(`channel_${channelId}`).emit("new_message", message);
+
+        res.status(201).json({ success: true, message });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+export const toggleReaction = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { messageId } = req.params;
+        const { emoji } = req.body;
+        const userId = req.user?.id;
+
+        if (!userId || !emoji) {
+            res.status(400).json({ success: false, error: "Invalid payload" });
+            return;
+        }
+
+        const existing = await prisma.messageReaction.findUnique({
+            where: { messageId_userId_emoji: { messageId, userId, emoji } },
+            include: { message: true }
+        });
+
+        if (existing) {
+            await prisma.messageReaction.delete({ where: { id: existing.id } });
+            getIO().to(`channel_${existing.message.channelId}`).emit("reaction_removed", { messageId, userId, emoji });
+        } else {
+            const reaction = await prisma.messageReaction.create({
+                data: { messageId, userId, emoji },
+                include: { message: true }
+            });
+            getIO().to(`channel_${reaction.message.channelId}`).emit("reaction_added", { messageId, userId, emoji });
+        }
+
+        res.status(200).json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
     }
 };

@@ -134,9 +134,8 @@ app.use("/api/projects/:projectId/folders", authenticate, requireProjectAccess, 
 // NOTE: /api/files/:id DELETE route is handled by fileRoutes now nested under project. We can comment or keep if workspace-level deletion is needed.
 // app.delete("/api/files/:id", authenticate, requireFileAccess, requirePermission(Permission.DELETE_FILES), deleteFile);
 
-// Nested: GET/POST /api/projects/:projectId/messages
-app.use("/api/projects/:projectId/messages", authenticate, requireProjectAccess, chatRoutes);
-
+// Chat API
+app.use("/api/chat", chatRoutes);
 const PORT = process.env.PORT || 3000;
 
 initSocket(server);

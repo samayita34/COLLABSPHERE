@@ -61,19 +61,23 @@ model User {
   assignedTasks      Task[]          @relation("TaskAssignee")
   sessions           Session[]
 
-  organizations      OrganizationMember[]
-  workspaces         WorkspaceMember[]
-  teams              TeamMember[]
-  notifications      Notification[]
-  auditLogs          AuditLog[]
-  taskAttachments    TaskAttachment[]
-  timeEntries        TimeEntry[]
-  taskComments       TaskComment[]
-  taskMentions       TaskMention[]
+  organizations   OrganizationMember[]
+  workspaces      WorkspaceMember[]
+  teams           TeamMember[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+  taskAttachments TaskAttachment[]
+  timeEntries     TimeEntry[]
+  taskComments    TaskComment[]
+  taskMentions    TaskMention[]
 
-  lockedFiles          File[]         @relation("UserLocks")
-  uploadedFileVersions FileVersion[]  @relation("UserUploads")
-  fileDownloads        FileDownload[] @relation("UserDownloads")
+  lockedFiles          File[]            @relation("UserLocks")
+  uploadedFileVersions FileVersion[]     @relation("UserUploads")
+  fileDownloads        FileDownload[]    @relation("UserDownloads")
+  channelMembers       ChannelMember[]
+  chatMessages         ChatMessage[]
+  messageReactions     MessageReaction[]
+  messageMentions      MessageMention[]
 }
 
 enum NotificationType {
@@ -98,19 +102,19 @@ model Notification {
   title       String
   message     String
 
-  projectId   String?
-  project     Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  taskId      String?
-  documentId  String?
-  fileId      String?
+  taskId     String?
+  documentId String?
+  fileId     String?
 
-  link        String?
-  isRead      Boolean          @default(false)
-  read        Boolean          @default(false)
+  link   String?
+  isRead Boolean @default(false)
+  read   Boolean @default(false)
 
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @default(now()) @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([userId, isRead])
   @@index([userId, read])
@@ -176,32 +180,31 @@ enum AuditAction {
 }
 
 model AuditLog {
-  id             String      @id @default(cuid())
-  userId         String?
-  user           User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   organizationId String?
   workspaceId    String?
   projectId      String?
 
-  action         AuditAction
-  entityType     String
-  entityId       String?
+  action     AuditAction
+  entityType String
+  entityId   String?
 
-  details        Json?
-  metadata       Json?
+  details  Json?
+  metadata Json?
 
-  ipAddress      String?
-  userAgent      String?
+  ipAddress String?
+  userAgent String?
 
-  createdAt      DateTime    @default(now())
+  createdAt DateTime @default(now())
 
   @@index([workspaceId, createdAt])
   @@index([projectId, createdAt])
   @@index([userId, createdAt])
   @@index([action, createdAt])
 }
-
 
 model Session {
   id               String    @id @default(cuid())
@@ -295,12 +298,13 @@ model Workspace {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  storageQuota   BigInt       @default(5368709120) // 5GB default
-  storageUsed    BigInt       @default(0)
+  storageQuota BigInt @default(5368709120) // 5GB default
+  storageUsed  BigInt @default(0)
 
   members  WorkspaceMember[]
   teams    Team[]
   projects Project[]
+  channels Channel[]
 }
 
 model WorkspaceMember {
@@ -365,8 +369,9 @@ model Project {
   boards        Board[]
   labels        Label[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  channels  Channel[]
 }
 
 model ProjectMember {
@@ -398,13 +403,13 @@ model Task {
   assigneeId String?
   assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
 
-  columnId   String?
-  column     Column?   @relation(fields: [columnId], references: [id], onDelete: SetNull)
+  columnId String?
+  column   Column? @relation(fields: [columnId], references: [id], onDelete: SetNull)
 
   swimlaneId String?
   swimlane   Swimlane? @relation(fields: [swimlaneId], references: [id], onDelete: SetNull)
 
-  order      Float?
+  order Float?
 
   labels      TaskLabel[]
   checklists  TaskChecklist[]
@@ -417,130 +422,130 @@ model Task {
 }
 
 model Board {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   description String?
-  
-  projectId   String
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  columns     Column[]
-  swimlanes   Swimlane[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  columns   Column[]
+  swimlanes Swimlane[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Column {
-  id          String    @id @default(cuid())
-  name        String
-  order       Float     @default(0)
-  
-  boardId     String
-  board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  
-  tasks       Task[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id    String @id @default(cuid())
+  name  String
+  order Float  @default(0)
+
+  boardId String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  tasks Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Swimlane {
-  id          String    @id @default(cuid())
-  name        String
-  order       Float     @default(0)
-  
-  boardId     String
-  board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  
-  tasks       Task[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id    String @id @default(cuid())
+  name  String
+  order Float  @default(0)
+
+  boardId String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  tasks Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Label {
-  id          String    @id @default(cuid())
-  name        String
-  color       String
-  
-  projectId   String
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  tasks       TaskLabel[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id    String @id @default(cuid())
+  name  String
+  color String
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  tasks TaskLabel[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TaskLabel {
-  taskId      String
-  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  labelId     String
-  label       Label     @relation(fields: [labelId], references: [id], onDelete: Cascade)
-  
+  taskId  String
+  task    Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  labelId String
+  label   Label  @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
   @@id([taskId, labelId])
 }
 
 model TaskChecklist {
-  id          String    @id @default(cuid())
-  title       String
-  
-  taskId      String
-  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  
-  items       TaskChecklistItem[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id    String @id @default(cuid())
+  title String
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  items TaskChecklistItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TaskChecklistItem {
-  id            String         @id @default(cuid())
-  content       String
-  isCompleted   Boolean        @default(false)
-  
-  checklistId   String
-  checklist     TaskChecklist  @relation(fields: [checklistId], references: [id], onDelete: Cascade)
-  
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id          String  @id @default(cuid())
+  content     String
+  isCompleted Boolean @default(false)
+
+  checklistId String
+  checklist   TaskChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TaskAttachment {
-  id           String    @id @default(cuid())
-  fileName     String
-  fileUrl      String
-  fileType     String?
-  fileSize     Int?
-  
-  taskId       String
-  task         Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  
-  uploadedById String
-  uploadedBy   User      @relation(fields: [uploadedById], references: [id])
-  
-  commentId    String?
-  comment      TaskComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  id       String  @id @default(cuid())
+  fileName String
+  fileUrl  String
+  fileType String?
+  fileSize Int?
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  commentId String?
+  comment   TaskComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TimeEntry {
-  id          String    @id @default(cuid())
-  duration    Int       // duration in minutes
+  id          String  @id @default(cuid())
+  duration    Int // duration in minutes
   description String?
-  
-  taskId      String
-  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  
-  date        DateTime  @default(now())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Document {
@@ -551,9 +556,9 @@ model Document {
   owner       String?
   size        String?
   content     String?
-  ydocState   Bytes?    // Binary representation of the Yjs document state
+  ydocState   Bytes? // Binary representation of the Yjs document state
 
-  versions    DocumentVersion[]
+  versions DocumentVersion[]
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -563,33 +568,33 @@ model Document {
 }
 
 model DocumentVersion {
-  id          String   @id @default(cuid())
-  name        String
-  ydocState   Bytes
+  id        String @id @default(cuid())
+  name      String
+  ydocState Bytes
 
-  documentId  String
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  
-  createdBy   String?
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
+  createdBy String?
+
+  createdAt DateTime @default(now())
 }
 
 model Folder {
-  id          String   @id @default(cuid())
-  name        String
-  
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  parentId    String?
-  parent      Folder?  @relation("FolderToFolder", fields: [parentId], references: [id], onDelete: Cascade)
-  children    Folder[] @relation("FolderToFolder")
+  id   String @id @default(cuid())
+  name String
 
-  files       File[]
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  parentId String?
+  parent   Folder?  @relation("FolderToFolder", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[] @relation("FolderToFolder")
+
+  files File[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model File {
@@ -597,91 +602,180 @@ model File {
   name        String
   type        FileType @default(PDF)
   description String?
-  
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  folderId    String?
-  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
-  isLocked    Boolean  @default(false)
-  lockedById  String?
-  lockedBy    User?    @relation("UserLocks", fields: [lockedById], references: [id], onDelete: SetNull)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  versions    FileVersion[]
-  downloads   FileDownload[]
+  folderId String?
+  folder   Folder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isLocked   Boolean @default(false)
+  lockedById String?
+  lockedBy   User?   @relation("UserLocks", fields: [lockedById], references: [id], onDelete: SetNull)
+
+  versions  FileVersion[]
+  downloads FileDownload[]
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  chatMessages ChatMessage[]
 }
 
 model FileVersion {
-  id          String   @id @default(cuid())
-  versionNum  Int
-  s3Key       String
-  sizeBytes   BigInt
-  
-  fileId      String
-  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  
-  uploadedById String
-  uploadedBy   User    @relation("UserUploads", fields: [uploadedById], references: [id], onDelete: Cascade)
+  id         String @id @default(cuid())
+  versionNum Int
+  s3Key      String
+  sizeBytes  BigInt
 
-  createdAt   DateTime @default(now())
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  uploadedById String
+  uploadedBy   User   @relation("UserUploads", fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }
 
 model FileDownload {
-  id          String   @id @default(cuid())
-  
-  fileId      String
-  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  
+  id String @id @default(cuid())
+
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
   downloadedById String
-  downloadedBy   User    @relation("UserDownloads", fields: [downloadedById], references: [id], onDelete: Cascade)
+  downloadedBy   User   @relation("UserDownloads", fields: [downloadedById], references: [id], onDelete: Cascade)
 
   downloadedAt DateTime @default(now())
 }
 
-model ChatMessage {
-  id             String   @id @default(cuid())
-  senderInitials String
-  text           String
+enum ChannelType {
+  WORKSPACE_GLOBAL
+  PROJECT
+  DIRECT_MESSAGE
+  GROUP
+}
 
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+model Channel {
+  id   String      @id @default(cuid())
+  name String?
+  type ChannelType @default(PROJECT)
+
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  members  ChannelMember[]
+  messages ChatMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+model ChannelMember {
+  id String @id @default(cuid())
+
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  lastReadAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([channelId, userId])
+}
+
+model ChatMessage {
+  id   String  @id @default(cuid())
+  text String?
+
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  // Thread replies
+  parentId String?
+  parent   ChatMessage?  @relation("MessageReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies  ChatMessage[] @relation("MessageReplies")
+
+  // File attachments
+  fileId String?
+  file   File?   @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  isEdited Boolean @default(false)
+
+  reactions MessageReaction[]
+  mentions  MessageMention[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?
+}
+
+model MessageReaction {
+  id    String @id @default(cuid())
+  emoji String
+
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId, emoji])
+}
+
+model MessageMention {
+  id String @id @default(cuid())
+
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+}
+
 model TaskComment {
-  id          String   @id @default(cuid())
-  text        String
-  
-  taskId      String
-  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  
-  authorId    String
-  author      User     @relation(fields: [authorId], references: [id])
-  
-  parentId    String?
-  parent      TaskComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies     TaskComment[] @relation("CommentReplies")
+  id   String @id @default(cuid())
+  text String
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  parentId String?
+  parent   TaskComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  TaskComment[] @relation("CommentReplies")
 
   mentions    TaskMention[]
   attachments TaskAttachment[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TaskMention {
-  id          String   @id @default(cuid())
-  commentId   String
-  comment     TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
+  id        String      @id @default(cuid())
+  commentId String
+  comment   TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }

@@ -34,6 +34,26 @@ export const initSocket = (httpServer: HttpServer) => {
             console.log(`Socket ${socket.id} left project ${projectId}`);
         });
 
+        // Chat Channels
+        socket.on("join_channel", (channelId) => {
+            socket.join(`channel_${channelId}`);
+            console.log(`Socket ${socket.id} joined channel channel_${channelId}`);
+        });
+
+        socket.on("leave_channel", (channelId) => {
+            socket.leave(`channel_${channelId}`);
+            console.log(`Socket ${socket.id} left channel channel_${channelId}`);
+        });
+
+        socket.on("typing_start", (data) => {
+            // data: { channelId, userId, userName }
+            socket.to(`channel_${data.channelId}`).emit("user_typing", data);
+        });
+
+        socket.on("typing_end", (data) => {
+            socket.to(`channel_${data.channelId}`).emit("user_stopped_typing", data);
+        });
+
         socket.on("disconnect", () => {
             console.log("Client disconnected", socket.id);
         });

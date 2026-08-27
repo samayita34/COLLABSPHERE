@@ -23,6 +23,7 @@ import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import { WorkspaceProvider } from "./context/WorkspaceContext";
+import { SocketProvider } from "./context/SocketContext";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ createRoot(document.getElementById("root")!).render(
         <BrowserRouter>
       <AuthProvider>
         <WorkspaceProvider>
+        <SocketProvider>
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/signup" element={<SignUp />} />
@@ -55,6 +57,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/analytics" element={<Analytics />} />
           </Route>
         </Routes>
+        </SocketProvider>
         </WorkspaceProvider>
       </AuthProvider>
         </BrowserRouter>
