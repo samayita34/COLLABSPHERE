@@ -87,11 +87,24 @@ model Notification {
   type        NotificationType
   title       String
   message     String
+
+  projectId   String?
+  project     Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  taskId      String?
+  documentId  String?
+  fileId      String?
+
   link        String?
   isRead      Boolean          @default(false)
+  read        Boolean          @default(false)
+
   createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @default(now()) @updatedAt
 
   @@index([userId, isRead])
+  @@index([userId, read])
+  @@index([userId, createdAt])
   @@index([workspaceId])
 }
 
@@ -280,11 +293,12 @@ model Project {
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  members   ProjectMember[]
-  tasks     Task[]
-  documents Document[]
-  files     File[]
-  messages  ChatMessage[]
+  members       ProjectMember[]
+  tasks         Task[]
+  documents     Document[]
+  files         File[]
+  messages      ChatMessage[]
+  notifications Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

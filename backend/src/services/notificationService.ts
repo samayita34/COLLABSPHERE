@@ -6,6 +6,10 @@ import { NotificationType } from "../../generated/prisma/enums";
 export interface CreateNotificationInput {
     userId: string;
     workspaceId?: string;
+    projectId?: string;
+    taskId?: string;
+    documentId?: string;
+    fileId?: string;
     type: NotificationType;
     title: string;
     message: string;
@@ -15,17 +19,23 @@ export interface CreateNotificationInput {
 
 export const createAndSendNotification = async (input: CreateNotificationInput) => {
     try {
-        const { userId, workspaceId, type, title, message, link, sendEmailNotification = true } = input;
+        const { userId, workspaceId, projectId, taskId, documentId, fileId, type, title, message, link, sendEmailNotification = true } = input;
 
         // 1. Create In-App Notification in Database
         const notification = await prisma.notification.create({
             data: {
                 userId,
                 workspaceId,
+                projectId,
+                taskId,
+                documentId,
+                fileId,
                 type,
                 title,
                 message,
                 link,
+                isRead: false,
+                read: false,
             },
         });
 
