@@ -126,21 +126,30 @@ enum AuditAction {
 }
 
 model AuditLog {
-  id          String      @id @default(cuid())
-  userId      String?
-  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  workspaceId String?
-  projectId   String?
-  action      AuditAction
-  entityType  String
-  entityId    String?
-  details     Json?
-  ipAddress   String?
-  createdAt   DateTime    @default(now())
+  id             String      @id @default(cuid())
+  userId         String?
+  user           User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@index([workspaceId])
-  @@index([userId])
-  @@index([createdAt])
+  organizationId String?
+  workspaceId    String?
+  projectId      String?
+
+  action         AuditAction
+  entityType     String
+  entityId       String?
+
+  details        Json?
+  metadata       Json?
+
+  ipAddress      String?
+  userAgent      String?
+
+  createdAt      DateTime    @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
 }
 
 
