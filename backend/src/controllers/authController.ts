@@ -134,6 +134,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             entityType: "User",
             entityId: user.id,
             ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
         res.status(200).json({
@@ -189,6 +190,7 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
                 entityType: "User",
                 entityId: req.user.id,
                 ipAddress: req.ip,
+                userAgent: req.headers["user-agent"] as string,
             }).catch((err) => console.error("Audit log error:", err));
         }
 

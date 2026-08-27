@@ -69,7 +69,7 @@ app.use(globalLimiter);
 // Auth Rate Limiting (Stricter)
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 20, // Limit each IP to 20 auth requests per window
+    limit: process.env.NODE_ENV === "test" ? 1000 : 50, // Higher limit in test mode
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { success: false, error: "Too many authentication attempts, please try again later." }
