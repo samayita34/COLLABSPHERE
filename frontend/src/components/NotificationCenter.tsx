@@ -61,9 +61,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
             setUnreadCount((prev) => prev + 1);
         };
 
+        socket.on("notification:new", handleNewNotif);
         socket.on("notification", handleNewNotif);
 
         return () => {
+            socket.off("notification:new", handleNewNotif);
             socket.off("notification", handleNewNotif);
         };
     }, [user, workspaceId]);

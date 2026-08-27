@@ -39,10 +39,12 @@ export const createAndSendNotification = async (input: CreateNotificationInput) 
             },
         });
 
-        // 2. Emit real-time Socket.IO notification event to user room
+        // 2. Emit real-time Socket.IO notification event to dedicated user room (user:${userId})
         try {
             const io = getIO();
-            io.to(`user:${userId}`).emit("notification", notification);
+            const roomName = `user:${userId}`;
+            io.to(roomName).emit("notification:new", notification);
+            io.to(roomName).emit("notification", notification);
         } catch (socketError) {
             console.error("[NotificationService] Socket.IO emit warning:", socketError);
         }
