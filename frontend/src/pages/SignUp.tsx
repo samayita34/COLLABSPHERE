@@ -76,7 +76,7 @@ function SignUp() {
                         </div>
                     )}
 
-                    <button type="button" className="google-btn">
+                    <button type="button" className="google-btn" onClick={() => window.location.href = "http://localhost:3000/api/auth/google"}>
                         <span className="google-letter">G</span>
                         Continue with Google
                     </button>

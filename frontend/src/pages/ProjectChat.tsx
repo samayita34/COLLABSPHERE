@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useAuth } from "../context/AuthContext";
 
 /* =========================
    TYPES
@@ -21,27 +22,16 @@ export interface ChatMessage {
     timestamp: string; // ISO string
 }
 
-/* The logged-in workspace user. Mirrors the "SR" identity already
-   hardcoded in the sidebar/topbar profile avatars across the app --
-   kept as a fallback here (not a second member system) for the case
-   where the current user sends a message on a project she isn't
-   listed as a member of, same as the sidebar already does. */
-const CURRENT_USER = {
-    initials: "SR",
-    name: "Samayita Ray",
-    role: "Workspace Admin",
-};
-
 interface ProjectChatProps {
     members: Member[];
     messages: ChatMessage[];
     onSend: (text: string) => void;
 }
 
-function senderInfo(initials: string, members: Member[]) {
+function senderInfo(initials: string, members: Member[], currentInitials: string, currentName: string) {
     const member = members.find((m) => m.initials === initials);
     if (member) return { name: member.name };
-    if (initials === CURRENT_USER.initials) return { name: CURRENT_USER.name };
+    if (initials === currentInitials) return { name: currentName };
     return { name: initials };
 }
 
@@ -73,6 +63,7 @@ function dayLabel(iso: string) {
 }
 
 export default function ProjectChat({ members, messages, onSend }: ProjectChatProps) {
+    const { userInitials, userFullName } = useAuth();
     const [draft, setDraft] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -138,8 +129,8 @@ export default function ProjectChat({ members, messages, onSend }: ProjectChatPr
                                     </div>
 
                                     {section.items.map((msg) => {
-                                        const info = senderInfo(msg.senderInitials, members);
-                                        const isSelf = msg.senderInitials === CURRENT_USER.initials;
+                                        const info = senderInfo(msg.senderInitials, members, userInitials, userFullName);
+                                        const isSelf = msg.senderInitials === userInitials;
 
                                         return (
                                             <div className="chat-message" key={msg.id}>

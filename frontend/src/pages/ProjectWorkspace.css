@@ -2270,3 +2270,110 @@
         padding: 12px 16px;
     }
 }
+
+/* =========================
+   FILE DROP ZONE (AddFileModal)
+========================= */
+
+.file-drop-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 10px;
+    padding: 28px 20px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: #f8fafc;
+    margin-bottom: 16px;
+    outline: none;
+    text-align: center;
+}
+
+.file-drop-zone:hover,
+.file-drop-zone:focus {
+    border-color: #6366f1;
+    background: #f0f0fe;
+}
+
+.file-drop-zone.dragging {
+    border-color: #6366f1;
+    background: #eef2ff;
+}
+
+.file-drop-zone.has-file {
+    border-style: solid;
+    border-color: #86efac;
+    background: #f0fdf4;
+    padding: 14px 16px;
+    text-align: left;
+}
+
+.file-drop-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.file-drop-placeholder .file-drop-icon {
+    font-size: 2rem;
+    margin-bottom: 4px;
+}
+
+.file-drop-placeholder p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #475569;
+}
+
+.file-drop-placeholder span {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.file-drop-selected {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.file-drop-selected .file-drop-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+
+.file-drop-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.file-drop-info strong {
+    font-size: 0.875rem;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-drop-info span {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.file-drop-remove {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+
+.file-drop-remove:hover {
+    color: #ef4444;
+    background: #fee2e2;
+}

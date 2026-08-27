@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { fetchProjects } from "../services/projectApi";
 import type { MappedProject } from "../services/projectApi";
 import { useAuth } from "../context/AuthContext";
+import { useWorkspace } from "../context/WorkspaceContext";
 import { CreateProjectModal } from "./CreateProjectModal";
+import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import "./Projects.css";
 
 export default function Projects() {
   const navigate = useNavigate();
   const { userFullName, userInitials, logout } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const [projectsList, setProjectsList] = useState<MappedProject[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,8 +20,14 @@ export default function Projects() {
 
   useEffect(() => {
     let isMounted = true;
+    if (!activeWorkspace) {
+      setProjectsList([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    fetchProjects()
+    fetchProjects(activeWorkspace.id)
       .then((data) => {
         if (isMounted) {
           setProjectsList(data);
@@ -40,7 +49,7 @@ export default function Projects() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeWorkspace]);
 
   const filteredProjects = projectsList.filter((project) => {
     if (activeTab === "Active") return project.status === "ACTIVE";
@@ -59,31 +68,22 @@ export default function Projects() {
           <small>ENT</small>
         </div>
 
-        <div className="workspace">
-          <div className="workspace-logo">{userInitials}</div>
-
-          <div>
-            <strong>Acme Corp</strong>
-            <span>Enterprise workspace</span>
-          </div>
-
-          <span className="chevron">⌄</span>
-        </div>
+        <WorkspaceSelector />
 
         <div className="nav-title">NAVIGATION</div>
 
         <nav>
-          <a href="#">Overview</a>
-          <a href="#" className="selected">
+          <Link to="/overview">Overview</Link>
+          <Link to="/projects" className="selected">
             Projects
             <span>{projectsList.length}</span>
-          </a>
-          <a href="#">My Tasks</a>
-          <a href="#">Documents</a>
-          <a href="#">Files</a>
-          <a href="#">Messages</a>
-          <a href="#">Analytics</a>
-          <a href="#">Settings</a>
+          </Link>
+          <Link to="/my-tasks">My Tasks</Link>
+          <Link to="/documents">Documents</Link>
+          <Link to="/files">Files</Link>
+          <Link to="/messages">Messages</Link>
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Analytics</a>
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Settings</a>
         </nav>
 
         <div className="profile">
@@ -289,6 +289,7 @@ export default function Projects() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onProjectCreated={(newProj) => setProjectsList((prev) => [newProj, ...prev])}
+        workspaceId={activeWorkspace?.id}
       />
 
     </div>

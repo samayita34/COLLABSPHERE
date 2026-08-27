@@ -12,9 +12,10 @@ export default function ProtectedRoute() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: "#0f172a",
-                    color: "#94a3b8",
-                    fontFamily: "sans-serif",
+                    backgroundColor: "#fcfbf8",
+                    color: "#5a594f",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: "14px",
                 }}
             >
                 Loading session...

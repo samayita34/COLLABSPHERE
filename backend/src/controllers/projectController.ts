@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
+import { redisClient } from "../lib/redis";
 import { ProjectStatus } from "../../generated/prisma/enums";
+import { Permission, hasPermission } from "../lib/permissions";
 
 // Non-sensitive fields select for User
 const safeUserSelect = {
@@ -35,8 +37,17 @@ function calculateTaskProgress(tasks: Array<{ status: string }> = []) {
 /**
  * Helper to format project response object with derived progress.
  */
-function formatProject(project: any, includeTasks = false) {
+function formatProject(project: any, includeTasks = false, userContext?: { userId?: string; userRole?: string; isWsAdmin?: boolean }) {
     const { tasksTotal, tasksCompleted, progress } = calculateTaskProgress(project.tasks || []);
+
+    const isOwner = userContext?.userId ? project.ownerId === userContext.userId : false;
+    const projectMember = userContext?.userId
+        ? (project.members || []).find((m: any) => m.userId === userContext.userId)
+        : null;
+    const isProjAdmin = isOwner || projectMember?.role === "ADMIN";
+    const canEdit = !!(userContext?.isWsAdmin || isOwner || isProjAdmin);
+    const canDelete = !!(userContext?.isWsAdmin || isOwner || isProjAdmin);
+    const currentUserRole = isOwner ? "OWNER" : (projectMember?.role || (userContext?.isWsAdmin ? "ADMIN" : "VIEWER"));
 
     const formatted: any = {
         id: project.id,
@@ -59,6 +70,9 @@ function formatProject(project: any, includeTasks = false) {
         tasksTotal,
         tasksCompleted,
         progress,
+        canEdit,
+        canDelete,
+        currentUserRole,
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
     };
@@ -76,14 +90,42 @@ function formatProject(project: any, includeTasks = false) {
  */
 export const getProjects = async (req: Request, res: Response): Promise<void> => {
     try {
-        const whereClause = req.user
-            ? {
-                  OR: [
-                      { ownerId: req.user.id },
-                      { members: { some: { userId: req.user.id } } },
-                  ],
-              }
-            : {};
+        const workspaceId = req.query.workspaceId as string;
+        if (!workspaceId) {
+            res.status(400).json({ success: false, error: "workspaceId query parameter is required" });
+            return;
+        }
+
+        // Verify workspace access (ideally using the middleware, but since this route doesn't have it mounted globally, we check here)
+        const wsMember = await prisma.workspaceMember.findUnique({
+            where: { workspaceId_userId: { workspaceId, userId: req.user!.id } },
+        });
+
+        if (!wsMember) {
+            res.status(403).json({ success: false, error: "Forbidden: No access to this workspace" });
+            return;
+        }
+
+        const whereClause: any = { workspaceId };
+        
+        // If not a workspace admin, restrict to projects they own or are members of
+        if (wsMember.role !== "WORKSPACE_ADMIN") {
+            whereClause.OR = [
+                { ownerId: req.user!.id },
+                { members: { some: { userId: req.user!.id } } },
+            ];
+        }
+
+        const cacheKey = `projects:ws:${workspaceId}:user:${req.user!.id}`;
+        
+        // Try getting from cache
+        if (redisClient.isOpen) {
+            const cachedProjects = await redisClient.get(cacheKey);
+            if (cachedProjects) {
+                res.status(200).json(JSON.parse(cachedProjects));
+                return;
+            }
+        }
 
         const projects = await prisma.project.findMany({
             where: whereClause,
@@ -110,13 +152,26 @@ export const getProjects = async (req: Request, res: Response): Promise<void> =>
             },
         });
 
-        const formattedProjects = projects.map((p: any) => formatProject(p, false));
+        const isWsAdmin = wsMember.role === "WORKSPACE_ADMIN" || req.user?.role === "SUPER_ADMIN";
+        const userContext = {
+            userId: req.user!.id,
+            isWsAdmin,
+        };
 
-        res.status(200).json({
+        const formattedProjects = projects.map((p: any) => formatProject(p, false, userContext));
+
+        const responseData = {
             success: true,
             count: formattedProjects.length,
             data: formattedProjects,
-        });
+        };
+
+        // Save to cache for 60 seconds
+        if (redisClient.isOpen) {
+            await redisClient.setEx(cacheKey, 60, JSON.stringify(responseData));
+        }
+
+        res.status(200).json(responseData);
     } catch (error) {
         console.error("Error fetching projects:", error);
         res.status(500).json({
@@ -132,183 +187,89 @@ export const getProjects = async (req: Request, res: Response): Promise<void> =>
  */
 export const getProjectById = async (req: Request, res: Response): Promise<void> => {
     try {
-        const id = req.params.id as string;
+        // req.project is already injected by requireProjectAccess
+        const project = req.project;
 
-        const project = await prisma.project.findUnique({
-            where: { id },
+        // Still need to fetch the full shape with tasks and docs if needed
+        // but we know we have access.
+        const fullProject = await prisma.project.findUnique({
+            where: { id: project.id },
             include: {
-                owner: {
-                    select: safeUserSelect,
-                },
-                members: {
-                    include: {
-                        user: {
-                            select: safeUserSelect,
-                        },
-                    },
-                },
-                tasks: {
-                    include: {
-                        assignee: {
-                            select: safeUserSelect,
-                        },
-                    },
-                    orderBy: {
-                        createdAt: "asc",
-                    },
-                },
+                owner: { select: safeUserSelect },
+                members: { include: { user: { select: safeUserSelect } } },
+                tasks: true,
+                documents: true,
             },
         });
 
-        if (!project) {
-            res.status(404).json({
-                success: false,
-                error: "Project not found",
-            });
+        if (!fullProject) {
+            res.status(404).json({ success: false, error: "Project not found" });
             return;
         }
 
-        if (
-            req.user &&
-            project.ownerId !== req.user.id &&
-            !project.members.some((m: any) => m.userId === req.user?.id)
-        ) {
-            res.status(403).json({
-                success: false,
-                error: "Access denied. You are not a member or owner of this project.",
-            });
-            return;
-        }
+        const isWsAdmin = req.workspaceRole === "WORKSPACE_ADMIN" || req.user?.role === "SUPER_ADMIN" || req.orgRole === "ORG_ADMIN";
+        const userContext = {
+            userId: req.user?.id,
+            userRole: req.projectRole,
+            isWsAdmin,
+        };
 
         res.status(200).json({
             success: true,
-            data: formatProject(project, true),
+            project: formatProject(fullProject, true, userContext),
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching project:", error);
-        res.status(500).json({
-            success: false,
-            error: "Failed to fetch project",
-        });
+        res.status(500).json({ success: false, error: error.message || "Failed to fetch project" });
     }
 };
 
 /**
  * POST /api/projects
  * Create a new project.
- * Required fields in body: name, ownerId
- * Optional fields: description, category, status, code, dueDate
  */
 export const createProject = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { name, ownerId, description, category, status, code, dueDate } = req.body;
+        const { name, description, category, dueDate, workspaceId, code } = req.body;
 
-        const effectiveOwnerId = req.user ? req.user.id : ownerId;
-
-        // Validation
-        if (!name || typeof name !== "string" || name.trim() === "") {
-            res.status(400).json({
-                success: false,
-                error: "Project name is required and must be a non-empty string",
-            });
+        if (!name || typeof name !== "string" || name.trim() === "" || !workspaceId) {
+            res.status(400).json({ success: false, error: "Valid name and workspaceId are required" });
             return;
         }
 
-        if (!effectiveOwnerId || typeof effectiveOwnerId !== "string" || effectiveOwnerId.trim() === "") {
-            res.status(400).json({
-                success: false,
-                error: "Owner ID (ownerId) is required and must be a non-empty string",
-            });
-            return;
-        }
-
-        // Validate status enum if provided
-        if (status && !Object.values(ProjectStatus).includes(status)) {
-            res.status(400).json({
-                success: false,
-                error: `Invalid status. Allowed values are: ${Object.values(ProjectStatus).join(", ")}`,
-            });
-            return;
-        }
-
-        // Validate date if provided
-        let parsedDueDate: Date | null = null;
-        if (dueDate) {
-            parsedDueDate = new Date(dueDate);
-            if (isNaN(parsedDueDate.getTime())) {
-                res.status(400).json({
-                    success: false,
-                    error: "Invalid dueDate format. Must be a valid date string",
-                });
+        const cleanCode = typeof code === "string" ? code.trim().toUpperCase() : null;
+        if (cleanCode) {
+            const existing = await prisma.project.findFirst({ where: { code: cleanCode } });
+            if (existing) {
+                res.status(400).json({ success: false, error: `Project code "${cleanCode}" is already in use` });
                 return;
             }
         }
 
-        // Check if owner user exists
-        const ownerExists = await prisma.user.findUnique({
-            where: { id: effectiveOwnerId.trim() },
-        });
-
-        if (!ownerExists) {
-            res.status(400).json({
-                success: false,
-                error: `User specified by ownerId '${effectiveOwnerId}' does not exist`,
-            });
-            return;
-        }
-
-        // Create project with owner automatically added as an ADMIN member
         const project = await prisma.project.create({
             data: {
                 name: name.trim(),
-                description: description ? String(description).trim() : null,
-                category: category ? String(category).trim() : null,
-                status: status || ProjectStatus.ACTIVE,
-                code: code ? String(code).trim() : null,
-                dueDate: parsedDueDate,
-                ownerId: effectiveOwnerId.trim(),
-                members: {
-                    create: {
-                        userId: effectiveOwnerId.trim(),
-                        role: "ADMIN",
-                    },
-                },
-            },
-            include: {
-                owner: {
-                    select: safeUserSelect,
-                },
-                members: {
-                    include: {
-                        user: {
-                            select: safeUserSelect,
-                        },
-                    },
-                },
-                tasks: true,
+                code: cleanCode || null,
+                description: description && typeof description === "string" ? description.trim() : null,
+                category: category && typeof category === "string" ? category.trim() : null,
+                workspaceId,
+                ownerId: req.user!.id,
+                dueDate: dueDate ? new Date(dueDate) : null,
             },
         });
 
-        res.status(201).json({
-            success: true,
-            message: "Project created successfully",
-            data: formatProject(project, true),
-        });
-    } catch (error: any) {
-        console.error("Error creating project:", error);
-
-        if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
-            res.status(409).json({
-                success: false,
-                error: "A project with this project code already exists",
-            });
-            return;
+        // Invalidate cache
+        if (redisClient.isOpen) {
+            const keys = await redisClient.keys(`projects:ws:${workspaceId}:user:*`);
+            if (keys.length > 0) {
+                await redisClient.del(keys);
+            }
         }
 
-        res.status(500).json({
-            success: false,
-            error: "Failed to create project",
-        });
+        res.status(201).json({ success: true, project: formatProject(project) });
+    } catch (error: any) {
+        console.error("Error creating project:", error);
+        res.status(500).json({ success: false, error: error.message || "Failed to create project" });
     }
 };
 
@@ -318,191 +279,151 @@ export const createProject = async (req: Request, res: Response): Promise<void> 
  */
 export const updateProject = async (req: Request, res: Response): Promise<void> => {
     try {
-        const id = req.params.id as string;
-        const { name, description, category, status, code, dueDate, completedDate, ownerId } = req.body;
+        const { id } = req.params;
+        const { name, description, code, category, status, dueDate } = req.body;
 
-        // Check if project exists
-        const existingProject = await prisma.project.findUnique({
-            where: { id },
-        });
+        // Check if user has permission to edit project
+        const isOwner = req.project.ownerId === req.user!.id;
+        const isWsAdmin = req.workspaceRole === "WORKSPACE_ADMIN" || req.user?.role === "SUPER_ADMIN" || req.orgRole === "ORG_ADMIN";
+        const isProjAdmin = req.projectRole === "ADMIN";
+        const canEdit = isWsAdmin || isOwner || isProjAdmin || hasPermission(req, Permission.EDIT_PROJECT);
 
-        if (!existingProject) {
-            res.status(404).json({
-                success: false,
-                error: "Project not found",
-            });
+        if (!canEdit) {
+            res.status(403).json({ success: false, error: "Only project administrators can update project settings" });
             return;
         }
 
-        const updateData: any = {};
+        const dataToUpdate: any = {};
 
+        // 1. Name validation
         if (name !== undefined) {
-            if (typeof name !== "string" || name.trim() === "") {
-                res.status(400).json({
-                    success: false,
-                    error: "Project name must be a non-empty string",
-                });
+            if (typeof name !== "string" || !name.trim()) {
+                res.status(400).json({ success: false, error: "Project name cannot be empty" });
                 return;
             }
-            updateData.name = name.trim();
+            dataToUpdate.name = name.trim();
         }
 
+        // 2. Description
         if (description !== undefined) {
-            updateData.description = description ? String(description).trim() : null;
+            dataToUpdate.description = description && typeof description === "string" ? description.trim() : null;
         }
 
+        // 3. Category
         if (category !== undefined) {
-            updateData.category = category ? String(category).trim() : null;
+            dataToUpdate.category = category && typeof category === "string" ? category.trim() : null;
         }
 
-        if (status !== undefined) {
-            if (!Object.values(ProjectStatus).includes(status)) {
-                res.status(400).json({
-                    success: false,
-                    error: `Invalid status. Allowed values are: ${Object.values(ProjectStatus).join(", ")}`,
-                });
-                return;
-            }
-            updateData.status = status;
-        }
-
+        // 4. Code & uniqueness validation
         if (code !== undefined) {
-            updateData.code = code ? String(code).trim() : null;
+            const cleanCode = typeof code === "string" ? code.trim().toUpperCase() : null;
+            // Empty string is converted to null to prevent PostgreSQL unique constraint crash on duplicate empty strings
+            dataToUpdate.code = cleanCode || null;
+
+            if (dataToUpdate.code) {
+                const existing = await prisma.project.findFirst({
+                    where: {
+                        code: dataToUpdate.code,
+                        id: { not: id },
+                    },
+                });
+                if (existing) {
+                    res.status(400).json({ success: false, error: `Project code "${dataToUpdate.code}" is already in use by another project` });
+                    return;
+                }
+            }
         }
 
+        // 5. Status & completedDate handling
+        if (status !== undefined) {
+            if (!["ACTIVE", "COMPLETED", "ARCHIVED"].includes(status)) {
+                res.status(400).json({ success: false, error: "Invalid status. Must be ACTIVE, COMPLETED, or ARCHIVED" });
+                return;
+            }
+            dataToUpdate.status = status as ProjectStatus;
+            if (status === "COMPLETED") {
+                dataToUpdate.completedDate = new Date();
+            } else {
+                dataToUpdate.completedDate = null;
+            }
+        }
+
+        // 6. Due date
         if (dueDate !== undefined) {
-            if (dueDate === null) {
-                updateData.dueDate = null;
+            if (!dueDate) {
+                dataToUpdate.dueDate = null;
             } else {
-                const parsed = new Date(dueDate);
-                if (isNaN(parsed.getTime())) {
-                    res.status(400).json({
-                        success: false,
-                        error: "Invalid dueDate format",
-                    });
+                const parsedDate = new Date(dueDate);
+                if (isNaN(parsedDate.getTime())) {
+                    res.status(400).json({ success: false, error: "Invalid due date format" });
                     return;
                 }
-                updateData.dueDate = parsed;
+                dataToUpdate.dueDate = parsedDate;
             }
         }
 
-        if (completedDate !== undefined) {
-            if (completedDate === null) {
-                updateData.completedDate = null;
-            } else {
-                const parsed = new Date(completedDate);
-                if (isNaN(parsed.getTime())) {
-                    res.status(400).json({
-                        success: false,
-                        error: "Invalid completedDate format",
-                    });
-                    return;
-                }
-                updateData.completedDate = parsed;
-            }
-        }
-
-        if (ownerId !== undefined) {
-            if (typeof ownerId !== "string" || ownerId.trim() === "") {
-                res.status(400).json({
-                    success: false,
-                    error: "Owner ID must be a non-empty string",
-                });
-                return;
-            }
-            const ownerExists = await prisma.user.findUnique({
-                where: { id: ownerId.trim() },
-            });
-            if (!ownerExists) {
-                res.status(400).json({
-                    success: false,
-                    error: `User specified by ownerId '${ownerId}' does not exist`,
-                });
-                return;
-            }
-            updateData.ownerId = ownerId.trim();
-        }
-
-        const updatedProject = await prisma.project.update({
+        const project = await prisma.project.update({
             where: { id },
-            data: updateData,
+            data: dataToUpdate,
             include: {
-                owner: {
-                    select: safeUserSelect,
-                },
-                members: {
-                    include: {
-                        user: {
-                            select: safeUserSelect,
-                        },
-                    },
-                },
-                tasks: {
-                    include: {
-                        assignee: {
-                            select: safeUserSelect,
-                        },
-                    },
-                },
+                owner: { select: safeUserSelect },
+                members: { include: { user: { select: safeUserSelect } } },
+                tasks: true,
             },
         });
 
-        res.status(200).json({
-            success: true,
-            message: "Project updated successfully",
-            data: formatProject(updatedProject, true),
-        });
-    } catch (error: any) {
-        console.error("Error updating project:", error);
-
-        if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
-            res.status(409).json({
-                success: false,
-                error: "A project with this project code already exists",
-            });
-            return;
+        // Invalidate caches
+        if (redisClient.isOpen) {
+            const keys = await redisClient.keys(`projects:ws:${project.workspaceId}:user:*`);
+            if (keys.length > 0) await redisClient.del(keys);
         }
 
-        res.status(500).json({
-            success: false,
-            error: "Failed to update project",
-        });
+        const userContext = {
+            userId: req.user?.id,
+            userRole: req.projectRole,
+            isWsAdmin,
+        };
+
+        res.status(200).json({ success: true, project: formatProject(project, false, userContext) });
+    } catch (error: any) {
+        console.error("Error updating project:", error);
+        res.status(500).json({ success: false, error: error.message || "Failed to update project" });
     }
 };
 
 /**
  * DELETE /api/projects/:id
- * Delete a project by ID. Cascading relation rules in database handle associated ProjectMember and Task records.
+ * Delete a project by ID. Cascading relation rules in database handle associated ProjectMember, Task, File, Document records.
  */
 export const deleteProject = async (req: Request, res: Response): Promise<void> => {
     try {
-        const id = req.params.id as string;
+        const { id } = req.params;
 
-        const existingProject = await prisma.project.findUnique({
-            where: { id },
-        });
+        const isOwner = req.project.ownerId === req.user!.id;
+        const isWsAdmin = req.workspaceRole === "WORKSPACE_ADMIN" || req.user?.role === "SUPER_ADMIN" || req.orgRole === "ORG_ADMIN";
+        const isProjAdmin = req.projectRole === "ADMIN";
+        const canDelete = isWsAdmin || isOwner || isProjAdmin || hasPermission(req, Permission.DELETE_PROJECT);
 
-        if (!existingProject) {
-            res.status(404).json({
-                success: false,
-                error: "Project not found",
-            });
+        if (!canDelete) {
+            res.status(403).json({ success: false, error: "Only project administrators can delete the project" });
             return;
         }
+
+        const project = req.project;
 
         await prisma.project.delete({
             where: { id },
         });
 
-        res.status(200).json({
-            success: true,
-            message: "Project deleted successfully",
-        });
-    } catch (error) {
+        // Invalidate cache
+        if (redisClient.isOpen) {
+            const keys = await redisClient.keys(`projects:ws:${project.workspaceId}:user:*`);
+            if (keys.length > 0) await redisClient.del(keys);
+        }
+
+        res.status(200).json({ success: true, message: "Project deleted successfully" });
+    } catch (error: any) {
         console.error("Error deleting project:", error);
-        res.status(500).json({
-            success: false,
-            error: "Failed to delete project",
-        });
+        res.status(500).json({ success: false, error: error.message || "Failed to delete project" });
     }
 };

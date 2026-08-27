@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import { ProjectMemberRole } from "../../generated/prisma/enums";
+import { sendEmail } from "../services/emailService";
 
 // Non-sensitive fields — identical to projectController.safeUserSelect
 const safeUserSelect = {
@@ -37,11 +38,7 @@ export const getMembers = async (req: Request, res: Response): Promise<void> => 
     try {
         const { projectId } = req.params;
 
-        const project = await prisma.project.findUnique({ where: { id: projectId } });
-        if (!project) {
-            res.status(404).json({ success: false, error: "Project not found" });
-            return;
-        }
+        // requireProjectAccess has verified access and project existence.
 
         const members = await prisma.projectMember.findMany({
             where: { projectId },
@@ -77,12 +74,7 @@ export const addMember = async (req: Request, res: Response): Promise<void> => {
         const { projectId } = req.params;
         const { email, role } = req.body;
 
-        // Validate project exists
-        const project = await prisma.project.findUnique({ where: { id: projectId } });
-        if (!project) {
-            res.status(404).json({ success: false, error: "Project not found" });
-            return;
-        }
+        const project = req.project;
 
         // email is required
         if (!email || typeof email !== "string" || email.trim() === "") {
@@ -138,6 +130,14 @@ export const addMember = async (req: Request, res: Response): Promise<void> => {
             include: { user: { select: safeUserSelect } },
         });
 
+        // Send email notification (non-blocking)
+        sendEmail(
+            email,
+            `You've been added to ${project.name}`,
+            `You have been added to the project ${project.name} as a ${member.role}.`,
+            `<p>You have been added to the project <strong>${project.name}</strong> as a <strong>${member.role}</strong>.</p>`
+        ).catch(console.error);
+
         res.status(201).json({
             success: true,
             message: "Member added successfully",
@@ -168,11 +168,7 @@ export const removeMember = async (req: Request, res: Response): Promise<void> =
     try {
         const { projectId, memberId } = req.params;
 
-        const project = await prisma.project.findUnique({ where: { id: projectId } });
-        if (!project) {
-            res.status(404).json({ success: false, error: "Project not found" });
-            return;
-        }
+        const project = req.project;
 
         const member = await prisma.projectMember.findUnique({ where: { id: memberId } });
         if (!member || member.projectId !== projectId) {

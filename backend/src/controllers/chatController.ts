@@ -1,13 +1,40 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
+import { getIO } from "../lib/socket";
 
 function formatMessage(msg: any) {
+    let senderName: string | undefined = undefined;
+    if (msg.project) {
+        const getInitials = (fn?: string | null, ln?: string | null, email?: string) => {
+            const f = (fn || "").trim()[0] || "";
+            const l = (ln || "").trim()[0] || "";
+            if (f || l) return (f + l).toUpperCase();
+            return (email || "").slice(0, 2).toUpperCase();
+        };
+
+        const owner = msg.project.owner;
+        if (owner && getInitials(owner.firstName, owner.lastName, owner.email) === msg.senderInitials) {
+            senderName = `${owner.firstName || ""} ${owner.lastName || ""}`.trim() || owner.email;
+        } else if (Array.isArray(msg.project.members)) {
+            const match = msg.project.members.find((m: any) => 
+                m.user && getInitials(m.user.firstName, m.user.lastName, m.user.email) === msg.senderInitials
+            );
+            if (match?.user) {
+                senderName = `${match.user.firstName || ""} ${match.user.lastName || ""}`.trim() || match.user.email;
+            }
+        }
+    }
+
     return {
         id: msg.id,
         senderInitials: msg.senderInitials,
+        senderName,
         text: msg.text,
         timestamp: msg.createdAt.toISOString(),
         projectId: msg.projectId,
+        projectName: msg.project?.name || "",
+        projectCode: msg.project?.code || null,
+        projectStatus: msg.project?.status || "",
         createdAt: msg.createdAt,
         updatedAt: msg.updatedAt,
     };
@@ -21,20 +48,22 @@ export const getProjectMessages = async (req: Request, res: Response): Promise<v
     try {
         const { projectId } = req.params;
 
-        const project = await prisma.project.findUnique({
-            where: { id: projectId },
-        });
-
-        if (!project) {
-            res.status(404).json({
-                success: false,
-                error: "Project not found",
-            });
-            return;
-        }
+        // requireProjectAccess has verified access and project existence.
 
         const messages = await prisma.chatMessage.findMany({
             where: { projectId },
+            include: {
+                project: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                        status: true,
+                        owner: { select: { firstName: true, lastName: true, email: true } },
+                        members: { select: { user: { select: { firstName: true, lastName: true, email: true } } } },
+                    },
+                },
+            },
             orderBy: { createdAt: "asc" },
         });
 
@@ -61,17 +90,7 @@ export const sendProjectMessage = async (req: Request, res: Response): Promise<v
         const { projectId } = req.params;
         const { text, senderInitials } = req.body;
 
-        const project = await prisma.project.findUnique({
-            where: { id: projectId },
-        });
-
-        if (!project) {
-            res.status(404).json({
-                success: false,
-                error: "Project not found",
-            });
-            return;
-        }
+        // requireProjectAccess has verified access and project existence.
 
         if (!text || typeof text !== "string" || text.trim() === "") {
             res.status(400).json({
@@ -95,12 +114,32 @@ export const sendProjectMessage = async (req: Request, res: Response): Promise<v
                 senderInitials: senderInitials.trim().toUpperCase(),
                 projectId,
             },
+            include: {
+                project: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                        status: true,
+                        owner: { select: { firstName: true, lastName: true, email: true } },
+                        members: { select: { user: { select: { firstName: true, lastName: true, email: true } } } },
+                    },
+                },
+            },
         });
+
+        const formattedMessage = formatMessage(newMessage);
+
+        try {
+            getIO().to(projectId).emit("newMessage", formattedMessage);
+        } catch (e) {
+            console.error("Failed to emit socket event", e);
+        }
 
         res.status(201).json({
             success: true,
             message: "Message sent successfully",
-            data: formatMessage(newMessage),
+            data: formattedMessage,
         });
     } catch (error) {
         console.error("Error sending project message:", error);

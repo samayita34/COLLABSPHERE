@@ -6,13 +6,15 @@ interface CreateProjectModalProps {
     isOpen: boolean;
     onClose: () => void;
     onProjectCreated: (project: MappedProject) => void;
+    workspaceId: string | undefined;
 }
 
-export function CreateProjectModal({ isOpen, onClose, onProjectCreated }: CreateProjectModalProps) {
+export function CreateProjectModal({ isOpen, onClose, onProjectCreated, workspaceId }: CreateProjectModalProps) {
     const [name, setName] = useState("");
     const [category, setCategory] = useState("Engineering");
     const [code, setCode] = useState("");
     const [description, setDescription] = useState("");
+    const [dueDate, setDueDate] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
@@ -35,6 +37,10 @@ export function CreateProjectModal({ isOpen, onClose, onProjectCreated }: Create
             setError("Project name is required");
             return;
         }
+        if (!workspaceId) {
+            setError("No active workspace selected");
+            return;
+        }
 
         setSubmitting(true);
         try {
@@ -43,11 +49,14 @@ export function CreateProjectModal({ isOpen, onClose, onProjectCreated }: Create
                 category: category.trim() || undefined,
                 code: code.trim() || undefined,
                 description: description.trim() || undefined,
+                dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+                workspaceId,
             });
             onProjectCreated(newProj);
             setName("");
             setCode("");
             setDescription("");
+            setDueDate("");
             onClose();
         } catch (err: any) {
             setError(err.message || "Failed to create project");
@@ -115,6 +124,16 @@ export function CreateProjectModal({ isOpen, onClose, onProjectCreated }: Create
                             <option value="Product">Product</option>
                             <option value="General">General</option>
                         </select>
+                    </div>
+
+                    <div className="modal-field">
+                        <label htmlFor="proj-due-date">Due Date</label>
+                        <input
+                            id="proj-due-date"
+                            type="date"
+                            value={dueDate}
+                            onChange={(e) => setDueDate(e.target.value)}
+                        />
                     </div>
 
                     <div className="modal-field">

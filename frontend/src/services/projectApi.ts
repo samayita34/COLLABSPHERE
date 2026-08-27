@@ -18,6 +18,7 @@ export interface ProjectDocument {
     createdAt: string;
     updatedAt: string;
     size?: string;
+    content?: string;
 }
 
 export type FileType = "PDF" | "PNG" | "JPG" | "FIG" | "ZIP" | "PPT" | "DOC" | "MP4" | "XLS";
@@ -44,6 +45,21 @@ export interface ProjectFile {
     uploadedAt: string;
     modifiedAt?: string;
     description?: string;
+    fileUrl?: string;
+}
+
+export interface WorkspaceDocument extends ProjectDocument {
+    projectId: string;
+    projectName?: string;
+    projectCode?: string | null;
+    projectStatus?: string;
+}
+
+export interface WorkspaceFile extends ProjectFile {
+    projectId: string;
+    projectName?: string;
+    projectCode?: string | null;
+    projectStatus?: string;
 }
 
 export interface ChatMessage {
@@ -63,6 +79,25 @@ export interface Task {
     assignee: string;
 }
 
+export interface MyTaskItem {
+    id: string;
+    title: string;
+    description?: string;
+    status: TaskStatus;
+    priority: TaskPriority;
+    due: string;
+    dueDateRaw?: string | null;
+    isOverdue: boolean;
+    assignee: string;
+    assigneeName: string;
+    projectId: string;
+    projectName: string;
+    projectCode?: string | null;
+    projectStatus?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface Member {
     initials: string;
     name: string;
@@ -78,9 +113,22 @@ export interface MappedProject {
     slug: string;
     initials: string;
     name: string;
+    code?: string | null;
     category: string;
     description: string;
-    status: "ACTIVE" | "COMPLETED";
+    status: "ACTIVE" | "COMPLETED" | "ARCHIVED";
+    dueDate?: string | null;
+    ownerId?: string;
+    owner?: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+        avatar?: string | null;
+    };
+    canEdit?: boolean;
+    canDelete?: boolean;
+    currentUserRole?: string;
     progress: number;
     tasksDone: number;
     tasksTotal: number;
@@ -91,7 +139,7 @@ export interface MappedProject {
     tasks: Task[];
 }
 
-const API_BASE_URL = "http://localhost:3000/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
 /**
  * Derive 2-letter uppercase initials from code or name.
@@ -195,9 +243,13 @@ export function mapApiMemberToFrontend(apiMember: any): Member {
     const name = `${firstName} ${lastName}`.trim() || user.email || "Member";
     const initials = deriveMemberInitials(firstName, lastName, user.email);
 
-    let roleDisplay = "Team Member";
+    let roleDisplay = "Member";
     if (apiMember.role === "ADMIN") {
-        roleDisplay = "Project Admin";
+        roleDisplay = "Admin";
+    } else if (apiMember.role === "VIEWER") {
+        roleDisplay = "Viewer";
+    } else if (apiMember.role === "MEMBER") {
+        roleDisplay = "Member";
     } else if (user.role) {
         roleDisplay = user.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
     }
@@ -245,14 +297,25 @@ export function mapApiProjectToFrontend(apiProject: any): MappedProject {
     const initials = deriveInitials(apiProject.code, apiProject.name);
     const date = formatDisplayDate(apiProject.dueDate || apiProject.createdAt, apiProject.status);
 
+    let status: "ACTIVE" | "COMPLETED" | "ARCHIVED" = "ACTIVE";
+    if (apiProject.status === "COMPLETED") status = "COMPLETED";
+    else if (apiProject.status === "ARCHIVED") status = "ARCHIVED";
+
     return {
         id: apiProject.id,
         slug: apiProject.id,
         initials,
         name: apiProject.name,
+        code: apiProject.code || undefined,
         category: apiProject.category || "General",
         description: apiProject.description || "",
-        status: apiProject.status === "COMPLETED" ? "COMPLETED" : "ACTIVE",
+        status,
+        dueDate: apiProject.dueDate || undefined,
+        ownerId: apiProject.ownerId,
+        owner: apiProject.owner,
+        canEdit: apiProject.canEdit,
+        canDelete: apiProject.canDelete,
+        currentUserRole: apiProject.currentUserRole,
         progress,
         tasksDone,
         tasksTotal,
@@ -268,8 +331,8 @@ export function mapApiProjectToFrontend(apiProject: any): MappedProject {
  * GET /api/projects
  * Fetch list of projects from backend and map to frontend types.
  */
-export async function fetchProjects(): Promise<MappedProject[]> {
-    const res = await fetch(`${API_BASE_URL}/projects`, { credentials: "include" });
+export async function fetchProjects(workspaceId: string): Promise<MappedProject[]> {
+    const res = await fetch(`${API_BASE_URL}/projects?workspaceId=${workspaceId}`, { credentials: "include" });
     if (!res.ok) {
         throw new Error(`Failed to fetch projects (HTTP ${res.status})`);
     }
@@ -290,10 +353,12 @@ export async function fetchProjectById(id: string): Promise<MappedProject> {
         throw new Error(`Failed to fetch project (HTTP ${res.status})`);
     }
     const json = await res.json();
-    if (!json.success || !json.data) {
+    // Backend returns { success, project } for single project fetch
+    const projectData = json.project ?? json.data;
+    if (!json.success || !projectData) {
         throw new Error(json.error || "Invalid response format from project API");
     }
-    return mapApiProjectToFrontend(json.data);
+    return mapApiProjectToFrontend(projectData);
 }
 
 /**
@@ -447,17 +512,16 @@ export async function deleteTaskApi(taskId: string): Promise<void> {
 export async function addMemberApi(
     projectId: string,
     email: string,
-    role?: string          // display role from AddMemberModal — sent as-is; backend maps to enum
+    role: string = "MEMBER"
 ): Promise<Member> {
-    // Map the AddMemberModal display role to a ProjectMemberRole enum value
-    // Any non-admin display role maps to MEMBER; backend default is also MEMBER.
-    const apiRole = role?.toLowerCase().includes("admin") ? "ADMIN" : "MEMBER";
+    const validRoles = ["ADMIN", "MEMBER", "VIEWER"];
+    const normalizedRole = validRoles.includes(role.toUpperCase()) ? role.toUpperCase() : "MEMBER";
 
     const res = await fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email: email.trim().toLowerCase(), role: apiRole }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), role: normalizedRole }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -479,6 +543,7 @@ export function mapApiDocumentToFrontend(apiDoc: any): ProjectDocument {
         createdAt: formatDisplayDate(apiDoc.createdAt),
         updatedAt: formatDisplayDate(apiDoc.updatedAt),
         size: apiDoc.size || undefined,
+        content: apiDoc.content || "",
     };
 }
 
@@ -521,6 +586,31 @@ export async function createDocumentApi(
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
         throw new Error(json.error || `Failed to create document (HTTP ${res.status})`);
+    }
+    return mapApiDocumentToFrontend(json.data);
+}
+
+/**
+ * PATCH /api/documents/:id
+ * Update a document by ID.
+ */
+export async function updateDocumentApi(
+    id: string,
+    payload: {
+        name?: string;
+        description?: string;
+        content?: string;
+    }
+): Promise<ProjectDocument> {
+    const res = await fetch(`${API_BASE_URL}/documents/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(json.error || `Failed to update document (HTTP ${res.status})`);
     }
     return mapApiDocumentToFrontend(json.data);
 }
@@ -609,6 +699,28 @@ export async function deleteFileApi(id: string): Promise<void> {
 }
 
 /**
+ * POST /api/projects/:projectId/files  (multipart/form-data)
+ * Upload a real file via FormData → Multer on the backend.
+ * Do NOT set Content-Type manually; the browser sets it with the correct boundary.
+ */
+export async function uploadFileApi(
+    projectId: string,
+    formData: FormData
+): Promise<ProjectFile> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/files`, {
+        method: "POST",
+        credentials: "include",
+        // NOTE: Do NOT set "Content-Type" here — browser adds multipart boundary automatically
+        body: formData,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(json.error || `Failed to upload file (HTTP ${res.status})`);
+    }
+    return mapApiFileToFrontend(json.data);
+}
+
+/**
  * Map backend chat message response to frontend ChatMessage interface.
  */
 export function mapApiChatMessageToFrontend(apiMsg: any): ChatMessage {
@@ -667,6 +779,8 @@ export async function createProjectApi(payload: {
     description?: string;
     category?: string;
     code?: string;
+    dueDate?: string;
+    workspaceId: string;
 }): Promise<MappedProject> {
     const res = await fetch(`${API_BASE_URL}/projects`, {
         method: "POST",
@@ -679,6 +793,173 @@ export async function createProjectApi(payload: {
         throw new Error(json.error || `Failed to create project (HTTP ${res.status})`);
     }
     return mapApiProjectToFrontend(json.data);
+}
+
+/**
+ * Map backend task item to frontend MyTaskItem.
+ */
+export function mapApiMyTaskToFrontend(apiTask: any): MyTaskItem {
+    let assigneeInitials = "UN";
+    let assigneeName = "Unassigned";
+    if (apiTask.assignee) {
+        assigneeInitials = deriveMemberInitials(apiTask.assignee.firstName, apiTask.assignee.lastName, apiTask.assignee.email);
+        assigneeName = `${apiTask.assignee.firstName || ""} ${apiTask.assignee.lastName || ""}`.trim() || apiTask.assignee.email;
+    }
+
+    const isOverdue = !!(apiTask.dueDate && new Date(apiTask.dueDate) < new Date() && apiTask.status !== "DONE");
+
+    return {
+        id: apiTask.id,
+        title: apiTask.title,
+        description: apiTask.description || undefined,
+        status: mapTaskStatus(apiTask.status),
+        priority: mapTaskPriority(apiTask.priority),
+        due: formatShortDate(apiTask.dueDate),
+        dueDateRaw: apiTask.dueDate,
+        isOverdue,
+        assignee: assigneeInitials,
+        assigneeName,
+        projectId: apiTask.projectId,
+        projectName: apiTask.projectName || "Project",
+        projectCode: apiTask.projectCode,
+        projectStatus: apiTask.projectStatus,
+        createdAt: apiTask.createdAt,
+        updatedAt: apiTask.updatedAt,
+    };
+}
+
+/**
+ * GET /api/tasks/my-tasks?workspaceId=<workspaceId>
+ * Fetches all tasks assigned to current user in the workspace across all projects.
+ */
+export async function fetchMyTasksApi(workspaceId: string): Promise<MyTaskItem[]> {
+    const res = await fetch(`${API_BASE_URL}/tasks/my-tasks?workspaceId=${encodeURIComponent(workspaceId)}`, {
+        credentials: "include",
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Failed to fetch tasks (HTTP ${res.status})`);
+    }
+    const json = await res.json();
+    if (!json.success || !Array.isArray(json.data)) {
+        throw new Error(json.error || "Invalid response format from tasks API");
+    }
+    return json.data.map(mapApiMyTaskToFrontend);
+}
+
+/**
+ * PATCH /api/projects/:id
+ * Update project fields (name, description, category, code, status, dueDate).
+ */
+export async function updateProjectApi(
+    projectId: string,
+    payload: {
+        name?: string;
+        description?: string | null;
+        category?: string | null;
+        code?: string | null;
+        status?: "ACTIVE" | "COMPLETED" | "ARCHIVED";
+        dueDate?: string | null;
+    }
+): Promise<MappedProject> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(json.error || `Failed to update project (HTTP ${res.status})`);
+    }
+    if (!json.success || !json.project) {
+        throw new Error(json.error || "Invalid response format from project update API");
+    }
+    return mapApiProjectToFrontend(json.project);
+}
+
+/**
+ * DELETE /api/projects/:id
+ * Delete a project by ID.
+ */
+export async function deleteProjectApi(projectId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(json.error || `Failed to delete project (HTTP ${res.status})`);
+    }
+    if (!json.success) {
+        throw new Error(json.error || "Failed to delete project");
+    }
+}
+
+/**
+ * GET /api/documents?workspaceId=<workspaceId>
+ * Fetches all documents across projects in the active workspace.
+ */
+export async function fetchWorkspaceDocuments(workspaceId: string): Promise<WorkspaceDocument[]> {
+    const res = await fetch(`${API_BASE_URL}/documents?workspaceId=${encodeURIComponent(workspaceId)}`, {
+        credentials: "include",
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Failed to fetch documents (HTTP ${res.status})`);
+    }
+    const json = await res.json();
+    if (!json.success || !Array.isArray(json.data)) {
+        throw new Error(json.error || "Invalid response format from documents API");
+    }
+    return json.data.map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        description: d.description || "",
+        type: (d.type || "DOC") as DocType,
+        owner: d.owner || "Unknown",
+        createdAt: formatDisplayDate(d.createdAt),
+        updatedAt: formatDisplayDate(d.updatedAt),
+        size: d.size || undefined,
+        content: d.content || "",
+        projectId: d.projectId,
+        projectName: d.projectName || "Project",
+        projectCode: d.projectCode || null,
+        projectStatus: d.projectStatus || "ACTIVE",
+    }));
+}
+
+/**
+ * GET /api/files?workspaceId=<workspaceId>
+ * Fetches all files across projects in the active workspace.
+ */
+export async function fetchWorkspaceFiles(workspaceId: string): Promise<WorkspaceFile[]> {
+    const res = await fetch(`${API_BASE_URL}/files?workspaceId=${encodeURIComponent(workspaceId)}`, {
+        credentials: "include",
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Failed to fetch files (HTTP ${res.status})`);
+    }
+    const json = await res.json();
+    if (!json.success || !Array.isArray(json.data)) {
+        throw new Error(json.error || "Invalid response format from files API");
+    }
+    return json.data.map((f: any) => ({
+        id: f.id,
+        name: f.name,
+        type: (f.type || "PDF") as FileType,
+        size: f.size || "Unknown",
+        uploadedBy: f.uploadedBy || "Unknown",
+        uploadedAt: formatDisplayDate(f.createdAt),
+        modifiedAt: formatDisplayDate(f.updatedAt),
+        description: f.description || "",
+        fileUrl: f.fileUrl || undefined,
+        projectId: f.projectId,
+        projectName: f.projectName || "Project",
+        projectCode: f.projectCode || null,
+        projectStatus: f.projectStatus || "ACTIVE",
+    }));
 }
 
 

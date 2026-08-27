@@ -162,11 +162,9 @@ interface AddMemberModalProps {
 }
 
 const ROLE_OPTIONS = [
-    "Project Lead",
-    "Frontend Developer",
-    "Backend Developer",
-    "UI/UX Designer",
-    "QA Engineer",
+    { label: "Member", value: "MEMBER" },
+    { label: "Admin", value: "ADMIN" },
+    { label: "Viewer", value: "VIEWER" },
 ];
 
 export function AddMemberModal({ onClose, onSave }: AddMemberModalProps) {
@@ -174,7 +172,7 @@ export function AddMemberModal({ onClose, onSave }: AddMemberModalProps) {
 
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
-    const [role, setRole] = useState(ROLE_OPTIONS[0]);
+    const [role, setRole] = useState(ROLE_OPTIONS[0].value);
 
     const canSave = name.trim().length > 0 && email.trim().length > 0;
 
@@ -225,8 +223,8 @@ export function AddMemberModal({ onClose, onSave }: AddMemberModalProps) {
                         <label>Role</label>
                         <select value={role} onChange={(e) => setRole(e.target.value)}>
                             {ROLE_OPTIONS.map((r) => (
-                                <option key={r} value={r}>
-                                    {r}
+                                <option key={r.value} value={r.value}>
+                                    {r.label}
                                 </option>
                             ))}
                         </select>

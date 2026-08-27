@@ -57,7 +57,7 @@ function App() {
             </div>
           )}
 
-          <button type="button" className="google-btn">
+          <button type="button" className="google-btn" onClick={() => window.location.href = "http://localhost:3000/api/auth/google"}>
             <svg
               className="google-icon"
               width="18"
@@ -104,9 +104,9 @@ function App() {
               <div className="password-row">
                 <label htmlFor="password">Password</label>
 
-                <button type="button" className="forgot-password">
+                <Link to="/forgot-password" className="forgot-password">
                   Forgot password?
-                </button>
+                </Link>
               </div>
 
               <div className="password-wrapper">

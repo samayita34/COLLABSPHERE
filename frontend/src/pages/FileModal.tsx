@@ -1,13 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /* =========================
    TYPES
    Mirrors the ProjectFile shape in ProjectWorkspace.tsx.
-   Kept local so this component has no import-order coupling
-   (same pattern as TaskModal.tsx / MemberModal.tsx /
-   DocumentModal.tsx). Independent of ProjectDocument -- Files
-   is uploaded assets/attachments, Documents is structured
-   project content.
 ========================= */
 
 type FileType = "PDF" | "PNG" | "JPG" | "FIG" | "ZIP" | "PPT" | "DOC" | "MP4" | "XLS";
@@ -25,6 +20,22 @@ const FILE_CATEGORY: Record<FileType, FileCategory> = {
     MP4: "videos",
 };
 
+/** Map a file extension → FileType enum. Falls back to "DOC". */
+function extToFileType(filename: string): FileType {
+    const ext = filename.split(".").pop()?.toUpperCase() ?? "";
+    const valid: FileType[] = ["PDF", "PNG", "JPG", "FIG", "ZIP", "PPT", "DOC", "MP4", "XLS"];
+    return (valid.includes(ext as FileType) ? ext : "DOC") as FileType;
+}
+
+/** Format bytes to human-readable string (e.g. "4.2 MB"). */
+function formatBytes(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
 export interface ProjectFile {
     id: string;
     name: string;
@@ -34,6 +45,7 @@ export interface ProjectFile {
     uploadedAt: string;
     modifiedAt?: string;
     description?: string;
+    fileUrl?: string;
 }
 
 /* Shared: close on Escape */
@@ -49,17 +61,39 @@ function useEscapeToClose(onClose: () => void) {
 
 /* =========================
    FILE DETAIL MODAL
-   Read-only metadata view. "Open file" has no real storage to
-   hook into yet, so it's a styled no-op for now.
 ========================= */
 
 interface FileDetailModalProps {
     file: ProjectFile;
     onClose: () => void;
+    onDelete?: (id: string) => Promise<void>;
 }
 
-export function FileDetailModal({ file, onClose }: FileDetailModalProps) {
+export function FileDetailModal({ file, onClose, onDelete }: FileDetailModalProps) {
     useEscapeToClose(onClose);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleOpenFile = () => {
+        if (file.fileUrl) {
+            const base = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3000";
+            window.open(`${base}${file.fileUrl}`, "_blank", "noopener,noreferrer");
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!onDelete) return;
+        if (window.confirm(`Are you sure you want to delete "${file.name}"?`)) {
+            setIsDeleting(true);
+            try {
+                await onDelete(file.id);
+                onClose();
+            } catch (err: any) {
+                alert(err.message || "Failed to delete file");
+            } finally {
+                setIsDeleting(false);
+            }
+        }
+    };
 
     return (
         <div className="modal-overlay" onMouseDown={onClose}>
@@ -72,7 +106,7 @@ export function FileDetailModal({ file, onClose }: FileDetailModalProps) {
             >
                 <div className="task-modal-header">
                     <h3>File</h3>
-                    <button className="modal-close" onClick={onClose} aria-label="Close">
+                    <button className="modal-close" onClick={onClose} aria-label="Close" disabled={isDeleting}>
                         ✕
                     </button>
                 </div>
@@ -111,12 +145,39 @@ export function FileDetailModal({ file, onClose }: FileDetailModalProps) {
                 </div>
 
                 <div className="task-modal-footer">
-                    <span />
+                    {onDelete ? (
+                        <button
+                            type="button"
+                            className="modal-delete"
+                            style={{
+                                background: "#fee2e2",
+                                color: "#ef4444",
+                                border: "none",
+                                padding: "8px 14px",
+                                borderRadius: "6px",
+                                fontWeight: 600,
+                                fontSize: "0.85rem",
+                                cursor: "pointer",
+                            }}
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? "Deleting..." : "Delete file"}
+                        </button>
+                    ) : (
+                        <span />
+                    )}
                     <div className="task-modal-footer-actions">
-                        <button type="button" className="modal-cancel" onClick={onClose}>
+                        <button type="button" className="modal-cancel" onClick={onClose} disabled={isDeleting}>
                             Close
                         </button>
-                        <button type="button" className="modal-save" onClick={() => { }}>
+                        <button
+                            type="button"
+                            className="modal-save"
+                            onClick={handleOpenFile}
+                            disabled={!file.fileUrl || isDeleting}
+                            title={file.fileUrl ? "Open file in new tab" : "No file URL available"}
+                        >
                             Open file
                         </button>
                     </div>
@@ -127,47 +188,66 @@ export function FileDetailModal({ file, onClose }: FileDetailModalProps) {
 }
 
 /* =========================
-   ADD FILE MODAL (Upload file)
-   Simple local-state form -- no real browser upload/storage
-   yet. The new file is handed back to ProjectWorkspace, which
-   stamps the uploaded date and prepends it to `files` state.
+   ADD FILE MODAL
+   Real file picker → FormData → Multer upload.
+   Callback receives a FormData object ready to POST.
 ========================= */
 
 interface AddFileModalProps {
     onClose: () => void;
-    onSave: (file: {
-        name: string;
-        type: FileType;
-        size: string;
-        uploadedBy: string;
-        description?: string;
-    }) => void;
+    /** Called with a FormData object ready to send to the backend. */
+    onSave: (formData: FormData) => void;
+    uploaderName: string;   // pre-filled from logged-in user's display name
+    isLoading?: boolean;
 }
 
-const TYPE_OPTIONS: FileType[] = ["PDF", "PNG", "JPG", "FIG", "ZIP", "PPT", "DOC", "MP4", "XLS"];
-
-export function AddFileModal({ onClose, onSave }: AddFileModalProps) {
+export function AddFileModal({ onClose, onSave, uploaderName, isLoading = false }: AddFileModalProps) {
     useEscapeToClose(onClose);
 
-    const [name, setName] = useState("");
-    const [type, setType] = useState<FileType>("PDF");
-    const [size, setSize] = useState("");
-    const [uploadedBy, setUploadedBy] = useState("");
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [description, setDescription] = useState("");
+    const [isDragging, setIsDragging] = useState(false);
 
-    const canSave =
-        name.trim().length > 0 && size.trim().length > 0 && uploadedBy.trim().length > 0;
+    const handleFileChange = (file: File | null) => {
+        if (file) setSelectedFile(file);
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        handleFileChange(e.target.files?.[0] ?? null);
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0] ?? null;
+        handleFileChange(file);
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => setIsDragging(false);
 
     const handleSave = () => {
-        if (!canSave) return;
-        onSave({
-            name: name.trim(),
-            type,
-            size: size.trim(),
-            uploadedBy: uploadedBy.trim(),
-            description: description.trim() || undefined,
-        });
+        if (!selectedFile) return;
+
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("name", selectedFile.name);
+        formData.append("type", extToFileType(selectedFile.name));
+        formData.append("size", formatBytes(selectedFile.size));
+        formData.append("uploadedBy", uploaderName || "Unknown");
+        if (description.trim()) {
+            formData.append("description", description.trim());
+        }
+
+        onSave(formData);
     };
+
+    const canSave = !!selectedFile && !isLoading;
 
     return (
         <div className="modal-overlay" onMouseDown={onClose}>
@@ -186,48 +266,49 @@ export function AddFileModal({ onClose, onSave }: AddFileModalProps) {
                 </div>
 
                 <div className="task-modal-body">
-                    <div className="field">
-                        <label>File name</label>
+                    {/* Drag-and-drop / click-to-pick zone */}
+                    <div
+                        className={`file-drop-zone${isDragging ? " dragging" : ""}${selectedFile ? " has-file" : ""}`}
+                        onClick={() => fileInputRef.current?.click()}
+                        onDrop={handleDrop}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+                        aria-label="Click or drag a file here to upload"
+                    >
                         <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. homepage-final.fig"
-                            autoFocus
+                            ref={fileInputRef}
+                            type="file"
+                            style={{ display: "none" }}
+                            onChange={handleInputChange}
+                            accept=".pdf,.png,.jpg,.jpeg,.fig,.zip,.ppt,.pptx,.doc,.docx,.mp4,.xls,.xlsx"
                         />
-                    </div>
 
-                    <div className="field-row">
-                        <div className="field">
-                            <label>File type</label>
-                            <select value={type} onChange={(e) => setType(e.target.value as FileType)}>
-                                {TYPE_OPTIONS.map((t) => (
-                                    <option key={t} value={t}>
-                                        {t}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="field">
-                            <label>File size</label>
-                            <input
-                                type="text"
-                                value={size}
-                                onChange={(e) => setSize(e.target.value)}
-                                placeholder="e.g. 4.2 MB"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="field">
-                        <label>Uploaded by</label>
-                        <input
-                            type="text"
-                            value={uploadedBy}
-                            onChange={(e) => setUploadedBy(e.target.value)}
-                            placeholder="e.g. Aditi Rao"
-                        />
+                        {selectedFile ? (
+                            <div className="file-drop-selected">
+                                <div className="file-drop-icon">📄</div>
+                                <div className="file-drop-info">
+                                    <strong>{selectedFile.name}</strong>
+                                    <span>{formatBytes(selectedFile.size)} · {extToFileType(selectedFile.name)}</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="file-drop-remove"
+                                    onClick={(e) => { e.stopPropagation(); setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                                    aria-label="Remove selected file"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="file-drop-placeholder">
+                                <div className="file-drop-icon">📁</div>
+                                <p><strong>Click to choose a file</strong> or drag &amp; drop here</p>
+                                <span>PDF, PNG, JPG, DOC, XLS, PPT, ZIP, MP4, FIG</span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="field">
@@ -244,7 +325,7 @@ export function AddFileModal({ onClose, onSave }: AddFileModalProps) {
                 <div className="task-modal-footer">
                     <span />
                     <div className="task-modal-footer-actions">
-                        <button type="button" className="modal-cancel" onClick={onClose}>
+                        <button type="button" className="modal-cancel" onClick={onClose} disabled={isLoading}>
                             Cancel
                         </button>
                         <button
@@ -253,7 +334,7 @@ export function AddFileModal({ onClose, onSave }: AddFileModalProps) {
                             disabled={!canSave}
                             onClick={handleSave}
                         >
-                            Upload file
+                            {isLoading ? "Uploading…" : "Upload file"}
                         </button>
                     </div>
                 </div>

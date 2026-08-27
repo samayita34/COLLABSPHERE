@@ -10,6 +10,7 @@ function formatDocument(doc: any) {
         id: doc.id,
         name: doc.name,
         description: doc.description,
+        content: doc.content,
         type: doc.type,
         owner: doc.owner,
         size: doc.size,
@@ -27,17 +28,7 @@ export const getDocumentsByProject = async (req: Request, res: Response): Promis
     try {
         const { projectId } = req.params;
 
-        const project = await prisma.project.findUnique({
-            where: { id: projectId },
-        });
-
-        if (!project) {
-            res.status(404).json({
-                success: false,
-                error: "Project not found",
-            });
-            return;
-        }
+        // requireProjectAccess has verified access and project existence.
 
         const documents = await prisma.document.findMany({
             where: { projectId },
@@ -65,19 +56,9 @@ export const getDocumentsByProject = async (req: Request, res: Response): Promis
 export const createDocument = async (req: Request, res: Response): Promise<void> => {
     try {
         const { projectId } = req.params;
-        const { name, description, type, owner, size } = req.body;
+        const { name, description, content, type, owner, size } = req.body;
 
-        const project = await prisma.project.findUnique({
-            where: { id: projectId },
-        });
-
-        if (!project) {
-            res.status(404).json({
-                success: false,
-                error: "Project not found",
-            });
-            return;
-        }
+        // requireProjectAccess has verified access and project existence.
 
         if (!name || typeof name !== "string" || name.trim() === "") {
             res.status(400).json({
@@ -103,6 +84,7 @@ export const createDocument = async (req: Request, res: Response): Promise<void>
             data: {
                 name: name.trim(),
                 description: description ? String(description).trim() : null,
+                content: content ? String(content).trim() : null,
                 type: docType,
                 owner: owner ? String(owner).trim() : null,
                 size: size ? String(size).trim() : null,
@@ -125,6 +107,41 @@ export const createDocument = async (req: Request, res: Response): Promise<void>
 };
 
 /**
+ * PATCH /api/documents/:id
+ * Update an existing document (e.g. saving TipTap content)
+ */
+export const updateDocument = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { name, description, content } = req.body;
+
+        // requireDocumentAccess has verified access and document existence.
+
+        const updateData: Record<string, unknown> = {};
+        if (name !== undefined) updateData.name = name.trim();
+        if (description !== undefined) updateData.description = description ? String(description).trim() : null;
+        if (content !== undefined) updateData.content = content ? String(content).trim() : null;
+
+        const updatedDocument = await prisma.document.update({
+            where: { id },
+            data: updateData,
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Document updated successfully",
+            data: formatDocument(updatedDocument),
+        });
+    } catch (error) {
+        console.error("Error updating document:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to update document",
+        });
+    }
+};
+
+/**
  * DELETE /api/documents/:id
  * Delete a document by ID.
  */
@@ -132,17 +149,7 @@ export const deleteDocument = async (req: Request, res: Response): Promise<void>
     try {
         const { id } = req.params;
 
-        const existingDocument = await prisma.document.findUnique({
-            where: { id },
-        });
-
-        if (!existingDocument) {
-            res.status(404).json({
-                success: false,
-                error: "Document not found",
-            });
-            return;
-        }
+        // requireDocumentAccess has verified access and document existence.
 
         await prisma.document.delete({
             where: { id },
@@ -160,3 +167,97 @@ export const deleteDocument = async (req: Request, res: Response): Promise<void>
         });
     }
 };
+
+/**
+ * GET /api/documents?workspaceId=...
+ * Fetch all documents for projects within a workspace.
+ * Strictly scoped to the specified workspace and user's project access.
+ */
+export const getDocumentsByWorkspace = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ success: false, error: "Authentication required" });
+            return;
+        }
+
+        const workspaceId = req.query.workspaceId as string;
+        if (!workspaceId) {
+            res.status(400).json({ success: false, error: "workspaceId query parameter is required" });
+            return;
+        }
+
+        // Verify the user is a member of the workspace
+        const wsMember = await prisma.workspaceMember.findUnique({
+            where: {
+                workspaceId_userId: {
+                    workspaceId,
+                    userId,
+                },
+            },
+        });
+
+        if (!wsMember) {
+            res.status(403).json({ success: false, error: "Forbidden: You do not have access to this workspace" });
+            return;
+        }
+
+        const whereClause: any = {
+            project: {
+                workspaceId,
+            },
+        };
+
+        // If not a workspace admin, org admin, or super admin, restrict to projects the user owns or belongs to
+        if (wsMember.role !== "WORKSPACE_ADMIN" && req.user?.role !== "SUPER_ADMIN" && req.orgRole !== "ORG_ADMIN") {
+            whereClause.project.OR = [
+                { ownerId: userId },
+                { members: { some: { userId } } },
+            ];
+        }
+
+        const documents = await prisma.document.findMany({
+            where: whereClause,
+            include: {
+                project: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                        status: true,
+                    },
+                },
+            },
+            orderBy: { updatedAt: "desc" },
+        });
+
+        const formatted = documents.map((doc: any) => ({
+            id: doc.id,
+            name: doc.name,
+            description: doc.description,
+            type: doc.type,
+            owner: doc.owner,
+            size: doc.size,
+            content: doc.content,
+            projectId: doc.projectId,
+            projectName: doc.project?.name,
+            projectCode: doc.project?.code,
+            projectStatus: doc.project?.status,
+            createdAt: doc.createdAt,
+            updatedAt: doc.updatedAt,
+        }));
+
+        res.status(200).json({
+            success: true,
+            count: formatted.length,
+            data: formatted,
+        });
+    } catch (error) {
+        console.error("Error fetching workspace documents:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to fetch workspace documents",
+        });
+    }
+};
+

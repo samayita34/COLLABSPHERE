@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { RichTextEditor } from "../components/RichTextEditor";
 
 /* =========================
    TYPES
@@ -20,6 +21,7 @@ export interface ProjectDocument {
     createdAt: string;
     updatedAt: string;
     size?: string;
+    content?: string;
 }
 
 const TYPE_LABEL: Record<DocType, string> = {
@@ -49,10 +51,13 @@ function useEscapeToClose(onClose: () => void) {
 interface DocumentDetailModalProps {
     document: ProjectDocument;
     onClose: () => void;
+    onSave?: (id: string, newContent: string) => void;
 }
 
-export function DocumentDetailModal({ document: doc, onClose }: DocumentDetailModalProps) {
+export function DocumentDetailModal({ document: doc, onClose, onSave }: DocumentDetailModalProps) {
     useEscapeToClose(onClose);
+    const [isEditing, setIsEditing] = useState(false);
+    const [content, setContent] = useState(doc.content || "");
 
     return (
         <div className="modal-overlay" onMouseDown={onClose}>
@@ -83,7 +88,7 @@ export function DocumentDetailModal({ document: doc, onClose }: DocumentDetailMo
                         <p className="doc-detail-description">{doc.description}</p>
                     )}
 
-                    <div className="doc-detail-meta">
+                    <div className="doc-detail-meta mt-4">
                         <div className="stat-row">
                             <span>Owner</span>
                             <span>{doc.owner}</span>
@@ -101,6 +106,22 @@ export function DocumentDetailModal({ document: doc, onClose }: DocumentDetailMo
                             <span>{doc.size ?? "—"}</span>
                         </div>
                     </div>
+
+                    <div className="mt-4">
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-medium text-sm">Content</h4>
+                            {!isEditing && (
+                                <button type="button" className="text-sm text-blue-600 hover:underline" onClick={() => setIsEditing(true)}>
+                                    Edit Document
+                                </button>
+                            )}
+                        </div>
+                        {isEditing ? (
+                            <RichTextEditor content={content} onChange={setContent} />
+                        ) : (
+                            <div className="prose prose-sm dark:prose-invert max-w-none border border-zinc-200 dark:border-zinc-800 rounded-md p-3 min-h-[150px] bg-zinc-50 dark:bg-zinc-950/50" dangerouslySetInnerHTML={{ __html: doc.content || "<p class='text-zinc-500 italic'>No content</p>" }} />
+                        )}
+                    </div>
                 </div>
 
                 <div className="task-modal-footer">
@@ -109,9 +130,14 @@ export function DocumentDetailModal({ document: doc, onClose }: DocumentDetailMo
                         <button type="button" className="modal-cancel" onClick={onClose}>
                             Close
                         </button>
-                        <button type="button" className="modal-save" onClick={() => { }}>
-                            Open document
-                        </button>
+                        {isEditing && (
+                            <button type="button" className="modal-save" onClick={() => {
+                                if (onSave) onSave(doc.id, content);
+                                setIsEditing(false);
+                            }}>
+                                Save Changes
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

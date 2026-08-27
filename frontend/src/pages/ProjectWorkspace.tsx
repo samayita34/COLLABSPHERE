@@ -1,15 +1,18 @@
 import { useEffect, useState, type DragEvent } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import "./Projects.css";
 import "./ProjectWorkspace.css";
 import TaskModal from "./TaskModal";
 import { MemberDetailModal, AddMemberModal } from "./MemberModal";
 import { DocumentDetailModal, AddDocumentModal } from "./DocumentModal";
 import { FileDetailModal, AddFileModal } from "./FileModal";
+import { ProjectSettingsModal } from "./ProjectSettingsModal";
 import ProjectChat, { type ChatMessage } from "./ProjectChat";
-import { fetchProjectById, createTaskApi, updateTaskApi, updateTaskStatusApi, deleteTaskApi, addMemberApi, fetchDocuments, createDocumentApi, fetchFiles, createFileApi, fetchChatMessages, sendChatMessageApi } from "../services/projectApi";
+import { fetchProjectById, createTaskApi, updateTaskApi, updateTaskStatusApi, deleteTaskApi, addMemberApi, fetchDocuments, createDocumentApi, fetchFiles, uploadFileApi, deleteFileApi, fetchChatMessages, sendChatMessageApi, updateDocumentApi, mapApiTaskToFrontend, mapApiChatMessageToFrontend } from "../services/projectApi";
 import type { TaskStatus, TaskPriority, Task, Member, MappedProject as Project } from "../services/projectApi";
 import { useAuth } from "../context/AuthContext";
+import { WorkspaceSelector } from "../components/WorkspaceSelector";
+import { socketService } from "../services/socket";
 
 /* =========================
    TYPES
@@ -54,14 +57,9 @@ interface ProjectFile {
     description?: string;
 }
 
-const activity = [
-    { text: "Pranav Sen marked \"Audit existing component library\" as done", time: "2h ago" },
-    { text: "Aditi Rao commented on the hero section design", time: "5h ago" },
-    { text: "Jordan Mehta moved \"QA pass on interactive states\" to Review", time: "Yesterday" },
-    { text: "Samayita Ray added Kabir Luthra to the project", time: "2 days ago" },
-];
+const activity: { text: string; time: string }[] = [];
 
-const TABS = ["Overview", "Tasks", "Board", "Members", "Documents", "Files", "Chat", "Activity"] as const;
+const TABS = ["Overview", "Tasks", "Board", "Members", "Documents", "Files", "Chat", "Activity", "Settings"] as const;
 type Tab = (typeof TABS)[number];
 
 const COLUMNS: { key: TaskStatus; label: string }[] = [
@@ -112,13 +110,24 @@ const FILE_CATEGORY_FILTERS: { key: "all" | FileCategory; label: string }[] = [
 
 export default function ProjectWorkspace() {
     const { id, slug } = useParams<{ id?: string; slug?: string }>();
+    const navigate = useNavigate();
+    const location = useLocation();
     const { userFullName, userInitials, logout } = useAuth();
     const routeParam = id || slug || "";
 
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<Tab>("Overview");
+    
+    const initialTab = (location.state?.activeTab && TABS.includes(location.state.activeTab as Tab)) ? (location.state.activeTab as Tab) : "Overview";
+    const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+
+    useEffect(() => {
+        if (location.state?.activeTab && TABS.includes(location.state.activeTab as Tab)) {
+            setActiveTab(location.state.activeTab as Tab);
+        }
+    }, [location.state]);
+    const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
     const [tasks, setTasks] = useState<Task[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
@@ -177,6 +186,48 @@ export default function ProjectWorkspace() {
         setStatusFilter("all");
         setPriorityFilter("all");
     }, [id, slug, routeParam]);
+
+    /* =========================
+       REAL-TIME SOCKET.IO SYNC
+    ========================= */
+    useEffect(() => {
+        if (!routeParam) return;
+        const socket = socketService.connect();
+        socketService.joinProject(routeParam);
+
+        const handleTaskUpdated = (rawTask: any) => {
+            const mapped = mapApiTaskToFrontend(rawTask);
+            setTasks((prev) => {
+                const exists = prev.some((t) => t.id === mapped.id);
+                return exists
+                    ? prev.map((t) => (t.id === mapped.id ? mapped : t))
+                    : [...prev, mapped];
+            });
+        };
+
+        const handleTaskDeleted = (deletedTaskId: string) => {
+            setTasks((prev) => prev.filter((t) => t.id !== deletedTaskId));
+        };
+
+        const handleNewMessage = (rawMsg: any) => {
+            const mapped = mapApiChatMessageToFrontend(rawMsg);
+            setMessages((prev) => {
+                if (prev.some((m) => m.id === mapped.id)) return prev;
+                return [...prev, mapped];
+            });
+        };
+
+        socket?.on("taskUpdated", handleTaskUpdated);
+        socket?.on("taskDeleted", handleTaskDeleted);
+        socket?.on("newMessage", handleNewMessage);
+
+        return () => {
+            socket?.off("taskUpdated", handleTaskUpdated);
+            socket?.off("taskDeleted", handleTaskDeleted);
+            socket?.off("newMessage", handleNewMessage);
+            socketService.leaveProject(routeParam);
+        };
+    }, [routeParam]);
 
     const filteredTasks = tasks.filter((t) => {
         const statusMatch = statusFilter === "all" || t.status === statusFilter;
@@ -357,6 +408,19 @@ export default function ProjectWorkspace() {
             });
     };
 
+    const handleUpdateDocument = (id: string, newContent: string) => {
+        updateDocumentApi(id, { content: newContent })
+            .then((updatedDoc) => {
+                setDocuments((prev) => prev.map(d => d.id === updatedDoc.id ? updatedDoc : d));
+                if (detailDoc?.id === updatedDoc.id) {
+                    setDetailDoc(updatedDoc);
+                }
+            })
+            .catch((err) => {
+                console.error("Failed to update document:", err);
+            });
+    };
+
     /* =========================
        FILES TAB
     ========================= */
@@ -364,6 +428,7 @@ export default function ProjectWorkspace() {
     const [fileSearch, setFileSearch] = useState("");
     const [addFileOpen, setAddFileOpen] = useState(false);
     const [detailFile, setDetailFile] = useState<ProjectFile | null>(null);
+    const [fileUploading, setFileUploading] = useState(false);
 
     const filteredFiles = files.filter((f) => {
         const cat = FILE_CATEGORY[f.type];
@@ -377,16 +442,25 @@ export default function ProjectWorkspace() {
         return catMatch && searchMatch;
     });
 
-    /* AddFileModal.onSave receives partial file; we call createFileApi */
-    const handleAddFileSave = (form: { name: string; type: FileType; size: string; uploadedBy: string; description?: string }) => {
-        createFileApi(routeParam, form)
+    /* AddFileModal.onSave receives FormData → uploadFileApi sends multipart to Multer */
+    const handleAddFileSave = (formData: FormData) => {
+        setFileUploading(true);
+        uploadFileApi(routeParam, formData)
             .then((newFile) => {
                 setFiles((prev) => [newFile, ...prev]);
                 setAddFileOpen(false);
             })
             .catch((err) => {
-                console.error("Failed to create file:", err);
+                console.error("Failed to upload file:", err);
+            })
+            .finally(() => {
+                setFileUploading(false);
             });
+    };
+
+    const handleDeleteFile = async (fileId: string) => {
+        await deleteFileApi(fileId);
+        setFiles((prev) => prev.filter((f) => f.id !== fileId));
     };
 
     /* =========================
@@ -408,16 +482,11 @@ export default function ProjectWorkspace() {
             <div className="projects-page">
                 <aside className="projects-sidebar">
                     <div className="brand"><span>Collabsphere</span><small>ENT</small></div>
-                    <div className="workspace">
-                        <div className="workspace-logo">AC</div>
-                        <div><strong>Acme Corp</strong><span>Enterprise workspace</span></div>
-                        <span className="chevron">⌄</span>
-                    </div>
+                    <WorkspaceSelector />
                     <div className="nav-title">NAVIGATION</div>
                     <nav>
-                        <a href="#">Overview</a>
-                        <a href="#" className="selected">Projects</a>
-                        <a href="#">My Tasks</a>
+                        <Link to="/overview">Overview</Link>
+                        <Link to="/projects" className="selected">Projects</Link>
                     </nav>
                 </aside>
                 <main className="projects-main">
@@ -439,11 +508,7 @@ export default function ProjectWorkspace() {
             <div className="projects-page">
                 <aside className="projects-sidebar">
                     <div className="brand"><span>Collabsphere</span><small>ENT</small></div>
-                    <div className="workspace">
-                        <div className="workspace-logo">AC</div>
-                        <div><strong>Acme Corp</strong><span>Enterprise workspace</span></div>
-                        <span className="chevron">⌄</span>
-                    </div>
+                    <WorkspaceSelector />
                 </aside>
                 <main className="projects-main">
                     <header className="topbar">
@@ -470,31 +535,22 @@ export default function ProjectWorkspace() {
                     <small>ENT</small>
                 </div>
 
-                <div className="workspace">
-                    <div className="workspace-logo">{userInitials}</div>
-
-                    <div>
-                        <strong>Acme Corp</strong>
-                        <span>Enterprise workspace</span>
-                    </div>
-
-                    <span className="chevron">⌄</span>
-                </div>
+                <WorkspaceSelector />
 
                 <div className="nav-title">NAVIGATION</div>
 
                 <nav>
-                    <a href="#">Overview</a>
-                    <a href="#" className="selected">
+                    <Link to="/overview">Overview</Link>
+                    <Link to="/projects" className="selected">
                         Projects
                         <span>{members.length}</span>
-                    </a>
-                    <a href="#">My Tasks</a>
-                    <a href="#">Documents</a>
-                    <a href="#">Files</a>
-                    <a href="#">Messages</a>
-                    <a href="#">Analytics</a>
-                    <a href="#">Settings</a>
+                    </Link>
+                    <Link to="/my-tasks">My Tasks</Link>
+                    <Link to="/documents">Documents</Link>
+                    <Link to="/files">Files</Link>
+                    <Link to="/messages">Messages</Link>
+                    <Link to="/projects">Analytics</Link>
+                    <a href="#" onClick={(e) => { e.preventDefault(); setIsSettingsOpen(true); }}>Settings</a>
                 </nav>
 
                 <div className="profile">
@@ -564,13 +620,55 @@ export default function ProjectWorkspace() {
                                 <div className="workspace-title-row">
                                     <h1>{project.name}</h1>
 
+                                    {project.code && (
+                                        <span
+                                            style={{
+                                                fontFamily: "monospace",
+                                                fontSize: "0.75rem",
+                                                fontWeight: 600,
+                                                background: "#232a3d",
+                                                color: "#f8fafc",
+                                                padding: "2px 8px",
+                                                borderRadius: "4px",
+                                                letterSpacing: "0.05em",
+                                                marginLeft: "8px",
+                                            }}
+                                            title="Project Code"
+                                        >
+                                            {project.code}
+                                        </span>
+                                    )}
+
                                     <div
-                                        className={`status ${project.status === "COMPLETED" ? "completed" : "active"
-                                            }`}
+                                        className={`status ${project.status === "COMPLETED" ? "completed" : project.status === "ARCHIVED" ? "archived" : "active"}`}
                                     >
                                         <span />
                                         {project.status}
                                     </div>
+
+                                    <button
+                                        type="button"
+                                        className="settings-trigger-btn"
+                                        onClick={() => setIsSettingsOpen(true)}
+                                        style={{
+                                            background: "#ffffff",
+                                            border: "1px solid #e2e8f0",
+                                            borderRadius: "6px",
+                                            padding: "4px 10px",
+                                            fontSize: "0.8rem",
+                                            fontWeight: 500,
+                                            color: "#475569",
+                                            cursor: "pointer",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "5px",
+                                            marginLeft: "12px",
+                                            transition: "all 0.12s ease",
+                                        }}
+                                        title="Project Settings & Lifecycle"
+                                    >
+                                        <span>⚙️</span> Settings
+                                    </button>
                                 </div>
 
                                 <div className="workspace-category">{project.category}</div>
@@ -637,8 +735,15 @@ export default function ProjectWorkspace() {
                             <button
                                 key={tab}
                                 className={activeTab === tab ? "active" : ""}
-                                onClick={() => setActiveTab(tab)}
+                                onClick={() => {
+                                    if (tab === "Settings") {
+                                        setIsSettingsOpen(true);
+                                    } else {
+                                        setActiveTab(tab);
+                                    }
+                                }}
                             >
+                                {tab === "Settings" && <span style={{ marginRight: "4px" }}>⚙️</span>}
                                 {tab}
                                 {tab === "Tasks" && <span className="tab-count">{tasksTotal}</span>}
                                 {tab === "Board" && <span className="tab-count">{tasksTotal}</span>}
@@ -708,34 +813,40 @@ export default function ProjectWorkspace() {
                                     </div>
 
                                     <div className="task-list">
-                                        {tasks.slice(0, 4).map((t) => (
-                                            <div
-                                                className={`task-row ${t.status === "done" ? "done" : ""} clickable`}
-                                                key={t.id}
-                                                onClick={() => openEditModal(t)}
-                                            >
-                                                <div className={`task-check ${t.status === "done" ? "checked" : ""}`}>
-                                                    {t.status === "done" ? "✓" : ""}
-                                                </div>
-
-                                                <div className="task-body">
-                                                    <div className="task-title-row">
-                                                        <span className="task-title">{t.title}</span>
-                                                        <span className={`priority-tag ${t.priority ? t.priority.toLowerCase() : "medium"}`}>
-                                                            {t.priority}
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="task-meta">
-                                                        <span className={`status-badge ${t.status}`}>{TAG_LABEL[t.status] || t.status}</span>
-                                                        <span className="meta-sep">·</span>
-                                                        <span>Due {t.due}</span>
-                                                        <span className="meta-sep">·</span>
-                                                        <span>{memberName(t.assignee)}</span>
-                                                    </div>
-                                                </div>
+                                        {tasks.length === 0 ? (
+                                            <div style={{ color: "#64748b", fontSize: "13px", padding: "12px 0" }}>
+                                                No active tasks.
                                             </div>
-                                        ))}
+                                        ) : (
+                                            tasks.slice(0, 4).map((t) => (
+                                                <div
+                                                    className={`task-row ${t.status === "done" ? "done" : ""} clickable`}
+                                                    key={t.id}
+                                                    onClick={() => openEditModal(t)}
+                                                >
+                                                    <div className={`task-check ${t.status === "done" ? "checked" : ""}`}>
+                                                        {t.status === "done" ? "✓" : ""}
+                                                    </div>
+
+                                                    <div className="task-body">
+                                                        <div className="task-title-row">
+                                                            <span className="task-title">{t.title}</span>
+                                                            <span className={`priority-tag ${t.priority ? t.priority.toLowerCase() : "medium"}`}>
+                                                                {t.priority}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="task-meta">
+                                                            <span className={`status-badge ${t.status}`}>{TAG_LABEL[t.status] || t.status}</span>
+                                                            <span className="meta-sep">·</span>
+                                                            <span>Due {t.due}</span>
+                                                            <span className="meta-sep">·</span>
+                                                            <span>{memberName(t.assignee)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
 
@@ -785,15 +896,21 @@ export default function ProjectWorkspace() {
                                     </div>
 
                                     <div className="activity-list">
-                                        {activity.map((a, i) => (
-                                            <div className="activity-row" key={i}>
-                                                <div className="activity-bullet" />
-                                                <div className="activity-body">
-                                                    <p>{a.text}</p>
-                                                    <span>{a.time}</span>
-                                                </div>
+                                        {activity.length === 0 ? (
+                                            <div style={{ color: "#64748b", fontSize: "13px", padding: "8px 0" }}>
+                                                No activity yet.
                                             </div>
-                                        ))}
+                                        ) : (
+                                            activity.map((a, i) => (
+                                                <div className="activity-row" key={i}>
+                                                    <div className="activity-bullet" />
+                                                    <div className="activity-body">
+                                                        <p>{a.text}</p>
+                                                        <span>{a.time}</span>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
 
@@ -1194,15 +1311,22 @@ export default function ProjectWorkspace() {
                             </div>
 
                             <div className="activity-list">
-                                {activity.map((a, i) => (
-                                    <div className="activity-row" key={i}>
-                                        <div className="activity-bullet" />
-                                        <div className="activity-body">
-                                            <p>{a.text}</p>
-                                            <span>{a.time}</span>
-                                        </div>
+                                {activity.length === 0 ? (
+                                    <div className="empty-state" style={{ textAlign: "center", padding: "40px 0", color: "#64748b" }}>
+                                        <p style={{ margin: 0, fontSize: "14px", fontWeight: 500 }}>No activity yet</p>
+                                        <p style={{ margin: "4px 0 0", fontSize: "12.5px" }}>Updates and changes across this project will appear here.</p>
                                     </div>
-                                ))}
+                                ) : (
+                                    activity.map((a, i) => (
+                                        <div className="activity-row" key={i}>
+                                            <div className="activity-bullet" />
+                                            <div className="activity-body">
+                                                <p>{a.text}</p>
+                                                <span>{a.time}</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </div>
                     )}
@@ -1251,6 +1375,7 @@ export default function ProjectWorkspace() {
                 <DocumentDetailModal
                     document={detailDoc}
                     onClose={() => setDetailDoc(null)}
+                    onSave={handleUpdateDocument}
                 />
             )}
 
@@ -1258,6 +1383,8 @@ export default function ProjectWorkspace() {
                 <AddFileModal
                     onClose={() => setAddFileOpen(false)}
                     onSave={handleAddFileSave}
+                    uploaderName={userFullName || userInitials || "Unknown"}
+                    isLoading={fileUploading}
                 />
             )}
 
@@ -1265,6 +1392,21 @@ export default function ProjectWorkspace() {
                 <FileDetailModal
                     file={detailFile}
                     onClose={() => setDetailFile(null)}
+                    onDelete={handleDeleteFile}
+                />
+            )}
+
+            {isSettingsOpen && project && (
+                <ProjectSettingsModal
+                    isOpen={isSettingsOpen}
+                    onClose={() => setIsSettingsOpen(false)}
+                    project={project}
+                    onProjectUpdated={(updated) => {
+                        setProject(updated);
+                    }}
+                    onProjectDeleted={() => {
+                        navigate("/projects");
+                    }}
                 />
             )}
 

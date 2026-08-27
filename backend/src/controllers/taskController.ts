@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import { TaskStatus, TaskPriority } from "../../generated/prisma/enums";
+import { getIO } from "../lib/socket";
 
 // Non-sensitive fields — identical to projectController.safeUserSelect
 const safeUserSelect = {
@@ -37,6 +38,92 @@ function formatTask(task: any) {
 }
 
 /**
+ * GET /api/tasks/my-tasks?workspaceId=<workspaceId>
+ * Returns all tasks assigned to the authenticated user within the specified workspace.
+ */
+export const getMyTasks = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ success: false, error: "Authentication required" });
+            return;
+        }
+
+        const workspaceId = req.query.workspaceId as string;
+        if (!workspaceId) {
+            res.status(400).json({ success: false, error: "workspaceId query parameter is required" });
+            return;
+        }
+
+        // Verify the user is a member of the workspace
+        const wsMember = await prisma.workspaceMember.findUnique({
+            where: {
+                workspaceId_userId: {
+                    workspaceId,
+                    userId,
+                },
+            },
+        });
+
+        if (!wsMember) {
+            res.status(403).json({ success: false, error: "Forbidden: You do not have access to this workspace" });
+            return;
+        }
+
+        // Fetch all tasks in projects belonging to this workspace assigned to this user
+        const tasks = await prisma.task.findMany({
+            where: {
+                assigneeId: userId,
+                project: {
+                    workspaceId,
+                },
+            },
+            include: {
+                assignee: { select: safeUserSelect },
+                project: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                        status: true,
+                    },
+                },
+            },
+            orderBy: [
+                { dueDate: "asc" },
+                { updatedAt: "desc" },
+            ],
+        });
+
+        const formatted = tasks.map((task: any) => ({
+            id: task.id,
+            title: task.title,
+            description: task.description,
+            status: task.status,
+            priority: task.priority,
+            dueDate: task.dueDate,
+            projectId: task.projectId,
+            projectName: task.project.name,
+            projectCode: task.project.code,
+            projectStatus: task.project.status,
+            assigneeId: task.assigneeId,
+            assignee: task.assignee ?? null,
+            createdAt: task.createdAt,
+            updatedAt: task.updatedAt,
+        }));
+
+        res.status(200).json({
+            success: true,
+            count: formatted.length,
+            data: formatted,
+        });
+    } catch (error: any) {
+        console.error("getMyTasks error:", error);
+        res.status(500).json({ success: false, error: error.message || "Failed to fetch user tasks" });
+    }
+};
+
+/**
  * GET /api/projects/:projectId/tasks
  * Returns all tasks belonging to a project, ordered oldest-first.
  * Each task includes the assignee's safe user fields.
@@ -45,12 +132,7 @@ export const getTasksByProject = async (req: Request, res: Response): Promise<vo
     try {
         const { projectId } = req.params;
 
-        // Verify project exists
-        const project = await prisma.project.findUnique({ where: { id: projectId } });
-        if (!project) {
-            res.status(404).json({ success: false, error: "Project not found" });
-            return;
-        }
+        // requireProjectAccess has verified access and project existence.
 
         const tasks = await prisma.task.findMany({
             where: { projectId },
@@ -82,12 +164,7 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
         const { projectId } = req.params;
         const { title, description, status, priority, dueDate, assigneeId } = req.body;
 
-        // Verify project exists
-        const project = await prisma.project.findUnique({ where: { id: projectId } });
-        if (!project) {
-            res.status(404).json({ success: false, error: "Project not found" });
-            return;
-        }
+        // requireProjectAccess has verified access and project existence.
 
         // title is required
         if (!title || typeof title !== "string" || title.trim() === "") {
@@ -165,10 +242,18 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             },
         });
 
+        const formattedTask = formatTask(task);
+        
+        try {
+            getIO().to(projectId).emit("taskUpdated", formattedTask);
+        } catch (e) {
+            console.error("Failed to emit taskUpdated event", e);
+        }
+
         res.status(201).json({
             success: true,
             message: "Task created successfully",
-            data: formatTask(task),
+            data: formattedTask,
         });
     } catch (error) {
         console.error("Error creating task:", error);
@@ -186,12 +271,7 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
         const { id } = req.params;
         const { title, description, status, priority, dueDate, assigneeId } = req.body;
 
-        // Verify task exists
-        const existing = await prisma.task.findUnique({ where: { id } });
-        if (!existing) {
-            res.status(404).json({ success: false, error: "Task not found" });
-            return;
-        }
+        // requireTaskAccess has already verified task existence and project access.
 
         const updateData: Record<string, unknown> = {};
 
@@ -281,10 +361,18 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             },
         });
 
+        const formattedTask = formatTask(updated);
+
+        try {
+            getIO().to(req.project.id).emit("taskUpdated", formattedTask);
+        } catch (e) {
+            console.error("Failed to emit taskUpdated event", e);
+        }
+
         res.status(200).json({
             success: true,
             message: "Task updated successfully",
-            data: formatTask(updated),
+            data: formattedTask,
         });
     } catch (error) {
         console.error("Error updating task:", error);
@@ -300,14 +388,15 @@ export const deleteTask = async (req: Request, res: Response): Promise<void> => 
     try {
         const { id } = req.params;
 
-        // Verify task exists
-        const existing = await prisma.task.findUnique({ where: { id } });
-        if (!existing) {
-            res.status(404).json({ success: false, error: "Task not found" });
-            return;
-        }
+        // requireTaskAccess has already verified task existence and project access.
 
         await prisma.task.delete({ where: { id } });
+
+        try {
+            getIO().to(req.project.id).emit("taskDeleted", id);
+        } catch (e) {
+            console.error("Failed to emit taskDeleted event", e);
+        }
 
         res.status(200).json({
             success: true,

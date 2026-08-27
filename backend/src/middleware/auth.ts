@@ -19,6 +19,12 @@ declare global {
     namespace Express {
         interface Request {
             user?: SafeUser;
+            organization?: any;
+            orgRole?: string;
+            workspace?: any;
+            workspaceRole?: string;
+            project?: any;
+            projectRole?: string;
         }
     }
 }
@@ -39,8 +45,8 @@ export const authenticate = async (
     try {
         let token: string | undefined;
 
-        if (req.cookies && req.cookies.token) {
-            token = req.cookies.token;
+        if (req.cookies && req.cookies.accessToken) {
+            token = req.cookies.accessToken;
         } else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
             token = req.headers.authorization.split(" ")[1];
         }
@@ -96,65 +102,6 @@ export const authenticate = async (
             success: false,
             error: error.message || "Authentication error",
         });
-    }
-};
-
-/**
- * Check if a user is either the owner or a member of a project.
- */
-export async function isUserProjectMemberOrOwner(userId: string, projectId: string): Promise<boolean> {
-    const project = await prisma.project.findUnique({
-        where: { id: projectId },
-        select: {
-            ownerId: true,
-            members: {
-                where: { userId },
-                select: { id: true },
-            },
-        },
-    });
-
-    if (!project) return false;
-    if (project.ownerId === userId) return true;
-    return project.members.length > 0;
-}
-
-/**
- * Authorization middleware enforcing project membership or ownership.
- * Checks params: projectId or id.
- */
-export const authorizeProjectAccess = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-): Promise<void> => {
-    try {
-        if (!req.user) {
-            res.status(401).json({ success: false, error: "Authentication required" });
-            return;
-        }
-
-        const rawProjectId = req.params.projectId || req.params.id;
-        if (!rawProjectId) {
-            next();
-            return;
-        }
-
-        const projectId = Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId;
-
-        const hasAccess = await isUserProjectMemberOrOwner(req.user.id, projectId);
-        if (!hasAccess) {
-            res.status(403).json({
-                success: false,
-                error: "Access denied. You are not a member or owner of this project.",
-            });
-            return;
-        }
-
-        next();
-    } catch (error) {
-        console.error("Project authorization error:", error);
-        res.status(500).json({ success: false, error: "Authorization error" });
     }
 };
 

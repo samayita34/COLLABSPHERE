@@ -1,36 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useWorkspace } from "../context/WorkspaceContext";
+import { fetchWorkspaceOverviewApi, type WorkspaceOverviewData } from "../services/workspaceApi";
+import { WorkspaceSelector } from "../components/WorkspaceSelector";
+import { CreateProjectModal } from "./CreateProjectModal";
 import "./Dashboard.css";
-
-const projects = [
-  { id: 1, name: "Website Redesign", tag: "WR", category: "Design System", progress: 72, tasks: "18/25", members: ["AR", "PS", "SR"], status: "On track", statusType: "success" },
-  { id: 2, name: "Mobile Application", tag: "MA", category: "iOS & Android", progress: 48, tasks: "12/25", members: ["JM", "KL", "AR"], status: "In review", statusType: "warning" },
-  { id: 3, name: "Internal Portal", tag: "IP", category: "Infrastructure", progress: 91, tasks: "21/23", members: ["SR", "PS"], status: "On track", statusType: "success" },
-  { id: 4, name: "API Gateway v2", tag: "AG", category: "Backend Core", progress: 34, tasks: "8/24", members: ["KL", "JM"], status: "At risk", statusType: "danger" },
-];
-
-const tasks = [
-  { id: 1, title: "Finalize homepage wireframes and component spec", priority: "High", due: "Today", project: "Website Redesign", completed: false },
-  { id: 2, title: "Review GraphQL API documentation & endpoint schemas", priority: "Medium", due: "Tomorrow", project: "Mobile App", completed: false },
-  { id: 3, title: "User testing session prep & prototype sync", priority: "High", due: "Aug 12", project: "Internal Portal", completed: true },
-  { id: 4, title: "Update design tokens in Tailwind configuration", priority: "Low", due: "Aug 14", project: "Website Redesign", completed: false },
-  { id: 5, title: "Sprint retrospective notes & Q3 milestone planning", priority: "Medium", due: "Aug 15", project: "Mobile App", completed: false },
-];
-
-const activity = [
-  { id: 1, initials: "AR", name: "Alex Rivera", action: "updated wireframes in", target: "Website Redesign", time: "12m ago", type: "edit" },
-  { id: 2, initials: "PS", name: "Priya Sharma", action: "uploaded 4 assets to", target: "Mobile Application", time: "35m ago", type: "upload" },
-  { id: 3, initials: "SR", name: "Samayita Ray", action: "closed milestone in", target: "Internal Portal", time: "1h ago", type: "check" },
-  { id: 4, initials: "JM", name: "John Miller", action: "joined the workspace as", target: "Developer", time: "2h ago", type: "user" },
-  { id: 5, initials: "KL", name: "Karen Lee", action: "commented on endpoint in", target: "API Gateway v2", time: "3h ago", type: "comment" },
-];
-
-const stats = [
-  { label: "Active Projects", value: "12", change: "+14%", period: "vs last month", isPositive: true },
-  { label: "Pending Tasks", value: "28", change: "6 urgent", period: "due today", isWarning: true },
-  { label: "Team Velocity", value: "94.2%", change: "+3.8%", period: "vs last sprint", isPositive: true },
-  { label: "Storage Capacity", value: "6.4 GB", change: "64%", period: "of 10 GB quota", isNeutral: true },
-];
 
 function NavIcon({ t }: { t: string }) {
   const p = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.75, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -47,31 +22,80 @@ function NavIcon({ t }: { t: string }) {
   }
 }
 
-const nav = [
-  { label: "Overview", icon: "overview", active: true },
-  { label: "Projects", icon: "projects", badge: "4" },
-  { label: "Tasks", icon: "tasks", badge: "12" },
-  { label: "Documents", icon: "documents" },
-  { label: "Files", icon: "files" },
-  { label: "Messages", icon: "messages", badge: "3" },
-  { label: "Analytics", icon: "analytics" },
-  { label: "Settings", icon: "settings" },
-];
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const { userFullName, userInitials, logout } = useAuth();
+  const { activeWorkspace } = useWorkspace();
+  
+  const [data, setData] = useState<WorkspaceOverviewData | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-function Dashboard() {
-  const { userFullName, userInitials } = useAuth();
-  const [taskList, setTaskList] = useState(tasks);
+  const loadData = () => {
+    if (!activeWorkspace) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
 
-  const toggleTask = (id: number) => {
-    setTaskList(taskList.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+    setLoading(true);
+    fetchWorkspaceOverviewApi(activeWorkspace.id)
+      .then((overview) => {
+        setData(overview);
+        setError(null);
+      })
+      .catch((err) => {
+        console.error("Failed to load workspace overview:", err);
+        setError(err.message || "Failed to load overview data");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [activeWorkspace]);
+
+  const metrics = data?.metrics ?? {
+    totalProjects: 0,
+    activeProjects: 0,
+    completedProjects: 0,
+    totalTasks: 0,
+    completedTasks: 0,
+    inProgressTasks: 0,
+    todoTasks: 0,
+  };
+
+  const completionPct = metrics.totalTasks === 0 
+    ? 0 
+    : Math.round((metrics.completedTasks / metrics.totalTasks) * 100);
+
+  const todayFormatted = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).toUpperCase();
+
+  const getStatusBadgeClass = (status: string) => {
+    if (status === "ACTIVE") return "success";
+    if (status === "COMPLETED") return "warning";
+    return "danger";
+  };
+
+  const getStatusDisplay = (status: string) => {
+    if (status === "ACTIVE") return "Active";
+    if (status === "COMPLETED") return "Completed";
+    return "Archived";
   };
 
   return (
     <div className="cs-dashboard">
 
-      {/* FIXED SIDEBAR - Absolutely pinned, zero page scrollup */}
+      {/* FIXED SIDEBAR */}
       <aside className="cs-sidebar">
-        
         {/* Brand */}
         <div className="cs-brand">
           <span className="cs-brand-logo">
@@ -81,59 +105,94 @@ function Dashboard() {
           <span className="cs-brand-badge">ENT</span>
         </div>
 
-        {/* Workspace Switcher */}
-        <div className="cs-workspace-card">
-          <div className="cs-ws-icon">{userInitials}</div>
-          <div className="cs-ws-details">
-            <strong className="cs-ws-title">Acme Corp</strong>
-            <span className="cs-ws-sub">Enterprise Plan</span>
-          </div>
-          <svg className="cs-ws-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
+        {/* Dynamic Workspace Switcher */}
+        <WorkspaceSelector />
 
         {/* Nav Links */}
         <nav className="cs-nav">
           <span className="cs-nav-group-title">MAIN WORKSPACE</span>
-          {nav.map((item) => (
-            <a key={item.label} className={`cs-nav-item${item.active ? " active" : ""}`}>
-              <NavIcon t={item.icon} />
-              <span className="cs-nav-label">{item.label}</span>
-              {item.badge && <span className={`cs-nav-badge ${item.active ? "active-badge" : ""}`}>{item.badge}</span>}
-            </a>
-          ))}
+          
+          <Link to="/overview" className="cs-nav-item active">
+            <NavIcon t="overview" />
+            <span className="cs-nav-label">Overview</span>
+          </Link>
+
+          <Link to="/projects" className="cs-nav-item">
+            <NavIcon t="projects" />
+            <span className="cs-nav-label">Projects</span>
+            {metrics.totalProjects > 0 && (
+              <span className="cs-nav-badge">{metrics.totalProjects}</span>
+            )}
+          </Link>
+
+          <Link to="/my-tasks" className="cs-nav-item">
+            <NavIcon t="tasks" />
+            <span className="cs-nav-label">My Tasks</span>
+            {metrics.inProgressTasks + metrics.todoTasks > 0 && (
+              <span className="cs-nav-badge">{metrics.inProgressTasks + metrics.todoTasks}</span>
+            )}
+          </Link>
+
+          <Link to="/documents" className="cs-nav-item">
+            <NavIcon t="documents" />
+            <span className="cs-nav-label">Documents</span>
+          </Link>
+
+          <Link to="/files" className="cs-nav-item">
+            <NavIcon t="files" />
+            <span className="cs-nav-label">Files</span>
+          </Link>
+
+          <Link to="/messages" className="cs-nav-item">
+            <NavIcon t="messages" />
+            <span className="cs-nav-label">Messages</span>
+          </Link>
+
+          <a href="#" className="cs-nav-item" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>
+            <NavIcon t="analytics" />
+            <span className="cs-nav-label">Analytics</span>
+          </a>
+
+          <a href="#" className="cs-nav-item" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>
+            <NavIcon t="settings" />
+            <span className="cs-nav-label">Settings</span>
+          </a>
         </nav>
 
-        {/* Sidebar Bottom Profile & Storage */}
+        {/* Sidebar Footer User Pill */}
         <div className="cs-sidebar-footer">
-          <div className="cs-storage-widget">
-            <div className="cs-storage-header">
-              <span>Cloud Storage</span>
-              <strong>6.4 GB / 10 GB</strong>
-            </div>
-            <div className="cs-storage-track">
-              <div className="cs-storage-bar" style={{ width: "64%" }} />
-            </div>
-          </div>
-
           <div className="cs-user-pill">
             <div className="cs-user-avatar">{userInitials}</div>
             <div className="cs-user-meta">
               <strong className="cs-user-name">{userFullName}</strong>
               <span className="cs-user-role">Workspace Member</span>
             </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+            <button
+              onClick={logout}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#ef4444",
+                cursor: "pointer",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                padding: "4px",
+              }}
+              title="Sign out"
+            >
+              Exit
+            </button>
           </div>
         </div>
-
       </aside>
 
-      {/* MAIN VIEWPORT BODY */}
+      {/* MAIN VIEWPORT */}
       <div className="cs-main-container">
 
-        {/* Header bar */}
+        {/* Topbar */}
         <header className="cs-topbar">
           <div className="cs-breadcrumb">
-            <span className="cs-bc-root">Acme Workspace</span>
+            <span className="cs-bc-root">{activeWorkspace?.name || "Workspace"}</span>
             <span className="cs-bc-divider">/</span>
             <span className="cs-bc-current">Overview</span>
           </div>
@@ -141,14 +200,9 @@ function Dashboard() {
           <div className="cs-topbar-actions">
             <div className="cs-search-box">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" placeholder="Search projects, tasks, members..." />
+              <input type="text" placeholder="Search projects, tasks..." />
               <kbd>⌘K</kbd>
             </div>
-
-            <button className="cs-icon-btn" aria-label="Notifications">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              <span className="cs-unread-indicator" />
-            </button>
 
             <div className="cs-divider-v" />
 
@@ -159,176 +213,256 @@ function Dashboard() {
           </div>
         </header>
 
-        {/* Scrollable Main Content */}
+        {/* Content */}
         <main className="cs-content">
 
-          {/* Hero Banner / Page Title */}
+          {/* Hero Banner */}
           <div className="cs-hero-section">
             <div>
               <div className="cs-date-chip">
                 <span className="cs-chip-pulse" />
-                MONDAY, AUGUST 10, 2026
+                {todayFormatted}
               </div>
               <h1 className="cs-page-headline">Welcome back, {userFullName}</h1>
-              <p className="cs-page-subtext">Here is your high-level workspace summary and active team telemetry.</p>
+              <p className="cs-page-subtext">
+                Live workspace telemetry for <strong>{activeWorkspace?.name || "your workspace"}</strong>.
+              </p>
             </div>
 
             <div className="cs-hero-cta">
-              <button className="cs-btn-secondary">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Export Report
+              <button className="cs-btn-secondary" onClick={() => navigate("/projects")}>
+                View Projects
               </button>
-              <button className="cs-btn-primary">
+              <button className="cs-btn-primary" onClick={() => setIsCreateModalOpen(true)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 New Project
               </button>
             </div>
           </div>
 
-          {/* Stats Bar */}
+          {/* Error Banner */}
+          {error && (
+            <div style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", padding: "12px 16px", borderRadius: "8px", marginBottom: "20px" }}>
+              {error}
+            </div>
+          )}
+
+          {/* Loading Indicator */}
+          {loading && !data && (
+            <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+              Loading workspace overview...
+            </div>
+          )}
+
+          {/* Dynamic Stats Grid */}
           <div className="cs-stats-grid">
-            {stats.map((s, idx) => (
-              <div key={idx} className="cs-stat-card">
-                <div className="cs-stat-header">
-                  <span className="cs-stat-label">{s.label}</span>
-                </div>
-                <div className="cs-stat-body">
-                  <span className="cs-stat-val">{s.value}</span>
-                  <div className="cs-stat-meta">
-                    <span className={`cs-stat-pill ${s.isPositive ? "pos" : s.isWarning ? "warn" : "neu"}`}>
-                      {s.change}
-                    </span>
-                    <span className="cs-stat-period">{s.period}</span>
-                  </div>
+            
+            <div className="cs-stat-card">
+              <div className="cs-stat-header">
+                <span className="cs-stat-label">Active Projects</span>
+              </div>
+              <div className="cs-stat-body">
+                <span className="cs-stat-val">{metrics.activeProjects}</span>
+                <div className="cs-stat-meta">
+                  <span className="cs-stat-pill pos">
+                    {metrics.totalProjects} Total
+                  </span>
+                  <span className="cs-stat-period">{metrics.completedProjects} completed</span>
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div className="cs-stat-card">
+              <div className="cs-stat-header">
+                <span className="cs-stat-label">Pending Tasks</span>
+              </div>
+              <div className="cs-stat-body">
+                <span className="cs-stat-val">{metrics.inProgressTasks + metrics.todoTasks}</span>
+                <div className="cs-stat-meta">
+                  <span className="cs-stat-pill warn">
+                    {metrics.inProgressTasks} in progress
+                  </span>
+                  <span className="cs-stat-period">{metrics.todoTasks} to do</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="cs-stat-card">
+              <div className="cs-stat-header">
+                <span className="cs-stat-label">Completed Tasks</span>
+              </div>
+              <div className="cs-stat-body">
+                <span className="cs-stat-val">{metrics.completedTasks}</span>
+                <div className="cs-stat-meta">
+                  <span className="cs-stat-pill pos">
+                    {completionPct}% Done
+                  </span>
+                  <span className="cs-stat-period">of {metrics.totalTasks} total tasks</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="cs-stat-card">
+              <div className="cs-stat-header">
+                <span className="cs-stat-label">Workspace Health</span>
+              </div>
+              <div className="cs-stat-body">
+                <span className="cs-stat-val">{completionPct}%</span>
+                <div className="cs-stat-meta">
+                  <span className="cs-stat-pill neu">Overall Progress</span>
+                  <span className="cs-stat-period">{metrics.totalProjects} active streams</span>
+                </div>
+              </div>
+            </div>
+
           </div>
 
-          {/* Core Grid: Projects + Tasks */}
+          {/* Main Grid: Projects + Tasks */}
           <div className="cs-main-grid">
 
-            {/* Active Projects Widget */}
+            {/* Recent Projects Widget */}
             <div className="cs-panel">
               <div className="cs-panel-header">
                 <div>
-                  <h2 className="cs-panel-title">Active Projects</h2>
-                  <p className="cs-panel-subtitle">Real-time status across active engineering streams</p>
+                  <h2 className="cs-panel-title">Recent Projects</h2>
+                  <p className="cs-panel-subtitle">Real-time status across active project streams</p>
                 </div>
-                <button className="cs-link-btn">View All ({projects.length}) →</button>
+                <button className="cs-link-btn" onClick={() => navigate("/projects")}>
+                  View All ({metrics.totalProjects}) →
+                </button>
               </div>
 
               <div className="cs-project-cards">
-                {projects.map((p) => (
-                  <div key={p.id} className="cs-project-row">
-                    <div className="cs-proj-icon">{p.tag}</div>
-                    
-                    <div className="cs-proj-info">
-                      <div className="cs-proj-head">
-                        <strong className="cs-proj-name">{p.name}</strong>
-                        <span className={`cs-tag-badge ${p.statusType}`}>{p.status}</span>
+                {(!data?.recentProjects || data.recentProjects.length === 0) ? (
+                  <div style={{ textAlign: "center", padding: "30px 20px", color: "#64748b" }}>
+                    <p style={{ margin: "0 0 10px", fontSize: "0.95rem" }}>No projects found in this workspace.</p>
+                    <button 
+                      className="cs-btn-primary" 
+                      style={{ fontSize: "0.8rem", padding: "6px 12px" }}
+                      onClick={() => setIsCreateModalOpen(true)}
+                    >
+                      + Create First Project
+                    </button>
+                  </div>
+                ) : (
+                  data.recentProjects.map((p) => (
+                    <div 
+                      key={p.id} 
+                      className="cs-project-row"
+                      onClick={() => navigate(`/projects/${p.id}`)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <div className="cs-proj-icon">
+                        {p.name.substring(0, 2).toUpperCase()}
                       </div>
                       
-                      <div className="cs-proj-sub">
-                        <span>{p.category}</span>
-                        <span className="cs-dot-sep">•</span>
-                        <span>{p.tasks} tasks completed</span>
-                      </div>
-
-                      <div className="cs-proj-progress">
-                        <div className="cs-bar-bg">
-                          <div 
-                            className={`cs-bar-fill ${p.statusType}`} 
-                            style={{ width: `${p.progress}%` }} 
-                          />
+                      <div className="cs-proj-info">
+                        <div className="cs-proj-head">
+                          <strong className="cs-proj-name">{p.name}</strong>
+                          <span className={`cs-tag-badge ${getStatusBadgeClass(p.status)}`}>
+                            {getStatusDisplay(p.status)}
+                          </span>
                         </div>
-                        <span className="cs-pct">{p.progress}%</span>
+                        
+                        <div className="cs-proj-sub">
+                          <span>{p.category}</span>
+                          <span className="cs-dot-sep">•</span>
+                          <span>{p.tasksCompleted}/{p.tasksTotal} tasks done</span>
+                        </div>
+
+                        <div className="cs-proj-progress">
+                          <div className="cs-bar-bg">
+                            <div 
+                              className={`cs-bar-fill ${getStatusBadgeClass(p.status)}`} 
+                              style={{ width: `${p.progress}%` }} 
+                            />
+                          </div>
+                          <span className="cs-pct">{p.progress}%</span>
+                        </div>
+                      </div>
+
+                      <div className="cs-proj-members">
+                        {p.members.slice(0, 3).map((m, i) => (
+                          <div key={m.id || i} className="cs-member-avatar" style={{ zIndex: 5 - i }} title={m.name}>
+                            {m.initials}
+                          </div>
+                        ))}
                       </div>
                     </div>
-
-                    <div className="cs-proj-members">
-                      {p.members.map((m, i) => (
-                        <div key={i} className="cs-member-avatar" style={{ zIndex: 5 - i }}>{m}</div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
-            {/* Tasks Panel */}
+            {/* Recent Tasks Panel */}
             <div className="cs-panel">
               <div className="cs-panel-header">
                 <div>
-                  <h2 className="cs-panel-title">My Tasks</h2>
-                  <p className="cs-panel-subtitle">Tasks assigned to you across active sprints</p>
+                  <h2 className="cs-panel-title">Latest Workspace Tasks</h2>
+                  <p className="cs-panel-subtitle">Recently updated tasks across projects</p>
                 </div>
-                <button className="cs-link-btn">Filter →</button>
+                <button className="cs-link-btn" onClick={() => navigate("/projects")}>
+                  Projects →
+                </button>
               </div>
 
               <div className="cs-tasks-list">
-                {taskList.map((t) => (
-                  <div 
-                    key={t.id} 
-                    className={`cs-task-item ${t.completed ? "completed" : ""}`}
-                    onClick={() => toggleTask(t.id)}
-                  >
-                    <div className={`cs-checkbox ${t.completed ? "checked" : ""}`}>
-                      {t.completed && (
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                      )}
-                    </div>
+                {(!data?.recentTasks || data.recentTasks.length === 0) ? (
+                  <div style={{ textAlign: "center", padding: "30px 20px", color: "#64748b" }}>
+                    <p style={{ margin: 0, fontSize: "0.95rem" }}>No tasks created yet in this workspace.</p>
+                  </div>
+                ) : (
+                  data.recentTasks.map((t) => {
+                    const isDone = t.status === "DONE";
+                    return (
+                      <div 
+                        key={t.id} 
+                        className={`cs-task-item ${isDone ? "completed" : ""}`}
+                        onClick={() => navigate(`/projects/${t.projectId}`)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <div className={`cs-checkbox ${isDone ? "checked" : ""}`}>
+                          {isDone && (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                          )}
+                        </div>
 
-                    <div className="cs-task-details">
-                      <p className="cs-task-title">{t.title}</p>
-                      <div className="cs-task-tags">
-                        <span className="cs-task-proj">{t.project}</span>
-                        <span className={`cs-priority-pill ${t.priority.toLowerCase()}`}>{t.priority}</span>
+                        <div className="cs-task-details">
+                          <p className="cs-task-title">{t.title}</p>
+                          <div className="cs-task-tags">
+                            <span className="cs-task-proj">{t.projectName}</span>
+                            <span className={`cs-priority-pill ${t.priority.toLowerCase()}`}>
+                              {t.priority}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="cs-task-due">
+                          <span>{t.status === "DONE" ? "Done" : t.status === "IN_PROGRESS" ? "In Progress" : t.status === "REVIEW" ? "Review" : "To Do"}</span>
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="cs-task-due">
-                      <span className={t.due === "Today" ? "urgent-date" : ""}>{t.due}</span>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })
+                )}
               </div>
             </div>
 
-          </div>
-
-          {/* Bottom Activity Timeline */}
-          <div className="cs-panel cs-activity-panel">
-            <div className="cs-panel-header">
-              <div>
-                <h2 className="cs-panel-title">Recent Activity Feed</h2>
-                <p className="cs-panel-subtitle">Live audit stream of edits, comments, and uploads</p>
-              </div>
-              <button className="cs-link-btn">Audit Log →</button>
-            </div>
-
-            <div className="cs-activity-feed">
-              {activity.map((a) => (
-                <div key={a.id} className="cs-activity-row">
-                  <div className="cs-activity-user-av">{a.initials}</div>
-                  
-                  <div className="cs-activity-body">
-                    <p className="cs-activity-msg">
-                      <strong className="cs-user-bold">{a.name}</strong> {a.action}{" "}
-                      <span className="cs-target-highlight">{a.target}</span>
-                    </p>
-                    <span className="cs-activity-timestamp">{a.time}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
 
         </main>
       </div>
 
+      {/* Create Project Modal */}
+      <CreateProjectModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onProjectCreated={() => {
+          loadData();
+          setIsCreateModalOpen(false);
+        }}
+        workspaceId={activeWorkspace?.id}
+      />
+
     </div>
   );
 }
-
-export default Dashboard;
