@@ -149,10 +149,10 @@ export default function Dashboard() {
             <span className="cs-nav-label">Messages</span>
           </Link>
 
-          <a href="#" className="cs-nav-item" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>
+          <Link to="/analytics" className="cs-nav-item">
             <NavIcon t="analytics" />
             <span className="cs-nav-label">Analytics</span>
-          </a>
+          </Link>
 
           <a href="#" className="cs-nav-item" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>
             <NavIcon t="settings" />

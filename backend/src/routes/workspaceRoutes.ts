@@ -12,6 +12,7 @@ import {
     getWorkspaceFiles,
     getWorkspaceMessages
 } from "../controllers/workspaceController";
+import { getWorkspaceAnalytics } from "../controllers/analyticsController";
 import { getAuditLogs } from "../controllers/auditController";
 import { authenticate } from "../middleware/auth";
 
@@ -29,6 +30,7 @@ router.get("/org/:orgId", requireOrganizationAccess, listWorkspacesForOrg);
 // Workspace-level operations
 router.get("/:id", requireWorkspaceAccess, getWorkspace);
 router.get("/:id/overview", requireWorkspaceAccess, getWorkspaceOverview);
+router.get("/:id/analytics", requireWorkspaceAccess, getWorkspaceAnalytics);
 router.get("/:id/documents", requireWorkspaceAccess, getWorkspaceDocuments);
 router.get("/:id/files", requireWorkspaceAccess, getWorkspaceFiles);
 router.get("/:id/messages", requireWorkspaceAccess, getWorkspaceMessages);

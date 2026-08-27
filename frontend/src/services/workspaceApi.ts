@@ -283,3 +283,29 @@ export async function fetchWorkspaceMessages(workspaceId: string): Promise<Fetch
 
     return { messages, accessibleProjectIds };
 }
+
+export interface WorkspaceAnalyticsData {
+    taskCompletionRate: number;
+    productivityTrends: Array<{ date: string; completed: number }>;
+    teamPerformance: Array<{ userId: string; name: string; completedTasks: number }>;
+    activeUsers: number;
+    documentActivity: number;
+    storageUsage: { used: number; quota: number };
+    chatStatistics: number;
+    workspaceGrowth: { totalUsers: number; totalProjects: number; totalTasks: number };
+}
+
+/**
+ * GET /api/workspaces/:id/analytics
+ */
+export async function fetchWorkspaceAnalyticsApi(workspaceId: string): Promise<WorkspaceAnalyticsData> {
+    const res = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/analytics`, { credentials: "include" });
+    if (!res.ok) {
+        throw new Error(`Failed to fetch workspace analytics (HTTP ${res.status})`);
+    }
+    const json = await res.json();
+    if (!json.success || !json.data) {
+        throw new Error(json.error || "Invalid response format from workspace analytics API");
+    }
+    return json.data;
+}
