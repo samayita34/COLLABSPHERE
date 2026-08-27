@@ -84,3 +84,59 @@ export const createAndSendNotification = async (input: CreateNotificationInput) 
         return null;
     }
 };
+
+/**
+ * Periodically checks tasks due within 24 hours and sends reminders without duplication.
+ */
+export const checkAndSendDueDateReminders = async () => {
+    try {
+        const now = new Date();
+        const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        // Find tasks due within 24 hours that are not completed
+        const dueSoonTasks = await prisma.task.findMany({
+            where: {
+                dueDate: {
+                    gte: now,
+                    lte: next24h,
+                },
+                status: { not: "DONE" },
+                assigneeId: { not: null },
+            },
+            include: {
+                project: { select: { id: true, name: true, workspaceId: true } },
+            },
+        });
+
+        for (const task of dueSoonTasks) {
+            if (!task.assigneeId) continue;
+
+            // Check if reminder was already sent today for this task
+            const existing = await prisma.notification.findFirst({
+                where: {
+                    userId: task.assigneeId,
+                    taskId: task.id,
+                    type: NotificationType.DUE_DATE_REMINDER,
+                    createdAt: { gte: startOfDay },
+                },
+            });
+
+            if (!existing) {
+                await createAndSendNotification({
+                    userId: task.assigneeId,
+                    workspaceId: task.project.workspaceId,
+                    projectId: task.projectId,
+                    taskId: task.id,
+                    type: NotificationType.DUE_DATE_REMINDER,
+                    title: "Due Date Reminder",
+                    message: `Task "${task.title}" in ${task.project.name} is due within 24 hours!`,
+                    link: `/projects/${task.projectId}`,
+                    sendEmailNotification: true,
+                });
+            }
+        }
+    } catch (error) {
+        console.error("[NotificationService] Error checking due date reminders:", error);
+    }
+};

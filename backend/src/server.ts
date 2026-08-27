@@ -23,6 +23,7 @@ import { getMyTasks, updateTask, deleteTask } from "./controllers/taskController
 import { getDocumentsByWorkspace, updateDocument, deleteDocument } from "./controllers/documentController";
 import { getFilesByWorkspace, deleteFile } from "./controllers/fileController";
 import { connectRedis } from "./lib/redis";
+import { checkAndSendDueDateReminders } from "./services/notificationService";
 import { initSocket } from "./lib/socket";
 
 import helmet from "helmet";
@@ -131,6 +132,12 @@ const PORT = process.env.PORT || 3000;
 initSocket(server);
 server.listen(PORT, () => {
     console.log(`COLLABSPHERE backend running on http://localhost:${PORT}`);
+    
+    // Initial check and hourly due-date reminder interval
+    checkAndSendDueDateReminders();
+    setInterval(() => {
+        checkAndSendDueDateReminders();
+    }, 60 * 60 * 1000);
 });
 
 connectRedis().catch((err) => {
