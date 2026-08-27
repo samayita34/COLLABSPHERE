@@ -119,7 +119,6 @@ const MEMBER_PERMISSIONS = [
     Permission.VIEW_PROJECT,
     Permission.VIEW_FILES,
     Permission.VIEW_DOCUMENTS,
-    Permission.VIEW_AUDIT_LOGS,
     Permission.CREATE_TASK,
     Permission.EDIT_TASK,
     Permission.ASSIGN_TASK,
