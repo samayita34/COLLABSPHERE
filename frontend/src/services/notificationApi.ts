@@ -9,6 +9,7 @@ export interface NotificationItem {
     message: string;
     link?: string;
     isRead: boolean;
+    read?: boolean;
     createdAt: string;
 }
 
@@ -27,7 +28,7 @@ export const fetchNotifications = async (workspaceId?: string, page = 1, limit =
     return json;
 };
 
-export const fetchUnreadCount = async (): Promise<number> => {
+export const getUnreadNotificationCount = async (): Promise<number> => {
     const res = await fetch(`${API_BASE}/notifications/unread-count`, {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -39,7 +40,9 @@ export const fetchUnreadCount = async (): Promise<number> => {
     return json.count || 0;
 };
 
-export const markNotificationAsRead = async (id: string): Promise<NotificationItem> => {
+export const fetchUnreadCount = getUnreadNotificationCount;
+
+export const markNotificationRead = async (id: string): Promise<NotificationItem> => {
     const res = await fetch(`${API_BASE}/notifications/${id}/read`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -52,7 +55,9 @@ export const markNotificationAsRead = async (id: string): Promise<NotificationIt
     return json.data;
 };
 
-export const markAllNotificationsAsRead = async (workspaceId?: string): Promise<void> => {
+export const markNotificationAsRead = markNotificationRead;
+
+export const markAllNotificationsRead = async (workspaceId?: string): Promise<void> => {
     const res = await fetch(`${API_BASE}/notifications/read-all`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -64,3 +69,5 @@ export const markAllNotificationsAsRead = async (workspaceId?: string): Promise<
         throw new Error(json.error || "Failed to mark all as read");
     }
 };
+
+export const markAllNotificationsAsRead = markAllNotificationsRead;

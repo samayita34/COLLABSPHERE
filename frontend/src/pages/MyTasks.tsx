@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import { fetchMyTasksApi, updateTaskStatusApi, type MyTaskItem, type TaskStatus } from "../services/projectApi";
+import { NotificationCenter } from "../components/NotificationCenter";
 import "./Projects.css";
 import "./MyTasks.css";
 
@@ -190,6 +191,7 @@ export default function MyTasks() {
                             />
                         </div>
 
+                        <NotificationCenter workspaceId={activeWorkspace?.id} />
                         <div className="profile-avatar">{userInitials}</div>
                     </div>
                 </header>

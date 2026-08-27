@@ -26,6 +26,7 @@ export enum Permission {
     VIEW_PROJECT = "VIEW_PROJECT",
     VIEW_FILES = "VIEW_FILES",
     VIEW_DOCUMENTS = "VIEW_DOCUMENTS",
+    VIEW_AUDIT_LOGS = "VIEW_AUDIT_LOGS",
 }
 
 export enum UnifiedRole {
@@ -55,6 +56,7 @@ const ORGANIZATION_ADMIN_PERMISSIONS = [
     Permission.VIEW_PROJECT,
     Permission.VIEW_FILES,
     Permission.VIEW_DOCUMENTS,
+    Permission.VIEW_AUDIT_LOGS,
     Permission.CREATE_TASK,
     Permission.EDIT_TASK,
     Permission.DELETE_TASK,
@@ -80,6 +82,7 @@ const WORKSPACE_ADMIN_PERMISSIONS = [
     Permission.VIEW_PROJECT,
     Permission.VIEW_FILES,
     Permission.VIEW_DOCUMENTS,
+    Permission.VIEW_AUDIT_LOGS,
     Permission.CREATE_TASK,
     Permission.EDIT_TASK,
     Permission.DELETE_TASK,
@@ -100,6 +103,7 @@ const PROJECT_MANAGER_PERMISSIONS = [
     Permission.VIEW_PROJECT,
     Permission.VIEW_FILES,
     Permission.VIEW_DOCUMENTS,
+    Permission.VIEW_AUDIT_LOGS,
     Permission.CREATE_TASK,
     Permission.EDIT_TASK,
     Permission.DELETE_TASK,
@@ -115,6 +119,7 @@ const MEMBER_PERMISSIONS = [
     Permission.VIEW_PROJECT,
     Permission.VIEW_FILES,
     Permission.VIEW_DOCUMENTS,
+    Permission.VIEW_AUDIT_LOGS,
     Permission.CREATE_TASK,
     Permission.EDIT_TASK,
     Permission.ASSIGN_TASK,

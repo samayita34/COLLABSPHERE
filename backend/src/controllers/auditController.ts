@@ -10,24 +10,61 @@ const safeUserSelect = {
 };
 
 /**
+ * GET /api/workspaces/:id/audit-logs
  * GET /api/audit-logs
- * Fetch workspace-scoped or system audit logs.
- * Protected by requireWorkspaceAccess middleware when workspaceId is passed.
+ *
+ * Requirements:
+ * - Authentication required
+ * - Workspace membership & RBAC permission check (via requireWorkspaceAccess & requirePermission)
+ * - Strict workspace filtering
+ * - Pagination (newest first)
+ * - Optional filtering by: action, userId, entityType, startDate, endDate
  */
 export const getAuditLogs = async (req: Request, res: Response): Promise<void> => {
     try {
-        const workspaceId = (req.query.workspaceId as string) || req.params.workspaceId;
+        const rawWorkspaceId = req.params.id || req.params.workspaceId || (req.query.workspaceId as string);
+        const workspaceId = Array.isArray(rawWorkspaceId) ? rawWorkspaceId[0] : rawWorkspaceId;
+
+        // Strict Workspace authorization check if workspaceId is provided or verified in req.workspace
+        const targetWorkspaceId = req.workspace?.id || workspaceId;
+        if (!targetWorkspaceId) {
+            res.status, 400;
+            res.status(400).json({ success: false, error: "Workspace ID is required" });
+            return;
+        }
+
         const action = req.query.action as string | undefined;
-        const page = parseInt(req.query.page as string || "1", 10);
-        const limit = parseInt(req.query.limit as string || "30", 10);
+        const userIdFilter = req.query.userId as string | undefined;
+        const entityTypeFilter = req.query.entityType as string | undefined;
+        const startDateParam = req.query.startDate as string | undefined;
+        const endDateParam = req.query.endDate as string | undefined;
+
+        const page = parseInt((req.query.page as string) || "1", 10);
+        const limit = Math.min(100, parseInt((req.query.limit as string) || "30", 10));
         const skip = (page - 1) * limit;
 
-        const whereCondition: any = {};
-        if (workspaceId) {
-            whereCondition.workspaceId = workspaceId;
-        }
+        const whereCondition: any = {
+            workspaceId: targetWorkspaceId,
+        };
+
         if (action) {
             whereCondition.action = action;
+        }
+        if (userIdFilter) {
+            whereCondition.userId = userIdFilter;
+        }
+        if (entityTypeFilter) {
+            whereCondition.entityType = entityTypeFilter;
+        }
+
+        if (startDateParam || endDateParam) {
+            whereCondition.createdAt = {};
+            if (startDateParam) {
+                whereCondition.createdAt.gte = new Date(startDateParam);
+            }
+            if (endDateParam) {
+                whereCondition.createdAt.lte = new Date(endDateParam);
+            }
         }
 
         const [logs, total] = await Promise.all([

@@ -57,7 +57,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
         socket.emit("joinUser", user.id);
 
         const handleNewNotif = (notif: NotificationItem) => {
-            setNotifications((prev) => [notif, ...prev]);
+            setNotifications((prev) => {
+                if (prev.some((n) => n.id === notif.id)) {
+                    return prev;
+                }
+                return [notif, ...prev];
+            });
             setUnreadCount((prev) => prev + 1);
         };
 
@@ -67,6 +72,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
         return () => {
             socket.off("notification:new", handleNewNotif);
             socket.off("notification", handleNewNotif);
+            socket.emit("leaveUser", user.id);
         };
     }, [user, workspaceId]);
 
