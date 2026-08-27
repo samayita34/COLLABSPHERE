@@ -21,8 +21,11 @@ export const fetchNotifications = async (workspaceId?: string, page = 1, limit =
         headers: { "Content-Type": "application/json" },
         credentials: "include",
     });
+    if (!res.ok) {
+        throw new Error(`Failed to fetch notifications (${res.status})`);
+    }
     const json = await res.json();
-    if (!res.ok || !json.success) {
+    if (!json.success) {
         throw new Error(json.error || "Failed to fetch notifications");
     }
     return json;
@@ -33,8 +36,15 @@ export const getUnreadNotificationCount = async (): Promise<number> => {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
     });
+    if (!res.ok) {
+        return 0;
+    }
+    const contentType = res.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+        return 0;
+    }
     const json = await res.json();
-    if (!res.ok || !json.success) {
+    if (!json.success) {
         return 0;
     }
     return json.count || 0;

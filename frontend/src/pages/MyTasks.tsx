@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
-import { fetchMyTasksApi, updateTaskStatusApi, type MyTaskItem, type TaskStatus } from "../services/projectApi";
+import { fetchMyTasksApi, updateTaskSemanticStatusApi, type MyTaskItem } from "../services/projectApi";
 import { NotificationCenter } from "../components/NotificationCenter";
 import "./Projects.css";
 import "./MyTasks.css";
@@ -59,18 +59,28 @@ export default function MyTasks() {
         loadTasks();
     }, [activeWorkspace]);
 
-    const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+    const mapSemanticStatus = (columnName: string) => {
+        const lower = columnName.toLowerCase();
+        if (lower.includes("do") || lower.includes("backlog")) return "todo";
+        if (lower.includes("progress")) return "progress";
+        if (lower.includes("review")) return "review";
+        if (lower.includes("done") || lower.includes("complete")) return "done";
+        return "todo";
+    };
+
+    const handleStatusChange = async (taskId: string, newSemanticStatus: string) => {
         setUpdatingTaskId(taskId);
+        
         // Optimistic update
         setTasks((prev) =>
-            prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+            prev.map((t) => (t.id === taskId ? { ...t, columnName: newSemanticStatus } : t))
         );
 
         try {
-            await updateTaskStatusApi(taskId, newStatus);
+            await updateTaskSemanticStatusApi(taskId, newSemanticStatus);
+            loadTasks();
         } catch (err: any) {
             console.error("Failed to update task status:", err);
-            // Roll back on failure
             loadTasks();
             alert(err.message || "Failed to update task status");
         } finally {
@@ -79,15 +89,16 @@ export default function MyTasks() {
     };
 
     const handleToggleCheck = (task: MyTaskItem) => {
-        const nextStatus: TaskStatus = task.status === "done" ? "todo" : "done";
+        const nextStatus = mapSemanticStatus(task.columnName) === "done" ? "todo" : "done";
         handleStatusChange(task.id, nextStatus);
     };
 
     // Filter calculations
-    const todoCount = tasks.filter((t) => t.status === "todo").length;
-    const progressCount = tasks.filter((t) => t.status === "progress").length;
-    const reviewCount = tasks.filter((t) => t.status === "review").length;
-    const doneCount = tasks.filter((t) => t.status === "done").length;
+    // Filter calculations
+    const todoCount = tasks.filter((t) => mapSemanticStatus(t.columnName) === "todo").length;
+    const progressCount = tasks.filter((t) => mapSemanticStatus(t.columnName) === "progress").length;
+    const reviewCount = tasks.filter((t) => mapSemanticStatus(t.columnName) === "review").length;
+    const doneCount = tasks.filter((t) => mapSemanticStatus(t.columnName) === "done").length;
     const overdueCount = tasks.filter((t) => t.isOverdue).length;
 
     const getTabCount = (tab: StatusTab) => {
@@ -101,7 +112,7 @@ export default function MyTasks() {
     };
 
     const filteredTasks = tasks.filter((t) => {
-        const matchesTab = activeTab === "all" || t.status === activeTab;
+        const matchesTab = activeTab === "all" || mapSemanticStatus(t.columnName) === activeTab;
         const matchesPriority = priorityFilter === "all" || t.priority === priorityFilter;
         const q = searchQuery.trim().toLowerCase();
         const matchesSearch =
@@ -286,7 +297,7 @@ export default function MyTasks() {
 
                             <div className="my-tasks-table-body">
                                 {filteredTasks.map((t) => {
-                                    const isDone = t.status === "done";
+                                    const isDone = mapSemanticStatus(t.columnName) === "done";
                                     const isUpdating = updatingTaskId === t.id;
 
                                     return (
@@ -338,8 +349,8 @@ export default function MyTasks() {
                                             <div>
                                                 <select
                                                     className="my-tasks-status-select"
-                                                    value={t.status}
-                                                    onChange={(e) => handleStatusChange(t.id, e.target.value as TaskStatus)}
+                                                    value={mapSemanticStatus(t.columnName)}
+                                                    onChange={(e) => handleStatusChange(t.id, e.target.value)}
                                                     disabled={isUpdating}
                                                 >
                                                     <option value="todo">To Do</option>

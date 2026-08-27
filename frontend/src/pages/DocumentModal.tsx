@@ -48,16 +48,59 @@ function useEscapeToClose(onClose: () => void) {
    storage to hook into yet, so it's a styled no-op for now.
 ========================= */
 
+import { useAuth } from "../context/AuthContext";
+import { fetchDocumentVersionsApi, createDocumentVersionApi, restoreDocumentVersionApi, type DocumentVersion } from "../services/projectApi";
+
 interface DocumentDetailModalProps {
     document: ProjectDocument;
     onClose: () => void;
     onSave?: (id: string, newContent: string) => void;
 }
 
-export function DocumentDetailModal({ document: doc, onClose, onSave }: DocumentDetailModalProps) {
+export function DocumentDetailModal({ document: doc, onClose }: DocumentDetailModalProps) {
     useEscapeToClose(onClose);
+    const { userFullName, userInitials, user } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
-    const [content, setContent] = useState(doc.content || "");
+    
+    // Versioning state
+    const [showVersions, setShowVersions] = useState(false);
+    const [versions, setVersions] = useState<DocumentVersion[]>([]);
+    const [viewingVersion, setViewingVersion] = useState<DocumentVersion | null>(null);
+    const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+
+    const loadVersions = async () => {
+        setIsLoadingVersions(true);
+        try {
+            const data = await fetchDocumentVersionsApi(doc.id);
+            setVersions(data);
+        } catch (error) {
+            console.error("Failed to load versions", error);
+        } finally {
+            setIsLoadingVersions(false);
+        }
+    };
+
+    const handleCreateVersion = async () => {
+        const name = prompt("Enter a name for this version:");
+        if (name === null) return;
+        try {
+            await createDocumentVersionApi(doc.id, name);
+            loadVersions();
+        } catch (error: any) {
+            alert(error.message || "Failed to create version");
+        }
+    };
+
+    const handleRestoreVersion = async (v: DocumentVersion) => {
+        if (!confirm(`Are you sure you want to restore the document to version "${v.name}"? This will overwrite the current live document for all users.`)) return;
+        try {
+            await restoreDocumentVersionApi(doc.id, v.id);
+            alert("Restored successfully. Please close and reopen the document to sync.");
+            onClose(); // Close to force a clean re-mount of the editor
+        } catch (error: any) {
+            alert(error.message || "Failed to restore version");
+        }
+    };
 
     return (
         <div className="modal-overlay" onMouseDown={onClose}>
@@ -110,16 +153,80 @@ export function DocumentDetailModal({ document: doc, onClose, onSave }: Document
                     <div className="mt-4">
                         <div className="flex justify-between items-center mb-2">
                             <h4 className="font-medium text-sm">Content</h4>
-                            {!isEditing && (
-                                <button type="button" className="text-sm text-blue-600 hover:underline" onClick={() => setIsEditing(true)}>
-                                    Edit Document
+                            <div className="flex gap-2">
+                                <button type="button" className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-white" onClick={() => {
+                                    setShowVersions(!showVersions);
+                                    if (!showVersions) loadVersions();
+                                }}>
+                                    {showVersions ? "Hide Versions" : "Version History"}
                                 </button>
-                            )}
+                                {!isEditing && !viewingVersion && (
+                                    <button type="button" className="text-sm text-blue-600 hover:underline" onClick={() => setIsEditing(true)}>
+                                        Collaborate
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                        {isEditing ? (
-                            <RichTextEditor content={content} onChange={setContent} />
+
+                        {showVersions && (
+                            <div className="mb-4 p-3 border border-zinc-200 dark:border-zinc-800 rounded-md bg-zinc-50 dark:bg-zinc-950/50">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h5 className="font-semibold text-xs uppercase tracking-wider text-zinc-500">Version History</h5>
+                                    <button className="text-xs bg-blue-600 text-white px-2 py-1 rounded" onClick={handleCreateVersion}>Save Current as Version</button>
+                                </div>
+                                {isLoadingVersions ? (
+                                    <p className="text-xs text-zinc-500">Loading versions...</p>
+                                ) : versions.length === 0 ? (
+                                    <p className="text-xs text-zinc-500">No versions saved.</p>
+                                ) : (
+                                    <ul className="text-sm space-y-1 mt-2 max-h-32 overflow-y-auto">
+                                        {versions.map(v => (
+                                            <li key={v.id} className="flex justify-between items-center p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded">
+                                                <div>
+                                                    <span className="font-medium">{v.name}</span>
+                                                    <span className="text-xs text-zinc-500 ml-2">{new Date(v.createdAt).toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button className="text-xs text-blue-600 hover:underline" onClick={() => setViewingVersion(v)}>View</button>
+                                                    <button className="text-xs text-red-600 hover:underline" onClick={() => handleRestoreVersion(v)}>Restore</button>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                                {viewingVersion && (
+                                    <div className="mt-2 p-2 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-xs rounded">
+                                        <span>Viewing snapshot: <strong>{viewingVersion.name}</strong></span>
+                                        <button className="underline" onClick={() => setViewingVersion(null)}>Return to Live Document</button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {isEditing && !viewingVersion ? (
+                            <RichTextEditor 
+                                documentId={doc.id}
+                                currentUser={{ id: user?.id || "unknown", name: userFullName || "Guest", initials: userInitials || "G" }}
+                                isReadonly={false}
+                            />
                         ) : (
-                            <div className="prose prose-sm dark:prose-invert max-w-none border border-zinc-200 dark:border-zinc-800 rounded-md p-3 min-h-[150px] bg-zinc-50 dark:bg-zinc-950/50" dangerouslySetInnerHTML={{ __html: doc.content || "<p class='text-zinc-500 italic'>No content</p>" }} />
+                            <div className="relative">
+                                {/* If viewing a version, we need a separate readonly editor instance but we don't have its ydoc state here easily if it's stored as binary.
+                                    Actually, if we only have the binary ydoc state in the backend, the easiest way to render it without a websocket is to just use a standard div if we kept `content` updated, or we use a temporary websocket channel.
+                                    For simplicity, let's assume `doc.content` is somewhat synced, or we just render the live editor in readonly mode for now.
+                                    Let's render the collaborative editor in readonly mode if they are just viewing, but if they view a past version, they won't see it unless the backend pushes it.
+                                    Since we want true real-time, let's just make the document ALWAYS collaborative, and remove the "Edit" button entirely! */}
+                                <RichTextEditor 
+                                    documentId={doc.id}
+                                    currentUser={{ id: user?.id || "unknown", name: userFullName || "Guest", initials: userInitials || "G" }}
+                                    isReadonly={!!viewingVersion}
+                                />
+                                {viewingVersion && (
+                                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur-sm pointer-events-none">
+                                        <span className="bg-black text-white px-3 py-1 rounded shadow text-sm">Previewing past version is unsupported in this view yet. Please restore to edit.</span>
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>
@@ -132,10 +239,9 @@ export function DocumentDetailModal({ document: doc, onClose, onSave }: Document
                         </button>
                         {isEditing && (
                             <button type="button" className="modal-save" onClick={() => {
-                                if (onSave) onSave(doc.id, content);
                                 setIsEditing(false);
                             }}>
-                                Save Changes
+                                Stop Editing
                             </button>
                         )}
                     </div>

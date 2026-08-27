@@ -256,6 +256,19 @@ export const createProject = async (req: Request, res: Response): Promise<void> 
                 workspaceId,
                 ownerId: req.user!.id,
                 dueDate: dueDate ? new Date(dueDate) : null,
+                boards: {
+                    create: {
+                        name: "Default Board",
+                        columns: {
+                            create: [
+                                { name: "To Do", order: 1000 },
+                                { name: "In Progress", order: 2000 },
+                                { name: "Review", order: 3000 },
+                                { name: "Done", order: 4000 },
+                            ],
+                        },
+                    },
+                },
             },
         });
 

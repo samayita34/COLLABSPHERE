@@ -120,27 +120,130 @@
     flex-direction: column;
     align-items: flex-end;
     gap: 16px;
-
     flex-shrink: 0;
 }
 
 .workspace-progress {
-    width: 190px;
+    width: 230px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-.workspace-due {
+.progress-header {
     display: flex;
     align-items: center;
-    gap: 14px;
-
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 11px;
-    color: #9a968a;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-.workspace-due strong {
-    color: #14161c;
+.progress-header strong {
+    font-family: "IBM Plex Mono", monospace, sans-serif;
+    font-size: 0.85rem;
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    margin-bottom: 10px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar div {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #4f46e5);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.progress-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.progress-meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: #475569;
+}
+
+.workspace-members {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.workspace-members > span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.members-stack {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.members-stack .member {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #6366f1;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: transform 0.15s ease;
+}
+
+.members-stack .member:hover {
+    transform: translateY(-2px);
+}
+
+.add-member-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    border: 1px dashed #cbd5e1;
+    color: #475569;
+    font-size: 1rem;
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.add-member-btn:hover {
+    background: #e2e8f0;
+    border-color: #6366f1;
+    color: #6366f1;
 }
 
 /* =========================

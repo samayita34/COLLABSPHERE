@@ -7,39 +7,14 @@ import { useEffect, useState } from "react";
    (same pattern as TaskModal.tsx).
 ========================= */
 
-type TaskStatus = "todo" | "progress" | "review" | "done";
-type TaskPriority = "low" | "medium" | "high";
+import { type Task, type Member } from "../services/projectApi";
 
-interface Task {
-    id: string;
-    title: string;
-    description?: string;
-    status: TaskStatus;
-    priority: TaskPriority;
-    due: string;
-    assignee: string;
-}
-
-export interface Member {
-    initials: string;
-    name: string;
-    role: string;
-    email: string;
-}
-
-interface MemberStats {
+export interface MemberStats {
     assignedTasks: Task[];
     assigned: number;
     completed: number;
     remaining: number;
 }
-
-const TAG_LABEL: Record<TaskStatus, string> = {
-    todo: "To do",
-    progress: "In progress",
-    review: "Review",
-    done: "Done",
-};
 
 /* Shared: close on Escape */
 function useEscapeToClose(onClose: () => void) {
@@ -124,11 +99,8 @@ export function MemberDetailModal({ member, stats, onClose, onOpenTask }: Member
                                         key={task.id}
                                         onClick={() => onOpenTask(task)}
                                     >
-                                        <span className={`task-check ${task.status === "done" ? "done" : ""}`} />
+                                        <span className={`task-check`} />
                                         <span className="member-detail-task-title">{task.title}</span>
-                                        <span className={`task-row-tag ${task.status}`}>
-                                            {TAG_LABEL[task.status]}
-                                        </span>
                                     </button>
                                 ))}
                             </div>

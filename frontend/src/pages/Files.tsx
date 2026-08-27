@@ -3,9 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchWorkspaceFiles } from "../services/workspaceApi";
-import { deleteFileApi, type WorkspaceFile } from "../services/projectApi";
+import { type WorkspaceFile } from "../services/projectApi";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
-import { FileDetailModal, type ProjectFile } from "./FileModal";
+// import { FileDetailModal, type ProjectFile } from "./FileModal"; // We don't have FileDetailModal for this simplified view right now
 import "./Projects.css";
 import "./ProjectWorkspace.css";
 
@@ -41,7 +41,7 @@ export default function Files() {
     
     const [fileFilter, setFileFilter] = useState<"all" | "images" | "documents" | "design" | "archives" | "videos">("all");
     const [fileSearch, setFileSearch] = useState("");
-    const [detailFile, setDetailFile] = useState<WorkspaceFile | null>(null);
+
 
     useEffect(() => {
         let isMounted = true;
@@ -80,26 +80,18 @@ export default function Files() {
         const cat = FILE_CATEGORY_MAP[f.type];
         const catMatch = fileFilter === "all" || cat === fileFilter;
         const q = fileSearch.trim().toLowerCase();
+        const latestVersion = f.versions?.[0];
         const searchMatch =
             !q ||
             f.name.toLowerCase().includes(q) ||
-            f.uploadedBy.toLowerCase().includes(q) ||
+            (latestVersion?.uploadedBy?.firstName || "").toLowerCase().includes(q) ||
             (f.description ?? "").toLowerCase().includes(q) ||
             (f.projectName && f.projectName.toLowerCase().includes(q)) ||
             (f.projectCode && f.projectCode.toLowerCase().includes(q));
         return catMatch && searchMatch;
     });
 
-    const handleDeleteFile = async (fileId: string) => {
-        try {
-            await deleteFileApi(fileId);
-            setFiles((prev) => prev.filter((f) => f.id !== fileId));
-            setDetailFile(null);
-        } catch (err) {
-            console.error("Failed to delete file:", err);
-            // In a real app we'd show a toast error here
-        }
-    };
+
 
     return (
         <div className="projects-page">
@@ -228,24 +220,22 @@ export default function Files() {
                                         <div
                                             className="file-card"
                                             key={f.id}
-                                            onClick={() => setDetailFile(f)}
                                         >
                                             <div className="file-preview">
                                                 {f.type}
                                             </div>
                                             <div className="file-info">
                                                 <h3 title={f.name}>{f.name}</h3>
-                                                <p>{f.size}</p>
-                                                
-                                                {f.projectName && (
-                                                    <div style={{ fontSize: "0.75rem", color: "#3b82f6", marginTop: "4px", fontWeight: 500 }}>
-                                                        Project: {f.projectName} {f.projectCode && `(${f.projectCode})`}
-                                                    </div>
-                                                )}
-                                                
+                                                <p className="file-size">{f.versions?.[0] ? f.versions[0].sizeBytes : "Unknown"}</p>
+
                                                 <div className="file-meta">
-                                                    <span>By {f.uploadedBy}</span>
-                                                    <span>{f.uploadedAt}</span>
+                                                    {f.projectName && (
+                                                        <span className="file-project">
+                                                            {f.projectCode && <strong>{f.projectCode}</strong>} {f.projectName}
+                                                        </span>
+                                                    )}
+                                                    <span>By: {f.versions?.[0]?.uploadedBy?.firstName || "Unknown"}</span>
+                                                    <span>Date: {f.createdAt}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -256,14 +246,6 @@ export default function Files() {
                     </div>
                 </section>
             </main>
-
-            {detailFile && (
-                <FileDetailModal
-                    file={detailFile as ProjectFile}
-                    onClose={() => setDetailFile(null)}
-                    onDelete={() => handleDeleteFile(detailFile.id)}
-                />
-            )}
         </div>
     );
 }

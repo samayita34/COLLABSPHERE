@@ -160,32 +160,18 @@ export default function Dashboard() {
           </a>
         </nav>
 
-        {/* Sidebar Footer User Pill */}
+        {/* Sidebar Footer User Card */}
         <div className="cs-sidebar-footer">
-          <div className="cs-user-pill">
+          <div className="cs-user-card">
             <div className="cs-user-avatar">{userInitials}</div>
             <div className="cs-user-meta">
-              <strong className="cs-user-name">{userFullName}</strong>
+              <span className="cs-user-name">{userFullName}</span>
               <span className="cs-user-role">Workspace Member</span>
             </div>
-            <button
-              onClick={logout}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "#ef4444",
-                cursor: "pointer",
-                fontSize: "0.75rem",
-        {/* User Footer Card */}
-        <div className="cs-user-card">
-          <div className="cs-user-avatar">{userInitials}</div>
-          <div className="cs-user-meta">
-            <span className="cs-user-name">{userFullName}</span>
-            <span className="cs-user-role">Workspace Member</span>
+            <button className="cs-logout-btn" onClick={logout} title="Sign Out">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </button>
           </div>
-          <button className="cs-logout-btn" onClick={logout} title="Sign Out">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          </button>
         </div>
       </aside>
 

@@ -30,7 +30,10 @@
     "pg": "^8.23.0",
     "prisma": "^7.9.1",
     "redis": "^6.2.1",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "ws": "^8.21.3",
+    "y-websocket": "^3.1.0",
+    "yjs": "^13.6.32"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
@@ -42,6 +45,7 @@
     "@types/node": "^26.1.2",
     "@types/nodemailer": "^8.0.1",
     "@types/passport": "^1.0.17",
+    "@types/ws": "^8.18.1",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2"

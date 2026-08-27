@@ -1,23 +1,11 @@
 import { useEffect, useState } from "react";
+import { TaskCommentSection } from "../components/TaskCommentSection";
 
 /* =========================
    TYPES
    Mirrors the Task/Member shapes in ProjectWorkspace.tsx.
-   Kept local so this component has no import-order coupling.
 ========================= */
-
-type TaskStatus = "todo" | "progress" | "review" | "done";
-type TaskPriority = "low" | "medium" | "high";
-
-export interface Task {
-    id: string;
-    title: string;
-    description?: string;
-    status: TaskStatus;
-    priority: TaskPriority;
-    due: string;
-    assignee: string;
-}
+import { type Task, type TaskPriority } from "../services/projectApi";
 
 interface Member {
     initials: string;
@@ -25,22 +13,24 @@ interface Member {
     role: string;
 }
 
+interface Column {
+    id: string;
+    name: string;
+}
+
 interface TaskModalProps {
     mode: "create" | "edit";
     task: Task | null;
-    defaultStatus: TaskStatus;
+    defaultColumnId: string | null;
+    columns: Column[];
     members: Member[];
+    projectId: string;
     onClose: () => void;
     onSave: (task: Task) => void;
     onDelete: (id: string) => void;
 }
 
-const STATUS_OPTIONS: { key: TaskStatus; label: string }[] = [
-    { key: "todo", label: "To do" },
-    { key: "progress", label: "In progress" },
-    { key: "review", label: "Review" },
-    { key: "done", label: "Done" },
-];
+// STATUS_OPTIONS removed as columns are passed dynamically
 
 const PRIORITY_OPTIONS: { key: TaskPriority; label: string }[] = [
     { key: "low", label: "Low" },
@@ -51,15 +41,17 @@ const PRIORITY_OPTIONS: { key: TaskPriority; label: string }[] = [
 export default function TaskModal({
     mode,
     task,
-    defaultStatus,
+    defaultColumnId,
+    columns,
     members,
+    projectId,
     onClose,
     onSave,
     onDelete,
 }: TaskModalProps) {
     const [title, setTitle] = useState(task?.title ?? "");
     const [description, setDescription] = useState(task?.description ?? "");
-    const [status, setStatus] = useState<TaskStatus>(task?.status ?? defaultStatus);
+    const [columnId, setColumnId] = useState<string | null>(task?.columnId ?? defaultColumnId);
     const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? "medium");
     const [due, setDue] = useState(task?.due ?? "");
     const [assignee, setAssignee] = useState(task?.assignee ?? members[0]?.initials ?? "");
@@ -82,7 +74,9 @@ export default function TaskModal({
             id: task?.id ?? `t-${Date.now()}`,
             title: title.trim(),
             description: description.trim() || undefined,
-            status,
+            columnId,
+            swimlaneId: task?.swimlaneId || null,
+            order: task?.order || 0,
             priority,
             due: due.trim(),
             assignee,
@@ -128,19 +122,17 @@ export default function TaskModal({
                     </div>
 
                     <div className="field">
-                        <label>Status</label>
-                        <div className="segmented">
-                            {STATUS_OPTIONS.map((opt) => (
-                                <button
-                                    key={opt.key}
-                                    type="button"
-                                    className={status === opt.key ? "active" : ""}
-                                    onClick={() => setStatus(opt.key)}
-                                >
-                                    {opt.label}
-                                </button>
+                        <label>Column</label>
+                        <select
+                            value={columnId || ""}
+                            onChange={(e) => setColumnId(e.target.value)}
+                        >
+                            {columns.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                    {c.name}
+                                </option>
                             ))}
-                        </div>
+                        </select>
                     </div>
 
                     <div className="field">
@@ -185,6 +177,12 @@ export default function TaskModal({
                         </div>
                     </div>
                 </div>
+
+                {mode === "edit" && task && (
+                    <div className="task-modal-body" style={{ marginTop: '-1.5rem', paddingTop: 0 }}>
+                        <TaskCommentSection projectId={projectId} taskId={task.id} projectMembers={members as any} />
+                    </div>
+                )}
 
                 <div className="task-modal-footer">
                     {mode === "edit" && task ? (

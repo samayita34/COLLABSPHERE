@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { socket } from "../services/socket";
+import { socketService } from "../services/socket";
 import {
     fetchNotifications,
     fetchUnreadCount,
     markNotificationAsRead,
     markAllNotificationsAsRead,
-    NotificationItem,
+    type NotificationItem,
 } from "../services/notificationApi";
 import "./NotificationCenter.css";
 
@@ -52,6 +52,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
         if (!user) return;
 
         loadUnreadCount();
+
+        const socket = socketService.connect();
 
         // Join socket user room for live updates
         socket.emit("joinUser", user.id);

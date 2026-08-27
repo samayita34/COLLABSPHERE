@@ -4,10 +4,28 @@
    PostgreSQL API responses into existing frontend types.
 ========================================================= */
 
-export type TaskStatus = "todo" | "progress" | "review" | "done";
+// Removed TaskStatus as we use dynamic columns now
 export type TaskPriority = "low" | "medium" | "high";
 
 export type DocType = "DOC" | "PDF" | "XLS" | "PPT";
+
+export interface Document {
+    id: string;
+    name: string;
+    type: "DOC" | "PDF" | "XLS" | "PPT";
+    size: string;
+    owner: string;
+    date: string;
+    content?: string;
+    projectId: string;
+}
+
+export interface DocumentVersion {
+    id: string;
+    name: string;
+    createdAt: string;
+    createdBy: string | null;
+}
 
 export interface ProjectDocument {
     id: string;
@@ -36,16 +54,35 @@ export const FILE_CATEGORY: Record<FileType, FileCategory> = {
     MP4: "videos",
 };
 
+export interface FileVersion {
+    id: string;
+    versionNum: number;
+    s3Key: string;
+    sizeBytes: string;
+    uploadedBy: { id: string; firstName: string; lastName: string; email?: string };
+    createdAt: string;
+}
+
 export interface ProjectFile {
     id: string;
     name: string;
     type: FileType;
-    size: string;
-    uploadedBy: string;
-    uploadedAt: string;
-    modifiedAt?: string;
     description?: string;
-    fileUrl?: string;
+    projectId: string;
+    folderId?: string | null;
+    isLocked: boolean;
+    lockedBy?: { id: string; firstName: string; lastName: string } | null;
+    versions: FileVersion[];
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface Folder {
+    id: string;
+    name: string;
+    projectId: string;
+    parentId: string | null;
+    _count?: { files: number; children: number };
 }
 
 export interface WorkspaceDocument extends ProjectDocument {
@@ -69,11 +106,27 @@ export interface ChatMessage {
     timestamp: string;
 }
 
+export interface Board {
+    id: string;
+    name: string;
+    projectId: string;
+    columns: Column[];
+}
+
+export interface Column {
+    id: string;
+    name: string;
+    order: number;
+    boardId: string;
+}
+
 export interface Task {
     id: string;
     title: string;
     description?: string;
-    status: TaskStatus;
+    columnId: string | null;
+    swimlaneId: string | null;
+    order: number;
     priority: TaskPriority;
     due: string;
     assignee: string;
@@ -83,7 +136,10 @@ export interface MyTaskItem {
     id: string;
     title: string;
     description?: string;
-    status: TaskStatus;
+    columnId: string | null;
+    columnName: string;
+    swimlaneId: string | null;
+    order: number;
     priority: TaskPriority;
     due: string;
     dueDateRaw?: string | null;
@@ -110,6 +166,7 @@ export interface Member {
 
 export interface MappedProject {
     id: string;
+    workspaceId?: string;
     slug: string;
     initials: string;
     name: string;
@@ -176,7 +233,7 @@ function deriveMemberInitials(firstName?: string, lastName?: string, email?: str
 /**
  * Format ISO date string into display date e.g. "Aug 28, 2026"
  */
-function formatDisplayDate(dateStr?: string | null, status?: string): string {
+export function formatDisplayDate(dateStr?: string | null, status?: string): string {
     if (!dateStr) return "No due date";
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return "No due date";
@@ -201,22 +258,7 @@ function formatShortDate(dateStr?: string | null): string {
     });
 }
 
-/**
- * Map backend task status (TODO, IN_PROGRESS, REVIEW, DONE) to frontend task status.
- */
-function mapTaskStatus(status?: string): TaskStatus {
-    switch (status) {
-        case "IN_PROGRESS":
-            return "progress";
-        case "REVIEW":
-            return "review";
-        case "DONE":
-            return "done";
-        case "TODO":
-        default:
-            return "todo";
-    }
-}
+// Task status mapping removed, replaced by dynamic columns
 
 /**
  * Map backend task priority (LOW, MEDIUM, HIGH) to frontend task priority.
@@ -276,7 +318,9 @@ export function mapApiTaskToFrontend(apiTask: any): Task {
         id: apiTask.id,
         title: apiTask.title,
         description: apiTask.description || undefined,
-        status: mapTaskStatus(apiTask.status),
+        columnId: apiTask.columnId || null,
+        swimlaneId: apiTask.swimlaneId || null,
+        order: apiTask.order || 0,
         priority: mapTaskPriority(apiTask.priority),
         due: formatShortDate(apiTask.dueDate),
         assignee: assigneeInitials,
@@ -303,6 +347,7 @@ export function mapApiProjectToFrontend(apiProject: any): MappedProject {
 
     return {
         id: apiProject.id,
+        workspaceId: apiProject.workspaceId,
         slug: apiProject.id,
         initials,
         name: apiProject.name,
@@ -331,8 +376,11 @@ export function mapApiProjectToFrontend(apiProject: any): MappedProject {
  * GET /api/projects
  * Fetch list of projects from backend and map to frontend types.
  */
-export async function fetchProjects(workspaceId: string): Promise<MappedProject[]> {
-    const res = await fetch(`${API_BASE_URL}/projects?workspaceId=${workspaceId}`, { credentials: "include" });
+export async function fetchProjects(workspaceId?: string): Promise<MappedProject[]> {
+    if (!workspaceId) {
+        return [];
+    }
+    const res = await fetch(`${API_BASE_URL}/projects?workspaceId=${encodeURIComponent(workspaceId)}`, { credentials: "include" });
     if (!res.ok) {
         throw new Error(`Failed to fetch projects (HTTP ${res.status})`);
     }
@@ -361,17 +409,7 @@ export async function fetchProjectById(id: string): Promise<MappedProject> {
     return mapApiProjectToFrontend(projectData);
 }
 
-/**
- * Map frontend status → backend TaskStatus enum string.
- */
-export function toApiStatus(status: TaskStatus): string {
-    switch (status) {
-        case "progress": return "IN_PROGRESS";
-        case "review":   return "REVIEW";
-        case "done":     return "DONE";
-        case "todo":     return "TODO";
-    }
-}
+// toApiStatus removed
 
 /**
  * Map frontend priority → backend TaskPriority enum string.
@@ -411,7 +449,9 @@ export async function createTaskApi(
     payload: {
         title: string;
         description?: string;
-        status: TaskStatus;
+        columnId?: string;
+        swimlaneId?: string;
+        order?: number;
         priority: TaskPriority;
         due: string;
         assignee: string;          // frontend initials
@@ -421,9 +461,11 @@ export async function createTaskApi(
     const assigneeId = payload.members.find((m) => m.initials === payload.assignee)?.userId ?? null;
     const body: Record<string, unknown> = {
         title: payload.title,
-        status: toApiStatus(payload.status),
         priority: toApiPriority(payload.priority),
     };
+    if (payload.columnId) body.columnId = payload.columnId;
+    if (payload.swimlaneId) body.swimlaneId = payload.swimlaneId;
+    if (payload.order !== undefined) body.order = payload.order;
     if (payload.description) body.description = payload.description;
     const dueDateIso = parseDueForApi(payload.due);
     if (dueDateIso) body.dueDate = dueDateIso;
@@ -452,7 +494,9 @@ export async function updateTaskApi(
     payload: {
         title?: string;
         description?: string;
-        status?: TaskStatus;
+        columnId?: string;
+        swimlaneId?: string;
+        order?: number;
         priority?: TaskPriority;
         due?: string;
         assignee?: string;         // frontend initials
@@ -462,7 +506,9 @@ export async function updateTaskApi(
     const body: Record<string, unknown> = {};
     if (payload.title !== undefined)       body.title       = payload.title;
     if (payload.description !== undefined) body.description = payload.description || null;
-    if (payload.status !== undefined)      body.status      = toApiStatus(payload.status);
+    if (payload.columnId !== undefined)    body.columnId    = payload.columnId;
+    if (payload.swimlaneId !== undefined)  body.swimlaneId  = payload.swimlaneId;
+    if (payload.order !== undefined)       body.order       = payload.order;
     if (payload.priority !== undefined)    body.priority    = toApiPriority(payload.priority);
     if (payload.due !== undefined) {
         body.dueDate = parseDueForApi(payload.due) ?? null;
@@ -487,10 +533,10 @@ export async function updateTaskApi(
 }
 
 /**
- * PATCH /api/tasks/:id  (status-only — used by Board drag-and-drop)
+ * PATCH /api/tasks/:id  (used by Board drag-and-drop)
  */
-export async function updateTaskStatusApi(taskId: string, status: TaskStatus): Promise<Task> {
-    return updateTaskApi(taskId, { status });
+export async function updateTaskColumnApi(taskId: string, columnId: string, order?: number): Promise<Task> {
+    return updateTaskApi(taskId, { columnId, order });
 }
 
 /**
@@ -619,79 +665,75 @@ export async function updateDocumentApi(
  * DELETE /api/documents/:id
  * Delete a document by ID.
  */
-export async function deleteDocumentApi(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/documents/${id}`, { method: "DELETE", credentials: "include" });
+export async function deleteDocumentApi(documentId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(documentId)}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
     if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || `Failed to delete document (HTTP ${res.status})`);
+        throw new Error(json.error || `Failed to delete document`);
     }
 }
 
-/**
- * Map backend file API response to frontend ProjectFile type.
- */
+export async function fetchDocumentVersionsApi(documentId: string): Promise<DocumentVersion[]> {
+    const res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(documentId)}/versions`, {
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to fetch versions");
+    return json.data;
+}
+
+export async function createDocumentVersionApi(documentId: string, name: string): Promise<DocumentVersion> {
+    const res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(documentId)}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create version");
+    return json.data;
+}
+
+export async function restoreDocumentVersionApi(documentId: string, versionId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(versionId)}/restore`, {
+        method: "POST",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to restore version");
+}
 export function mapApiFileToFrontend(apiFile: any): ProjectFile {
     return {
         id: apiFile.id,
         name: apiFile.name,
         type: (apiFile.type || "PDF") as FileType,
-        size: apiFile.size,
-        uploadedBy: apiFile.uploadedBy,
-        uploadedAt: formatDisplayDate(apiFile.createdAt),
-        modifiedAt: formatDisplayDate(apiFile.updatedAt),
         description: apiFile.description || undefined,
+        projectId: apiFile.projectId,
+        folderId: apiFile.folderId || null,
+        isLocked: apiFile.isLocked || false,
+        lockedBy: apiFile.lockedBy || null,
+        versions: (apiFile.versions || []).map((v: any) => ({
+            id: v.id,
+            versionNum: v.versionNum,
+            s3Key: v.s3Key,
+            sizeBytes: v.sizeBytes,
+            uploadedBy: v.uploadedBy,
+            createdAt: v.createdAt
+        })),
+        createdAt: formatDisplayDate(apiFile.createdAt),
+        updatedAt: formatDisplayDate(apiFile.updatedAt),
     };
 }
 
 /**
- * GET /api/projects/:projectId/files
- * Fetch files associated with a project from backend and map to frontend ProjectFile types.
- */
-export async function fetchFiles(projectId: string): Promise<ProjectFile[]> {
-    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/files`, { credentials: "include" });
-    if (!res.ok) {
-        throw new Error(`Failed to fetch files (HTTP ${res.status})`);
-    }
-    const json = await res.json();
-    if (!json.success || !Array.isArray(json.data)) {
-        throw new Error(json.error || "Invalid response format from files API");
-    }
-    return json.data.map(mapApiFileToFrontend);
-}
-
-/**
- * POST /api/projects/:projectId/files
- * Create/upload a new file asset record for a project.
- */
-export async function createFileApi(
-    projectId: string,
-    payload: {
-        name: string;
-        type: FileType;
-        size: string;
-        uploadedBy: string;
-        description?: string;
-    }
-): Promise<ProjectFile> {
-    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/files`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) {
-        throw new Error(json.error || `Failed to create file (HTTP ${res.status})`);
-    }
-    return mapApiFileToFrontend(json.data);
-}
-
-/**
- * DELETE /api/files/:id
+ * DELETE /api/projects/:projectId/files/:id
  * Delete a file by ID.
  */
-export async function deleteFileApi(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/files/${id}`, { method: "DELETE", credentials: "include" });
+export async function deleteFileApi(projectId: string, id: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/files/${id}`, { method: "DELETE", credentials: "include" });
     if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error || `Failed to delete file (HTTP ${res.status})`);
@@ -700,7 +742,7 @@ export async function deleteFileApi(id: string): Promise<void> {
 
 /**
  * POST /api/projects/:projectId/files  (multipart/form-data)
- * Upload a real file via FormData → Multer on the backend.
+ * Upload a real file via FormData.
  * Do NOT set Content-Type manually; the browser sets it with the correct boundary.
  */
 export async function uploadFileApi(
@@ -710,7 +752,6 @@ export async function uploadFileApi(
     const res = await fetch(`${API_BASE_URL}/projects/${projectId}/files`, {
         method: "POST",
         credentials: "include",
-        // NOTE: Do NOT set "Content-Type" here — browser adds multipart boundary automatically
         body: formData,
     });
     const json = await res.json().catch(() => ({}));
@@ -812,7 +853,10 @@ export function mapApiMyTaskToFrontend(apiTask: any): MyTaskItem {
         id: apiTask.id,
         title: apiTask.title,
         description: apiTask.description || undefined,
-        status: mapTaskStatus(apiTask.status),
+        columnId: apiTask.columnId,
+        columnName: apiTask.columnName || "Unknown",
+        swimlaneId: apiTask.swimlaneId || null,
+        order: apiTask.order || 0,
         priority: mapTaskPriority(apiTask.priority),
         due: formatShortDate(apiTask.dueDate),
         dueDateRaw: apiTask.dueDate,
@@ -964,4 +1008,132 @@ export async function fetchWorkspaceFiles(workspaceId: string): Promise<Workspac
 
 
 
+
+
+export async function fetchBoards(projectId: string): Promise<Board[]> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch boards");
+    const json = await res.json();
+    return json.data;
+}
+
+export async function updateTaskSemanticStatusApi(taskId: string, semanticStatus: string): Promise<Task> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${encodeURIComponent(taskId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ semanticStatus }),
+    });
+    const json = await res.json();
+    return json.data;
+}
+
+export async function createBoardApi(projectId: string, name: string): Promise<Board> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name }),
+    });
+    const json = await res.json();
+    return json.data;
+}
+
+export async function createColumnApi(projectId: string, boardId: string, payload: { name: string, order?: number }): Promise<Column> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/${boardId}/columns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    return json.data;
+}
+
+export interface TaskMention {
+    id: string;
+    userId: string;
+    user: { id: string; fullName: string; initials: string };
+}
+
+export interface TaskComment {
+    id: string;
+    text: string;
+    taskId: string;
+    authorId: string;
+    author: { id: string; fullName: string; initials: string };
+    parentId: string | null;
+    replies?: TaskComment[];
+    mentions?: TaskMention[];
+    attachments?: any[];
+    createdAt: string;
+    updatedAt: string;
+}
+
+export async function fetchTaskCommentsApi(projectId: string, taskId: string): Promise<TaskComment[]> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/tasks/${taskId}/comments`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch comments");
+    const json = await res.json();
+    return json.data;
+}
+
+export async function createTaskCommentApi(projectId: string, taskId: string, payload: { text: string; parentId?: string; mentions?: string[]; attachments?: string[] }): Promise<TaskComment> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/tasks/${taskId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    return json.data;
+}
+
+export async function deleteTaskCommentApi(projectId: string, commentId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/tasks/comments/${commentId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to delete comment");
+}
+
+// Folders & Files API
+
+export async function fetchFoldersApi(projectId: string): Promise<Folder[]> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/folders`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch folders");
+    const json = await res.json();
+    return json.data;
+}
+
+export async function createFolderApi(projectId: string, name: string, parentId?: string): Promise<Folder> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/folders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name, parentId }),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    return json.data;
+}
+
+export async function fetchProjectFilesApi(projectId: string, folderId?: string): Promise<ProjectFile[]> {
+    const url = new URL(`${API_BASE_URL}/projects/${projectId}/files`);
+    if (folderId) url.searchParams.append("folderId", folderId);
+    
+    const res = await fetch(url.toString(), { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch files");
+    const json = await res.json();
+    return json.data;
+}
+
+export async function toggleFileLockApi(projectId: string, fileId: string): Promise<ProjectFile> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/files/${fileId}/lock`, {
+        method: "PATCH",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    return json.data;
+}
 

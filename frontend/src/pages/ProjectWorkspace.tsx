@@ -5,12 +5,13 @@ import "./ProjectWorkspace.css";
 import TaskModal from "./TaskModal";
 import { MemberDetailModal, AddMemberModal } from "./MemberModal";
 import { DocumentDetailModal, AddDocumentModal } from "./DocumentModal";
-import { FileDetailModal, AddFileModal } from "./FileModal";
+import { FileBrowser } from "../components/FileBrowser";
 import { ProjectSettingsModal } from "./ProjectSettingsModal";
 import ProjectChat, { type ChatMessage } from "./ProjectChat";
-import { fetchProjectById, createTaskApi, updateTaskApi, updateTaskStatusApi, deleteTaskApi, addMemberApi, fetchDocuments, createDocumentApi, fetchFiles, uploadFileApi, deleteFileApi, fetchChatMessages, sendChatMessageApi, updateDocumentApi, mapApiTaskToFrontend, mapApiChatMessageToFrontend } from "../services/projectApi";
-import type { TaskStatus, TaskPriority, Task, Member, MappedProject as Project } from "../services/projectApi";
+import { fetchProjectById, createTaskApi, updateTaskApi, updateTaskColumnApi, deleteTaskApi, addMemberApi, fetchDocuments, createDocumentApi, fetchChatMessages, sendChatMessageApi, updateDocumentApi, mapApiTaskToFrontend, mapApiChatMessageToFrontend, fetchBoards } from "../services/projectApi";
+import type { TaskPriority, Task, Member, MappedProject as Project, Board } from "../services/projectApi";
 import { useAuth } from "../context/AuthContext";
+import { useWorkspace } from "../context/WorkspaceContext";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import { socketService } from "../services/socket";
 import NotificationCenter from "../components/NotificationCenter";
@@ -32,58 +33,18 @@ interface ProjectDocument {
     size?: string;
 }
 
-type FileType = "PDF" | "PNG" | "JPG" | "FIG" | "ZIP" | "PPT" | "DOC" | "MP4" | "XLS";
-type FileCategory = "images" | "documents" | "design" | "archives" | "videos";
 
-const FILE_CATEGORY: Record<FileType, FileCategory> = {
-    PNG: "images",
-    JPG: "images",
-    PDF: "documents",
-    DOC: "documents",
-    XLS: "documents",
-    PPT: "documents",
-    FIG: "design",
-    ZIP: "archives",
-    MP4: "videos",
-};
 
-interface ProjectFile {
-    id: string;
-    name: string;
-    type: FileType;
-    size: string;
-    uploadedBy: string;
-    uploadedAt: string;
-    modifiedAt?: string;
-    description?: string;
-}
+
+
+
 
 const activity: { text: string; time: string }[] = [];
 
 const TABS = ["Overview", "Tasks", "Board", "Members", "Documents", "Files", "Chat", "Activity", "Settings"] as const;
 type Tab = (typeof TABS)[number];
 
-const COLUMNS: { key: TaskStatus; label: string }[] = [
-    { key: "todo", label: "TO DO" },
-    { key: "progress", label: "IN PROGRESS" },
-    { key: "review", label: "REVIEW" },
-    { key: "done", label: "DONE" },
-];
-
-const TAG_LABEL: Record<TaskStatus, string> = {
-    todo: "To do",
-    progress: "In progress",
-    review: "Review",
-    done: "Done",
-};
-
-const STATUS_FILTERS: { key: "all" | TaskStatus; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "todo", label: "To do" },
-    { key: "progress", label: "In progress" },
-    { key: "review", label: "Review" },
-    { key: "done", label: "Done" },
-];
+// Removed static COLUMNS, TAG_LABEL, STATUS_FILTERS as they are dynamic now
 
 const PRIORITY_FILTERS: { key: "all" | TaskPriority; label: string }[] = [
     { key: "all", label: "All priorities" },
@@ -100,20 +61,14 @@ const DOC_TYPE_FILTERS: { key: "all" | DocType; label: string }[] = [
     { key: "PPT", label: "Presentations" },
 ];
 
-const FILE_CATEGORY_FILTERS: { key: "all" | FileCategory; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "images", label: "Images" },
-    { key: "documents", label: "Documents" },
-    { key: "design", label: "Design" },
-    { key: "archives", label: "Archives" },
-    { key: "videos", label: "Videos" },
-];
+
 
 export default function ProjectWorkspace() {
     const { id, slug } = useParams<{ id?: string; slug?: string }>();
     const navigate = useNavigate();
     const location = useLocation();
     const { userFullName, userInitials, logout } = useAuth();
+    const { activeWorkspace } = useWorkspace();
     const routeParam = id || slug || "";
 
     const [project, setProject] = useState<Project | null>(null);
@@ -133,11 +88,12 @@ export default function ProjectWorkspace() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
     const [documents, setDocuments] = useState<ProjectDocument[]>([]);
-    const [files, setFiles] = useState<ProjectFile[]>([]);
+
     const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [board, setBoard] = useState<Board | null>(null);
 
     /* Tasks tab filters */
-    const [statusFilter, setStatusFilter] = useState<"all" | TaskStatus>("all");
+    const [statusFilter, setStatusFilter] = useState<"all" | string>("all");
     const [priorityFilter, setPriorityFilter] = useState<"all" | TaskPriority>("all");
 
     useEffect(() => {
@@ -151,24 +107,25 @@ export default function ProjectWorkspace() {
                 console.error("Error fetching documents:", err);
                 return null;
             }),
-            fetchFiles(routeParam).catch((err) => {
-                console.error("Error fetching files:", err);
-                return null;
-            }),
             fetchChatMessages(routeParam).catch((err) => {
                 console.error("Error fetching chat messages:", err);
                 return null;
             }),
+            fetchBoards(routeParam).catch((err) => {
+                console.error("Error fetching boards:", err);
+                return null;
+            }),
         ])
-            .then(([data, apiDocs, apiFiles, apiMessages]) => {
+            .then(([data, apiDocs, apiMessages, apiBoards]) => {
                 if (isMounted) {
                     setProject(data);
-                    setTasks(data.tasks);
-                    setMembers(data.members);
-
-                    setDocuments(apiDocs !== null ? apiDocs : []);
-                    setFiles(apiFiles !== null ? apiFiles : []);
-                    setMessages(apiMessages !== null ? apiMessages : []);
+                    setTasks(data.tasks || []);
+                    setMembers(data.members || []);
+                    setDocuments(apiDocs || []);
+                    setMessages(apiMessages || []);
+                    if (apiBoards && apiBoards.length > 0) {
+                        setBoard(apiBoards[0]); // Primary board
+                    }
                     setError(null);
                 }
             })
@@ -231,32 +188,33 @@ export default function ProjectWorkspace() {
     }, [routeParam]);
 
     const filteredTasks = tasks.filter((t) => {
-        const statusMatch = statusFilter === "all" || t.status === statusFilter;
+        const statusMatch = statusFilter === "all" || t.columnId === statusFilter;
         const priorityMatch = priorityFilter === "all" || t.priority === priorityFilter;
         return statusMatch && priorityMatch;
     });
 
-    const tasksDone = tasks.filter((t) => t.status === "done").length;
+    const doneColumnId = board?.columns.find(c => c.name.toLowerCase() === 'done')?.id;
+    const tasksDone = tasks.filter((t) => t.columnId === doneColumnId).length;
     const tasksTotal = tasks.length;
     const progress = tasksTotal === 0 ? (project?.progress ?? 0) : Math.round((tasksDone / tasksTotal) * 100);
 
     /* Drag and drop */
     const [draggingId, setDraggingId] = useState<string | null>(null);
-    const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
+    const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
-    const handleDrop = (columnKey: TaskStatus, e: DragEvent) => {
+    const handleDrop = (columnId: string, e: DragEvent) => {
         e.preventDefault();
         const taskId = e.dataTransfer.getData("text/plain") || draggingId;
         if (taskId) {
             // Optimistic update
             setTasks((prev) =>
-                prev.map((t) => (t.id === taskId ? { ...t, status: columnKey } : t))
+                prev.map((t) => (t.id === taskId ? { ...t, columnId } : t))
             );
             // Persist to backend
-            updateTaskStatusApi(taskId, columnKey).then((updated) => {
+            updateTaskColumnApi(taskId, columnId).then((updated) => {
                 setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
             }).catch((err) => {
-                console.error("Failed to update task status:", err);
+                console.error("Failed to update task column:", err);
                 // Revert on failure — refetch the task list
                 if (routeParam) {
                     fetchProjectById(routeParam).then((data) => setTasks(data.tasks)).catch(() => {});
@@ -271,12 +229,12 @@ export default function ProjectWorkspace() {
     const [modalOpen, setModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<"create" | "edit">("create");
     const [modalTask, setModalTask] = useState<Task | null>(null);
-    const [modalDefaultStatus, setModalDefaultStatus] = useState<TaskStatus>("todo");
+    const [modalDefaultColumnId, setModalDefaultColumnId] = useState<string | null>(null);
 
-    const openCreateModal = (status: TaskStatus) => {
+    const openCreateModal = (columnId?: string) => {
         setModalMode("create");
         setModalTask(null);
-        setModalDefaultStatus(status);
+        setModalDefaultColumnId(columnId || board?.columns[0]?.id || null);
         setModalOpen(true);
     };
 
@@ -296,7 +254,7 @@ export default function ProjectWorkspace() {
             createTaskApi(routeParam, {
                 title: task.title,
                 description: task.description,
-                status: task.status,
+                columnId: task.columnId || undefined,
                 priority: task.priority,
                 due: task.due,
                 assignee: task.assignee,
@@ -312,7 +270,7 @@ export default function ProjectWorkspace() {
             updateTaskApi(task.id, {
                 title: task.title,
                 description: task.description,
-                status: task.status,
+                columnId: task.columnId || undefined,
                 priority: task.priority,
                 due: task.due,
                 assignee: task.assignee,
@@ -370,11 +328,12 @@ export default function ProjectWorkspace() {
     /* MemberDetailModal doesn't expose onRemoveMember; removal is not supported via modal */
     const memberStats = (member: Member) => {
         const assignedTasks = tasks.filter((t) => t.assignee === member.initials);
+        const doneColId = board?.columns.find(c => c.name.toLowerCase() === 'done')?.id;
         return {
             assignedTasks,
             assigned: assignedTasks.length,
-            completed: assignedTasks.filter((t) => t.status === "done").length,
-            remaining: assignedTasks.filter((t) => t.status !== "done").length,
+            completed: assignedTasks.filter((t) => t.columnId === doneColId).length,
+            remaining: assignedTasks.filter((t) => t.columnId !== doneColId).length,
         };
     };
 
@@ -422,47 +381,7 @@ export default function ProjectWorkspace() {
             });
     };
 
-    /* =========================
-       FILES TAB
-    ========================= */
-    const [fileCategoryFilter, setFileCategoryFilter] = useState<"all" | FileCategory>("all");
-    const [fileSearch, setFileSearch] = useState("");
-    const [addFileOpen, setAddFileOpen] = useState(false);
-    const [detailFile, setDetailFile] = useState<ProjectFile | null>(null);
-    const [fileUploading, setFileUploading] = useState(false);
 
-    const filteredFiles = files.filter((f) => {
-        const cat = FILE_CATEGORY[f.type];
-        const catMatch = fileCategoryFilter === "all" || cat === fileCategoryFilter;
-        const q = fileSearch.trim().toLowerCase();
-        const searchMatch =
-            !q ||
-            f.name.toLowerCase().includes(q) ||
-            f.uploadedBy.toLowerCase().includes(q) ||
-            (f.description ?? "").toLowerCase().includes(q);
-        return catMatch && searchMatch;
-    });
-
-    /* AddFileModal.onSave receives FormData → uploadFileApi sends multipart to Multer */
-    const handleAddFileSave = (formData: FormData) => {
-        setFileUploading(true);
-        uploadFileApi(routeParam, formData)
-            .then((newFile) => {
-                setFiles((prev) => [newFile, ...prev]);
-                setAddFileOpen(false);
-            })
-            .catch((err) => {
-                console.error("Failed to upload file:", err);
-            })
-            .finally(() => {
-                setFileUploading(false);
-            });
-    };
-
-    const handleDeleteFile = async (fileId: string) => {
-        await deleteFileApi(fileId);
-        setFiles((prev) => prev.filter((f) => f.id !== fileId));
-    };
 
     /* =========================
        CHAT TAB
@@ -588,7 +507,11 @@ export default function ProjectWorkspace() {
                 <header className="topbar">
 
                     <div className="breadcrumb">
-                        Workspace / Projects / <strong>{project.name}</strong>
+                        <Link to="/projects" style={{ color: "inherit", textDecoration: "none" }}>Workspace</Link>
+                        <span style={{ margin: "0 6px" }}>/</span>
+                        <Link to="/projects" style={{ color: "inherit", textDecoration: "none" }}>Projects</Link>
+                        <span style={{ margin: "0 6px" }}>/</span>
+                        <strong>{project.name}</strong>
                     </div>
 
                     <div className="topbar-actions">
@@ -598,9 +521,9 @@ export default function ProjectWorkspace() {
                             <kbd>⌘ K</kbd>
                         </div>
 
-                        <NotificationCenter workspaceId={project?.workspaceId} />
+                        <NotificationCenter workspaceId={project?.workspaceId || activeWorkspace?.id} />
 
-                        <div className="profile-avatar">{userInitials}</div>
+                        <div className="profile-avatar" title={userFullName}>{userInitials}</div>
                     </div>
 
                 </header>
@@ -695,7 +618,7 @@ export default function ProjectWorkspace() {
 
                                 <div className="progress-meta">
                                     <span>✓ {tasksDone} of {tasksTotal} tasks complete</span>
-                                    <span>◷ {project.date}</span>
+                                    {project.date && <span>🕒 {project.date}</span>}
                                 </div>
                             </div>
 
@@ -753,7 +676,7 @@ export default function ProjectWorkspace() {
                                 {tab === "Documents" && (
                                     <span className="tab-count">{documents.length}</span>
                                 )}
-                                {tab === "Files" && <span className="tab-count">{files.length}</span>}
+                                {tab === "Files" && null}
                                 {tab === "Chat" && <span className="tab-count">{messages.length}</span>}
                             </button>
                         ))}
@@ -822,12 +745,12 @@ export default function ProjectWorkspace() {
                                         ) : (
                                             tasks.slice(0, 4).map((t) => (
                                                 <div
-                                                    className={`task-row ${t.status === "done" ? "done" : ""} clickable`}
+                                                    className={`task-row ${t.columnId === doneColumnId ? "done" : ""} clickable`}
                                                     key={t.id}
                                                     onClick={() => openEditModal(t)}
                                                 >
-                                                    <div className={`task-check ${t.status === "done" ? "checked" : ""}`}>
-                                                        {t.status === "done" ? "✓" : ""}
+                                                    <div className={`task-check ${t.columnId === doneColumnId ? "checked" : ""}`}>
+                                                        {t.columnId === doneColumnId ? "✓" : ""}
                                                     </div>
 
                                                     <div className="task-body">
@@ -839,7 +762,7 @@ export default function ProjectWorkspace() {
                                                         </div>
 
                                                         <div className="task-meta">
-                                                            <span className={`status-badge ${t.status}`}>{TAG_LABEL[t.status] || t.status}</span>
+                                                            <span className="status-badge">{board?.columns.find(c => c.id === t.columnId)?.name || "Unknown"}</span>
                                                             <span className="meta-sep">·</span>
                                                             <span>Due {t.due}</span>
                                                             <span className="meta-sep">·</span>
@@ -940,9 +863,10 @@ export default function ProjectWorkspace() {
                                             value={statusFilter}
                                             onChange={(e) => setStatusFilter(e.target.value as any)}
                                         >
-                                            {STATUS_FILTERS.map((f) => (
-                                                <option key={f.key} value={f.key}>
-                                                    {f.label}
+                                            <option value="all">All</option>
+                                            {board?.columns.map((c) => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.name}
                                                 </option>
                                             ))}
                                         </select>
@@ -979,12 +903,12 @@ export default function ProjectWorkspace() {
                                 ) : (
                                     filteredTasks.map((t) => (
                                         <div
-                                            className={`task-row ${t.status === "done" ? "done" : ""} clickable`}
+                                            className={`task-row ${t.columnId === doneColumnId ? "done" : ""} clickable`}
                                             key={t.id}
                                             onClick={() => openEditModal(t)}
                                         >
-                                            <div className={`task-check ${t.status === "done" ? "checked" : ""}`}>
-                                                {t.status === "done" ? "✓" : ""}
+                                            <div className={`task-check ${t.columnId === doneColumnId ? "checked" : ""}`}>
+                                                {t.columnId === doneColumnId ? "✓" : ""}
                                             </div>
 
                                             <div className="task-body">
@@ -1000,7 +924,7 @@ export default function ProjectWorkspace() {
                                                 )}
 
                                                 <div className="task-meta">
-                                                    <span className={`status-badge ${t.status}`}>{TAG_LABEL[t.status] || t.status}</span>
+                                                    <span className="status-badge">{board?.columns.find(c => c.id === t.columnId)?.name || "Unknown"}</span>
                                                     <span className="meta-sep">·</span>
                                                     <span>Due {t.due}</span>
                                                     <span className="meta-sep">·</span>
@@ -1034,25 +958,25 @@ export default function ProjectWorkspace() {
                             </div>
 
                             <div className="board-grid">
-                                {COLUMNS.map((col) => {
-                                    const colTasks = tasks.filter((t) => t.status === col.key);
-                                    const isTarget = dragOverColumn === col.key;
+                                                {board?.columns.map((col) => {
+                                                    const colTasks = tasks.filter((t) => t.columnId === col.id);
+                                                    const isTarget = dragOverColumn === col.id;
 
                                     return (
                                         <div
-                                            key={col.key}
+                                            key={col.id}
                                             className={`board-column ${isTarget ? "drag-over" : ""}`}
                                             onDragOver={(e) => {
                                                 e.preventDefault();
-                                                setDragOverColumn(col.key);
+                                                setDragOverColumn(col.id);
                                             }}
                                             onDragLeave={() => setDragOverColumn(null)}
-                                            onDrop={(e) => handleDrop(col.key, e)}
+                                            onDrop={(e) => handleDrop(col.id, e)}
                                         >
                                             <div className="column-header">
                                                 <div className="column-title">
-                                                    <span className={`column-dot ${col.key}`} />
-                                                    <strong>{col.label}</strong>
+                                                    <span className="column-dot" />
+                                                    <strong>{col.name}</strong>
                                                 </div>
                                                 <span className="column-count">{colTasks.length}</span>
                                             </div>
@@ -1094,7 +1018,7 @@ export default function ProjectWorkspace() {
 
                                                 <button
                                                     className="add-card-btn"
-                                                    onClick={() => openCreateModal(col.key)}
+                                                    onClick={() => openCreateModal(col.id)}
                                                 >
                                                     + Add task
                                                 </button>
@@ -1222,72 +1146,8 @@ export default function ProjectWorkspace() {
 
                     {/* FILES TAB */}
                     {activeTab === "Files" && (
-                        <div className="tab-pane">
-
-                            <div className="pane-toolbar">
-                                <div className="pane-title">
-                                    <h2>Uploaded Files ({filteredFiles.length})</h2>
-                                    <p>Design assets, archives, and media attachments.</p>
-                                </div>
-
-                                <div className="pane-actions">
-
-                                    <div className="search">
-                                        <span>⌕</span>
-                                        <input
-                                            placeholder="Search files..."
-                                            value={fileSearch}
-                                            onChange={(e) => setFileSearch(e.target.value)}
-                                        />
-                                    </div>
-
-                                    <select
-                                        className="filter-select"
-                                        value={fileCategoryFilter}
-                                        onChange={(e) => setFileCategoryFilter(e.target.value as any)}
-                                    >
-                                        {FILE_CATEGORY_FILTERS.map((f) => (
-                                            <option key={f.key} value={f.key}>
-                                                {f.label}
-                                            </option>
-                                        ))}
-                                    </select>
-
-                                    <button
-                                        className="cs-btn cs-btn-primary"
-                                        onClick={() => setAddFileOpen(true)}
-                                    >
-                                        + Upload file
-                                    </button>
-
-                                </div>
-                            </div>
-
-                            <div className="files-grid">
-                                {filteredFiles.length === 0 ? (
-                                    <div className="empty-state">
-                                        <p>No files found.</p>
-                                    </div>
-                                ) : (
-                                    filteredFiles.map((f) => (
-                                        <div
-                                            className="file-card"
-                                            key={f.id}
-                                            onClick={() => setDetailFile(f)}
-                                        >
-                                            <div className="file-type-badge">{f.type}</div>
-                                            <h3>{f.name}</h3>
-                                            <p className="file-size">{f.size}</p>
-
-                                            <div className="file-meta">
-                                                <span>By: {f.uploadedBy}</span>
-                                                <span>Date: {f.uploadedAt}</span>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-
+                        <div className="tab-pane" style={{ height: "calc(100vh - 180px)", padding: 0 }}>
+                            <FileBrowser projectId={project.id} />
                         </div>
                     )}
 
@@ -1342,8 +1202,10 @@ export default function ProjectWorkspace() {
                 <TaskModal
                     mode={modalMode}
                     task={modalTask}
-                    defaultStatus={modalDefaultStatus}
+                    defaultColumnId={modalDefaultColumnId}
+                    columns={board?.columns || []}
                     members={members}
+                    projectId={id || ""}
                     onClose={closeModal}
                     onSave={saveTask}
                     onDelete={deleteTask}
@@ -1381,22 +1243,6 @@ export default function ProjectWorkspace() {
                 />
             )}
 
-            {addFileOpen && (
-                <AddFileModal
-                    onClose={() => setAddFileOpen(false)}
-                    onSave={handleAddFileSave}
-                    uploaderName={userFullName || userInitials || "Unknown"}
-                    isLoading={fileUploading}
-                />
-            )}
-
-            {detailFile && (
-                <FileDetailModal
-                    file={detailFile}
-                    onClose={() => setDetailFile(null)}
-                    onDelete={handleDeleteFile}
-                />
-            )}
 
             {isSettingsOpen && project && (
                 <ProjectSettingsModal

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
-import { TaskStatus, TaskPriority, NotificationType, AuditAction } from "../../generated/prisma/enums";
+import { TaskPriority, NotificationType, AuditAction } from "../../generated/prisma/enums";
 import { getIO } from "../lib/socket";
 import { createAndSendNotification } from "../services/notificationService";
 import { logAuditAction } from "../services/auditService";
@@ -28,7 +28,9 @@ function formatTask(task: any) {
         id: task.id,
         title: task.title,
         description: task.description,
-        status: task.status,
+        columnId: task.columnId,
+        swimlaneId: task.swimlaneId,
+        order: task.order,
         priority: task.priority,
         dueDate: task.dueDate,
         projectId: task.projectId,
@@ -82,6 +84,7 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
             },
             include: {
                 assignee: { select: safeUserSelect },
+                column: { select: { id: true, name: true, order: true } },
                 project: {
                     select: {
                         id: true,
@@ -101,7 +104,10 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
             id: task.id,
             title: task.title,
             description: task.description,
-            status: task.status,
+            columnId: task.columnId,
+            columnName: task.column?.name || "Unknown",
+            swimlaneId: task.swimlaneId,
+            order: task.order,
             priority: task.priority,
             dueDate: task.dueDate,
             projectId: task.projectId,
@@ -140,8 +146,13 @@ export const getTasksByProject = async (req: Request, res: Response): Promise<vo
             where: { projectId },
             include: {
                 assignee: { select: safeUserSelect },
+                column: { select: { id: true, name: true, boardId: true } },
             },
-            orderBy: { createdAt: "asc" },
+            orderBy: [
+                { columnId: "asc" },
+                { order: "asc" },
+                { createdAt: "asc" }
+            ],
         });
 
         res.status(200).json({
@@ -164,7 +175,7 @@ export const getTasksByProject = async (req: Request, res: Response): Promise<vo
 export const createTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const { projectId } = req.params;
-        const { title, description, status, priority, dueDate, assigneeId } = req.body;
+        const { title, description, priority, dueDate, assigneeId, columnId, swimlaneId, order } = req.body;
 
         // requireProjectAccess has verified access and project existence.
 
@@ -173,15 +184,6 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             res.status(400).json({
                 success: false,
                 error: "Task title is required and must be a non-empty string",
-            });
-            return;
-        }
-
-        // Validate status enum if provided
-        if (status !== undefined && !Object.values(TaskStatus).includes(status)) {
-            res.status(400).json({
-                success: false,
-                error: `Invalid status. Allowed values are: ${Object.values(TaskStatus).join(", ")}`,
             });
             return;
         }
@@ -233,11 +235,13 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             data: {
                 title: title.trim(),
                 description: description ? String(description).trim() : null,
-                status: status ?? TaskStatus.TODO,
                 priority: priority ?? TaskPriority.MEDIUM,
                 dueDate: parsedDueDate,
                 projectId,
                 assigneeId: assigneeId ? assigneeId.trim() : null,
+                columnId: columnId ? columnId.trim() : null,
+                swimlaneId: swimlaneId ? swimlaneId.trim() : null,
+                order: typeof order === "number" ? order : 0,
             },
             include: {
                 assignee: { select: safeUserSelect },
@@ -272,7 +276,7 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             action: "TASK_CREATED",
             entityType: "Task",
             entityId: task.id,
-            details: { title: task.title, status: task.status, assigneeId: task.assigneeId },
+            details: { title: task.title, columnId: task.columnId, assigneeId: task.assigneeId },
             ipAddress: req.ip,
             userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
@@ -310,10 +314,25 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
 export const updateTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
-        const { title, description, status, priority, dueDate, assigneeId } = req.body;
+        const { title, description, priority, dueDate, assigneeId, columnId, swimlaneId, order, semanticStatus } = req.body;
 
         // requireTaskAccess has already verified task existence and project access.
         const existingTask = await prisma.task.findUnique({ where: { id } });
+
+        if (!existingTask) {
+            res.status(404).json({ success: false, error: "Task not found" });
+            return;
+        }
+
+        let finalColumnId = columnId;
+        if (semanticStatus) {
+            // Find a column in this project that matches semanticStatus
+            const boards = await prisma.board.findMany({ where: { projectId: existingTask.projectId }, include: { columns: true } });
+            if (boards.length > 0) {
+                 const targetCol = boards[0].columns.find((c: any) => c.name.toLowerCase().includes(semanticStatus.toLowerCase()) || c.name.toLowerCase() === semanticStatus.toLowerCase());
+                 if (targetCol) finalColumnId = targetCol.id;
+            }
+        }
 
         const updateData: Record<string, unknown> = {};
 
@@ -332,15 +351,20 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             updateData.description = description ? String(description).trim() : null;
         }
 
-        if (status !== undefined) {
-            if (!Object.values(TaskStatus).includes(status)) {
-                res.status(400).json({
-                    success: false,
-                    error: `Invalid status. Allowed values are: ${Object.values(TaskStatus).join(", ")}`,
-                });
+        if (columnId !== undefined) {
+            updateData.columnId = columnId === null ? null : String(columnId).trim();
+        }
+
+        if (swimlaneId !== undefined) {
+            updateData.swimlaneId = swimlaneId === null ? null : String(swimlaneId).trim();
+        }
+
+        if (order !== undefined) {
+            if (typeof order !== "number") {
+                res.status(400).json({ success: false, error: "order must be a number" });
                 return;
             }
-            updateData.status = status;
+            updateData.order = order;
         }
 
         if (priority !== undefined) {
@@ -367,6 +391,31 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
                     return;
                 }
                 updateData.dueDate = parsed;
+            }
+        }
+
+        if (finalColumnId !== undefined) {
+            if (finalColumnId === null) {
+                updateData.columnId = null;
+            } else {
+                if (typeof finalColumnId !== "string" || finalColumnId.trim() === "") {
+                    res.status(400).json({
+                        success: false,
+                        error: "columnId must be a non-empty string or null",
+                    });
+                    return;
+                }
+                const columnExists = await prisma.column.findUnique({
+                    where: { id: finalColumnId.trim() },
+                });
+                if (!columnExists) {
+                    res.status(400).json({
+                        success: false,
+                        error: `Column specified by columnId '${finalColumnId}' does not exist`,
+                    });
+                    return;
+                }
+                updateData.columnId = finalColumnId.trim();
             }
         }
 
@@ -421,13 +470,13 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
                 title: isNewAssignee ? "Task Assigned" : "Task Updated",
                 message: isNewAssignee
                     ? `You were assigned to task "${updated.title}"`
-                    : `Task "${updated.title}" was updated to status ${updated.status}`,
+                    : `Task "${updated.title}" was updated`,
                 link: `/projects/${updated.projectId}`,
             }).catch((err) => console.error("Notification error:", err));
         }
 
         // Audit Logs: TASK_STATUS_CHANGED, TASK_ASSIGNED, TASK_UPDATED
-        if (status !== undefined && existingTask?.status !== updated.status) {
+        if (columnId !== undefined && existingTask?.columnId !== updated.columnId) {
             logAuditAction({
                 userId: req.user?.id,
                 workspaceId: req.workspace?.id,
@@ -435,7 +484,7 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
                 action: "TASK_STATUS_CHANGED",
                 entityType: "Task",
                 entityId: updated.id,
-                details: { title: updated.title, oldStatus: existingTask?.status, newStatus: updated.status },
+                details: { title: updated.title, oldColumnId: existingTask?.columnId, newColumnId: updated.columnId },
                 ipAddress: req.ip,
                 userAgent: req.headers["user-agent"] as string,
             }).catch((err) => console.error("Audit log error:", err));

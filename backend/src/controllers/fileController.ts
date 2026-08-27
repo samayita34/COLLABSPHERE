@@ -3,34 +3,48 @@ import prisma from "../lib/prisma";
 import { FileType, NotificationType, AuditAction } from "../../generated/prisma/enums";
 import { createAndSendNotification } from "../services/notificationService";
 import { logAuditAction } from "../services/auditService";
+import { storageService } from "../services/storageService";
 
 function formatFile(file: any) {
     return {
         id: file.id,
         name: file.name,
         type: file.type,
-        size: file.size,
-        uploadedBy: file.uploadedBy,
         description: file.description,
         projectId: file.projectId,
-        fileUrl: file.fileUrl,
+        folderId: file.folderId,
+        isLocked: file.isLocked,
+        lockedBy: file.lockedBy,
+        versions: file.versions?.map((v: any) => ({
+            id: v.id,
+            versionNum: v.versionNum,
+            s3Key: v.s3Key,
+            sizeBytes: v.sizeBytes.toString(),
+            uploadedBy: v.uploadedBy,
+            createdAt: v.createdAt
+        })),
         createdAt: file.createdAt,
         updatedAt: file.updatedAt,
     };
 }
 
-/**
- * GET /api/projects/:projectId/files
- * Fetch all files associated with a given project.
- */
 export const getFilesByProject = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { projectId } = req.params;
-
-        // requireProjectAccess has verified access and project existence.
+        const projectId = req.params.projectId as string;
+        const folderId = req.query.folderId as string | undefined;
 
         const files = await prisma.file.findMany({
-            where: { projectId },
+            where: { 
+                projectId,
+                folderId: folderId ? String(folderId) : null
+            },
+            include: {
+                versions: {
+                    include: { uploadedBy: { select: { id: true, firstName: true, lastName: true, email: true } } },
+                    orderBy: { versionNum: 'desc' }
+                },
+                lockedBy: { select: { id: true, firstName: true, lastName: true } }
+            },
             orderBy: { createdAt: "desc" },
         });
 
@@ -41,249 +55,277 @@ export const getFilesByProject = async (req: Request, res: Response): Promise<vo
         });
     } catch (error) {
         console.error("Error fetching files:", error);
-        res.status(500).json({
-            success: false,
-            error: "Failed to fetch files",
-        });
+        res.status(500).json({ success: false, error: "Failed to fetch files" });
     }
 };
 
-/**
- * POST /api/projects/:projectId/files
- * Create/upload a new file asset record for a project.
- */
 export const createFile = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { projectId } = req.params;
-        const { name, type, size, uploadedBy, description } = req.body;
+        const projectId = req.params.projectId as string;
+        const { name, folderId, description } = req.body;
+        const uploadedFile = req.file;
 
-        // requireProjectAccess has verified access and project existence.
+        if (!uploadedFile) {
+            res.status(400).json({ success: false, error: "File buffer is required" });
+            return;
+        }
 
         if (!name || typeof name !== "string" || name.trim() === "") {
-            res.status(400).json({
-                success: false,
-                error: "File name is required and must be a non-empty string",
-            });
+            res.status(400).json({ success: false, error: "File name is required" });
             return;
         }
 
-        if (!size || typeof size !== "string" || size.trim() === "") {
-            res.status(400).json({
-                success: false,
-                error: "File size is required and must be a non-empty string",
-            });
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ success: false, error: "Unauthorized" });
             return;
         }
 
-        if (!uploadedBy || typeof uploadedBy !== "string" || uploadedBy.trim() === "") {
-            res.status(400).json({
-                success: false,
-                error: "uploadedBy is required and must be a non-empty string",
-            });
-            return;
-        }
+        // Check workspace storage quota
+        const workspace = await prisma.workspace.findUnique({
+            where: { id: req.workspace?.id }
+        });
         
-        let finalSize = size;
-        let fileUrl = null;
-        if (req.file) {
-            finalSize = (req.file.size / 1024 / 1024).toFixed(2) + " MB";
-            fileUrl = "/uploads/" + req.file.filename;
+        const newSize = BigInt(uploadedFile.size);
+        if (workspace && workspace.storageUsed + newSize > workspace.storageQuota) {
+            res.status(403).json({ success: false, error: "Storage quota exceeded" });
+            return;
         }
 
-        let fileType: FileType = FileType.PDF;
-        if (type !== undefined) {
-            if (!Object.values(FileType).includes(type)) {
-                res.status(400).json({
-                    success: false,
-                    error: `Invalid file type. Allowed values are: ${Object.values(FileType).join(", ")}`,
-                });
-                return;
-            }
-            fileType = type as FileType;
-        }
-
-        const newFile = await prisma.file.create({
-            data: {
-                name: name.trim(),
-                type: fileType,
-                size: finalSize ? finalSize.trim() : "Unknown",
-                uploadedBy: uploadedBy.trim(),
-                description: description ? String(description).trim() : null,
-                fileUrl: fileUrl,
+        // Check if file with same name exists in same folder to create a new version
+        let file = await prisma.file.findFirst({
+            where: {
                 projectId,
+                folderId: folderId || null,
+                name: name.trim()
             },
+            include: { versions: { orderBy: { versionNum: 'desc' }, take: 1 } }
         });
 
-        // Audit Log: FILE_UPLOADED
+        if (file && file.isLocked && file.lockedById !== userId) {
+            res.status(403).json({ success: false, error: "File is locked by another user" });
+            return;
+        }
+
+        // Upload to Storage
+        const s3Key = `projects/${projectId}/${Date.now()}-${name}`;
+        await storageService.uploadFile(s3Key, uploadedFile.buffer, uploadedFile.mimetype);
+
+        let newVersionNum = 1;
+        
+        if (!file) {
+            // Create new file
+            let fileType: FileType = FileType.PDF;
+            // determine type logic could be enhanced based on mimetype
+            if (uploadedFile.mimetype.includes('image')) fileType = FileType.PNG;
+            else if (uploadedFile.mimetype.includes('video')) fileType = FileType.MP4;
+            else if (uploadedFile.mimetype.includes('zip')) fileType = FileType.ZIP;
+
+            file = await prisma.file.create({
+                data: {
+                    name: name.trim(),
+                    description: description || null,
+                    projectId,
+                    folderId: folderId || null,
+                    type: fileType
+                },
+                include: { versions: true } // just for type compatibility below
+            });
+        } else {
+            newVersionNum = file.versions.length > 0 ? file.versions[0].versionNum + 1 : 1;
+        }
+
+        // Create new version
+        const newVersion = await prisma.fileVersion.create({
+            data: {
+                versionNum: newVersionNum,
+                s3Key,
+                sizeBytes: newSize,
+                fileId: file.id,
+                uploadedById: userId
+            }
+        });
+
+        // Update workspace quota
+        if (workspace) {
+            await prisma.workspace.update({
+                where: { id: workspace.id },
+                data: { storageUsed: workspace.storageUsed + newSize }
+            });
+        }
+
+        // Audit Log
         logAuditAction({
-            userId: req.user?.id,
+            userId,
             workspaceId: req.workspace?.id,
-            projectId: projectId as string,
-            action: "FILE_UPLOADED",
+            projectId,
+            action: file.versions ? AuditAction.FILE_UPLOADED : AuditAction.FILE_UPLOADED,
             entityType: "File",
-            entityId: newFile.id,
-            details: { name: newFile.name, size: newFile.size, type: newFile.type },
+            entityId: file.id,
+            details: { name: file.name, version: newVersionNum },
             ipAddress: req.ip,
             userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
-        // Trigger Notification: File Uploaded
-        if (req.project?.ownerId && req.project.ownerId !== req.user?.id) {
-            createAndSendNotification({
-                userId: req.project.ownerId,
-                workspaceId: req.workspace?.id,
-                type: NotificationType.FILE_UPLOADED,
-                title: "New File Uploaded",
-                message: `File "${newFile.name}" was uploaded to project "${req.project.name}".`,
-                link: `/projects/${projectId}`,
-            }).catch((err) => console.error("Notification error:", err));
-        }
+        const updatedFile = await prisma.file.findUnique({
+            where: { id: file.id },
+            include: {
+                versions: {
+                    include: { uploadedBy: { select: { id: true, firstName: true, lastName: true } } },
+                    orderBy: { versionNum: 'desc' }
+                },
+                lockedBy: { select: { id: true, firstName: true, lastName: true } }
+            }
+        });
 
         res.status(201).json({
             success: true,
-            message: "File created successfully",
-            data: formatFile(newFile),
+            data: formatFile(updatedFile),
         });
     } catch (error) {
         console.error("Error creating file:", error);
-        res.status(500).json({
-            success: false,
-            error: "Failed to create file",
-        });
+        res.status(500).json({ success: false, error: "Failed to create/upload file" });
     }
 };
 
-/**
- * DELETE /api/files/:id
- * Delete a file record by ID.
- */
 export const deleteFile = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { id } = req.params;
+        const projectId = req.params.projectId as string;
+        const fileId = req.params.fileId as string;
 
-        // requireFileAccess has verified access and file existence.
-        const fileToDelete = (req as any).fileRecord;
-
-        await prisma.file.delete({
-            where: { id },
+        const file = await prisma.file.findUnique({
+            where: { id: fileId },
+            include: { versions: true }
         });
 
-        // Audit Log: FILE_DELETED
-        logAuditAction({
-            userId: req.user?.id,
-            workspaceId: req.workspace?.id,
-            projectId: req.project?.id,
-            action: "FILE_DELETED",
-            entityType: "File",
-            entityId: (Array.isArray(id) ? id[0] : id) as string,
-            details: { name: fileToDelete?.name || id },
-            ipAddress: req.ip,
-            userAgent: req.headers["user-agent"] as string,
-        }).catch((err) => console.error("Audit log error:", err));
+        if (!file) {
+            res.status(404).json({ success: false, error: "File not found" });
+            return;
+        }
 
-        res.status(200).json({
-            success: true,
-            message: "File deleted successfully",
-        });
+        if (file.isLocked && file.lockedById !== req.user?.id) {
+            res.status(403).json({ success: false, error: "File is locked by another user" });
+            return;
+        }
+
+        // Delete from Storage
+        let freedStorage = BigInt(0);
+        for (const version of file.versions) {
+            await storageService.deleteFile(version.s3Key);
+            freedStorage += version.sizeBytes;
+        }
+
+        await prisma.file.delete({ where: { id: fileId } });
+
+        // Update workspace quota
+        if (req.workspace?.id) {
+            const workspace = await prisma.workspace.findUnique({ where: { id: req.workspace.id } });
+            if (workspace) {
+                await prisma.workspace.update({
+                    where: { id: workspace.id },
+                    data: { storageUsed: workspace.storageUsed - freedStorage > 0 ? workspace.storageUsed - freedStorage : 0 }
+                });
+            }
+        }
+
+        res.status(200).json({ success: true, message: "File deleted successfully" });
     } catch (error) {
         console.error("Error deleting file:", error);
-        res.status(500).json({
-            success: false,
-            error: "Failed to delete file",
-        });
+        res.status(500).json({ success: false, error: "Failed to delete file" });
     }
 };
 
-/**
- * GET /api/files?workspaceId=...
- * Fetch all files for projects within a workspace.
- * Strictly scoped to the specified workspace and user's project access.
- */
-export const getFilesByWorkspace = async (req: Request, res: Response): Promise<void> => {
+export const downloadFile = async (req: Request, res: Response): Promise<void> => {
     try {
-        const userId = req.user?.id;
-        if (!userId) {
-            res.status(401).json({ success: false, error: "Authentication required" });
+        const { fileId } = req.params;
+        const versionId = req.query.versionId as string | undefined;
+
+        const file = await prisma.file.findUnique({ where: { id: fileId } });
+        if (!file) {
+            res.status(404).json({ success: false, error: "File not found" });
             return;
         }
 
-        const workspaceId = req.query.workspaceId as string;
-        if (!workspaceId) {
-            res.status(400).json({ success: false, error: "workspaceId query parameter is required" });
+        let version;
+        if (versionId) {
+            version = await prisma.fileVersion.findUnique({ where: { id: String(versionId) } });
+        } else {
+            version = await prisma.fileVersion.findFirst({
+                where: { fileId },
+                orderBy: { versionNum: 'desc' }
+            });
+        }
+
+        if (!version) {
+            res.status(404).json({ success: false, error: "File version not found" });
             return;
         }
 
-        // Verify the user is a member of the workspace
-        const wsMember = await prisma.workspaceMember.findUnique({
-            where: {
-                workspaceId_userId: {
-                    workspaceId,
-                    userId,
-                },
-            },
-        });
-
-        if (!wsMember) {
-            res.status(403).json({ success: false, error: "Forbidden: You do not have access to this workspace" });
-            return;
+        // Track download
+        if (req.user?.id) {
+            await prisma.fileDownload.create({
+                data: {
+                    fileId: file.id,
+                    downloadedById: req.user.id
+                }
+            });
         }
 
-        const whereClause: any = {
-            project: {
-                workspaceId,
-            },
-        };
-
-        // If not a workspace admin, org admin, or super admin, restrict to projects the user owns or belongs to
-        if (wsMember.role !== "WORKSPACE_ADMIN" && req.user?.role !== "SUPER_ADMIN" && req.orgRole !== "ORG_ADMIN") {
-            whereClause.project.OR = [
-                { ownerId: userId },
-                { members: { some: { userId } } },
-            ];
-        }
-
-        const files = await prisma.file.findMany({
-            where: whereClause,
-            include: {
-                project: {
-                    select: {
-                        id: true,
-                        name: true,
-                        code: true,
-                        status: true,
-                    },
-                },
-            },
-            orderBy: { createdAt: "desc" },
-        });
-
-        const formatted = files.map((file: any) => ({
-            id: file.id,
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            uploadedBy: file.uploadedBy,
-            description: file.description,
-            fileUrl: file.fileUrl,
-            projectId: file.projectId,
-            projectName: file.project?.name,
-            projectCode: file.project?.code,
-            projectStatus: file.project?.status,
-            createdAt: file.createdAt,
-            updatedAt: file.updatedAt,
-        }));
-
-        res.status(200).json({
-            success: true,
-            count: formatted.length,
-            data: formatted,
-        });
+        // Fetch URL or Buffer from storage service
+        // We'll redirect to a pre-signed URL or download endpoint
+        const url = await storageService.getFileUrl(version.s3Key);
+        res.redirect(url);
     } catch (error) {
-        console.error("Error fetching workspace files:", error);
-        res.status(500).json({
-            success: false,
-            error: "Failed to fetch workspace files",
-        });
+        console.error("Error downloading file:", error);
+        res.status(500).json({ success: false, error: "Failed to download file" });
     }
 };
 
+export const toggleLockFile = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { fileId } = req.params;
+        const file = await prisma.file.findUnique({ where: { id: fileId } });
+
+        if (!file) {
+            res.status(404).json({ success: false, error: "File not found" });
+            return;
+        }
+
+        if (file.isLocked && file.lockedById !== req.user?.id) {
+            res.status(403).json({ success: false, error: "File is locked by another user" });
+            return;
+        }
+
+        const updatedFile = await prisma.file.update({
+            where: { id: fileId },
+            data: {
+                isLocked: !file.isLocked,
+                lockedById: !file.isLocked ? req.user?.id : null
+            },
+            include: {
+                versions: {
+                    include: { uploadedBy: { select: { id: true, firstName: true, lastName: true } } },
+                    orderBy: { versionNum: 'desc' }
+                },
+                lockedBy: { select: { id: true, firstName: true, lastName: true } }
+            }
+        });
+
+        res.status(200).json({ success: true, data: formatFile(updatedFile) });
+    } catch (error) {
+        console.error("Error locking/unlocking file:", error);
+        res.status(500).json({ success: false, error: "Failed to toggle file lock" });
+    }
+};
+
+// Also we need an actual download raw endpoint if using local storage
+export const downloadRawFile = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const key = req.params.key as string;
+        const buffer = await storageService.getFileBuffer(key);
+        res.setHeader('Content-Disposition', `attachment; filename="${key.split('-').pop()}"`);
+        res.send(buffer);
+    } catch (error) {
+        res.status(404).send("File not found");
+    }
+};

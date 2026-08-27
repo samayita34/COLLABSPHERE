@@ -128,3 +128,5 @@ export function WorkspaceSelector() {
         </div>
     );
 }
+
+export default WorkspaceSelector;

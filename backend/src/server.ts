@@ -8,12 +8,16 @@ import projectRoutes from "./routes/projectRoutes";
 import taskRoutes from "./routes/taskRoutes";
 import memberRoutes from "./routes/memberRoutes";
 import documentRoutes from "./routes/documentRoutes";
-import fileRoutes from "./routes/fileRoutes";
+import fileRoutes, { globalRouter as globalFileRouter } from "./routes/fileRoutes";
+import folderRoutes from "./routes/folderRoutes";
 import chatRoutes from "./routes/chatRoutes";
+import documentVersionRoutes from "./routes/documentVersionRoutes";
 import authRoutes from "./routes/authRoutes";
 import orgRoutes from "./routes/orgRoutes";
 import workspaceRoutes from "./routes/workspaceRoutes";
 import teamRoutes from "./routes/teamRoutes";
+import boardRoutes from "./routes/boardRoutes";
+import taskDetailsRoutes from "./routes/taskDetailsRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
 import auditRoutes from "./routes/auditRoutes";
 import { authenticate } from "./middleware/auth";
@@ -21,10 +25,11 @@ import { requireProjectAccess, requireTaskAccess, requireDocumentAccess, require
 import { Permission } from "./lib/permissions";
 import { getMyTasks, updateTask, deleteTask } from "./controllers/taskController";
 import { getDocumentsByWorkspace, updateDocument, deleteDocument } from "./controllers/documentController";
-import { getFilesByWorkspace, deleteFile } from "./controllers/fileController";
+import { deleteFile } from "./controllers/fileController";
 import { connectRedis } from "./lib/redis";
 import { checkAndSendDueDateReminders } from "./services/notificationService";
 import { initSocket } from "./lib/socket";
+import { initCollaborationServer } from "./collaborationServer";
 
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
@@ -82,6 +87,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../../uploads")));
 
 // Unprotected or Custom Auth Routes
 app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/files", globalFileRouter);
 
 app.get("/api/health", (_req, res) => {
     res.json({
@@ -101,12 +107,14 @@ app.use("/api/audit-logs", auditRoutes);
 
 // Protect all project workspace data APIs with authenticate middleware
 app.use("/api/projects", authenticate, projectRoutes);
+app.use("/api/projects/:projectId/boards", authenticate, requireProjectAccess, boardRoutes);
 
 // Nested: GET /api/projects/:projectId/tasks  POST /api/projects/:projectId/tasks
 app.use("/api/projects/:projectId/tasks", authenticate, requireProjectAccess, taskRoutes);
 
 // Top-level: GET /api/tasks/my-tasks  PATCH /api/tasks/:id  DELETE /api/tasks/:id
 app.get("/api/tasks/my-tasks", authenticate, getMyTasks);
+app.use("/api/tasks", authenticate, taskDetailsRoutes);
 app.patch("/api/tasks/:id", authenticate, requireTaskAccess, requirePermission(Permission.EDIT_TASK), updateTask);
 app.delete("/api/tasks/:id", authenticate, requireTaskAccess, requirePermission(Permission.DELETE_TASK), deleteTask);
 
@@ -116,13 +124,15 @@ app.use("/api/projects/:projectId/members", authenticate, requireProjectAccess, 
 // Nested: GET/POST /api/projects/:projectId/documents
 app.use("/api/projects/:projectId/documents", authenticate, requireProjectAccess, documentRoutes);
 app.get("/api/documents", authenticate, getDocumentsByWorkspace);
+app.use("/api/documents/:documentId/versions", authenticate, requireDocumentAccess, documentVersionRoutes);
 app.patch("/api/documents/:id", authenticate, requireDocumentAccess, requirePermission(Permission.EDIT_DOCUMENT), updateDocument);
 app.delete("/api/documents/:id", authenticate, requireDocumentAccess, requirePermission(Permission.DELETE_DOCUMENT), deleteDocument);
 
 // Nested: GET/POST /api/projects/:projectId/files
 app.use("/api/projects/:projectId/files", authenticate, requireProjectAccess, fileRoutes);
-app.get("/api/files", authenticate, getFilesByWorkspace);
-app.delete("/api/files/:id", authenticate, requireFileAccess, requirePermission(Permission.DELETE_FILES), deleteFile);
+app.use("/api/projects/:projectId/folders", authenticate, requireProjectAccess, folderRoutes);
+// NOTE: /api/files/:id DELETE route is handled by fileRoutes now nested under project. We can comment or keep if workspace-level deletion is needed.
+// app.delete("/api/files/:id", authenticate, requireFileAccess, requirePermission(Permission.DELETE_FILES), deleteFile);
 
 // Nested: GET/POST /api/projects/:projectId/messages
 app.use("/api/projects/:projectId/messages", authenticate, requireProjectAccess, chatRoutes);
@@ -130,6 +140,7 @@ app.use("/api/projects/:projectId/messages", authenticate, requireProjectAccess,
 const PORT = process.env.PORT || 3000;
 
 initSocket(server);
+initCollaborationServer(server);
 server.listen(PORT, () => {
     console.log(`COLLABSPHERE backend running on http://localhost:${PORT}`);
     

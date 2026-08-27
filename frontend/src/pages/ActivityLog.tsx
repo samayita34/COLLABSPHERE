@@ -2,14 +2,14 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useAuth } from "../context/AuthContext";
-import { fetchAuditLogs, AuditLogItem } from "../services/auditApi";
-import WorkspaceSelector from "../components/WorkspaceSelector";
+import { fetchAuditLogs, type AuditLogItem } from "../services/auditApi";
+import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import NotificationCenter from "../components/NotificationCenter";
 import "./ActivityLog.css";
 
 export const ActivityLog: React.FC = () => {
     const { activeWorkspace } = useWorkspace();
-    const { userFullName, userInitials, logout } = useAuth();
+    const { userInitials } = useAuth();
     const [logs, setLogs] = useState<AuditLogItem[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
