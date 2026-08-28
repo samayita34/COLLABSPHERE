@@ -167,6 +167,18 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
             userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
+        // Trigger Notification if file uploaded by someone other than project owner
+        if (req.project?.ownerId && req.project.ownerId !== userId) {
+            createAndSendNotification({
+                userId: req.project.ownerId,
+                workspaceId: req.workspace?.id,
+                type: NotificationType.FILE_UPLOADED,
+                title: "File Uploaded",
+                message: `File "${file.name}" was uploaded in project "${req.project.name}".`,
+                link: `/projects/${projectId}`,
+            }).catch((err) => console.error("Notification error:", err));
+        }
+
         const updatedFile = await prisma.file.findUnique({
             where: { id: file.id },
             include: {

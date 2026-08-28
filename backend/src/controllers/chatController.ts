@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import { getIO } from "../lib/socket";
-
+import { createAndSendNotification } from "../services/notificationService";
+import { NotificationType } from "../../generated/prisma/enums";
 export const getChannels = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = req.user?.id;
@@ -164,6 +165,52 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
 
         const io = getIO();
         io.to(`channel_${channelId}`).emit("new_message", message);
+
+        // Fetch channel members to send notifications
+        const channelMembers = await prisma.channelMember.findMany({
+            where: { channelId }
+        });
+
+        // 1. Notify for the new chat message (excluding sender)
+        for (const member of channelMembers) {
+            if (member.userId !== userId) {
+                await createAndSendNotification({
+                    userId: member.userId,
+                    type: NotificationType.CHAT_MESSAGE,
+                    title: "New Chat Message",
+                    message: `${message.sender.firstName} sent a message in chat.`,
+                    link: `/chat/${channelId}`,
+                }).catch((err) => console.error("Notification error:", err));
+            }
+        }
+
+        // 2. Parse Mentions using regex (e.g., @user-id or something). But wait, since we don't have user IDs in text easily,
+        // Let's accept 'mentions' in req.body, similar to task discussions.
+        const { mentions = [] } = req.body;
+        if (Array.isArray(mentions) && mentions.length > 0) {
+            for (const mentionUserId of mentions) {
+                if (typeof mentionUserId === "string" && mentionUserId !== userId) {
+                    try {
+                        await prisma.messageMention.create({
+                            data: {
+                                messageId: message.id,
+                                userId: mentionUserId
+                            }
+                        });
+
+                        await createAndSendNotification({
+                            userId: mentionUserId,
+                            type: NotificationType.MENTION,
+                            title: "You were mentioned",
+                            message: `${message.sender.firstName} mentioned you in a chat.`,
+                            link: `/chat/${channelId}`,
+                        });
+                    } catch (err) {
+                        console.error("Mention creation error:", err);
+                    }
+                }
+            }
+        }
 
         res.status(201).json({ success: true, message });
     } catch (error: any) {
