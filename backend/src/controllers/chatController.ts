@@ -3,6 +3,7 @@ import prisma from "../lib/prisma";
 import { getIO } from "../lib/socket";
 import { createAndSendNotification } from "../services/notificationService";
 import { NotificationType } from "../../generated/prisma/enums";
+import xss from "xss";
 export const getChannels = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = req.user?.id;
@@ -151,7 +152,7 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
             data: {
                 channelId,
                 senderId: userId,
-                text,
+                text: text ? xss(text) : null,
                 fileId,
                 parentId
             },

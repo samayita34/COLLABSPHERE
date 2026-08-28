@@ -21,6 +21,7 @@ import taskDetailsRoutes from "./routes/taskDetailsRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
 import auditRoutes from "./routes/auditRoutes";
 import { authenticate } from "./middleware/auth";
+import { csrfProtection } from "./middleware/csrf";
 import { requireProjectAccess, requireTaskAccess, requireDocumentAccess, requireFileAccess, requirePermission } from "./middleware/rbac";
 import { Permission } from "./lib/permissions";
 import { getMyTasks, updateTask, deleteTask } from "./controllers/taskController";
@@ -83,6 +84,7 @@ const authLimiter = rateLimit({
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(csrfProtection);
 app.use("/uploads", express.static(path.join(__dirname, "../../uploads")));
 
 // Unprotected or Custom Auth Routes

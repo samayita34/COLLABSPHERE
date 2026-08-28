@@ -4,6 +4,7 @@ import { TaskPriority, NotificationType, AuditAction } from "../../generated/pri
 import { getIO } from "../lib/socket";
 import { createAndSendNotification } from "../services/notificationService";
 import { logAuditAction } from "../services/auditService";
+import xss from "xss";
 
 // Non-sensitive fields — identical to projectController.safeUserSelect
 const safeUserSelect = {
@@ -233,8 +234,8 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
 
         const task = await prisma.task.create({
             data: {
-                title: title.trim(),
-                description: description ? String(description).trim() : null,
+                title: xss(title.trim()),
+                description: description ? xss(String(description).trim()) : null,
                 priority: priority ?? TaskPriority.MEDIUM,
                 dueDate: parsedDueDate,
                 projectId,
@@ -344,11 +345,11 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
                 });
                 return;
             }
-            updateData.title = title.trim();
+            updateData.title = xss(title.trim());
         }
 
         if (description !== undefined) {
-            updateData.description = description ? String(description).trim() : null;
+            updateData.description = description ? xss(String(description).trim()) : null;
         }
 
         if (columnId !== undefined) {

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import prisma from "../lib/prisma";
 import { getJwtSecret } from "../middleware/auth";
 import { generateToken, hashToken, setAuthCookies, clearAuthCookies } from "../lib/tokens";
@@ -20,7 +21,7 @@ const safeUserSelect = {
     updatedAt: true,
 };
 
-async function generateSession(res: Response, user: any) {
+async function generateSession(req: Request, res: Response, user: any) {
     const accessToken = jwt.sign({ userId: user.id, email: user.email }, getJwtSecret(), { expiresIn: "15m" });
     const refreshToken = generateToken();
     const refreshTokenHash = hashToken(refreshToken);
@@ -33,6 +34,8 @@ async function generateSession(res: Response, user: any) {
             userId: user.id,
             refreshTokenHash,
             expiresAt,
+            device: req.headers["user-agent"] || "Unknown Device",
+            ip: req.ip || "Unknown IP",
         },
     });
 
@@ -52,6 +55,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
             res.status(400).json({ success: false, error: "Password must be at least 6 characters long" });
             return;
         }
+
 
         let first = firstName;
         let last = lastName;
@@ -88,7 +92,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
             select: safeUserSelect,
         });
 
-        await generateSession(res, newUser);
+        await generateSession(req, res, newUser);
 
         // Audit Log: User Signup
         logAuditAction({
@@ -134,7 +138,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        await generateSession(res, user);
+        await generateSession(req, res, user);
         const { password: _, ...safeUser } = user;
 
         // Audit Log: User Login
@@ -228,7 +232,20 @@ export const googleLogin = (req: Request, res: Response): void => {
         res.status(500).json({ error: "Google OAuth is not configured on the server." });
         return;
     }
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=email profile&access_type=offline&prompt=consent`;
+
+    // Generate PKCE verifier and challenge
+    const codeVerifier = crypto.randomBytes(32).toString("base64url");
+    const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
+
+    // Store verifier securely in a temporary HttpOnly cookie (valid for 10 mins)
+    res.cookie("oauth_pkce_verifier", codeVerifier, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 10 * 60 * 1000,
+    });
+
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=email profile&access_type=offline&prompt=consent&code_challenge=${codeChallenge}&code_challenge_method=S256`;
     res.redirect(authUrl);
 };
 
@@ -237,6 +254,12 @@ export const googleCallback = async (req: Request, res: Response): Promise<void>
         const { code } = req.query;
         if (!code) {
             res.status(400).send("No authorization code returned from Google.");
+            return;
+        }
+
+        const codeVerifier = req.cookies.oauth_pkce_verifier;
+        if (!codeVerifier) {
+            res.status(400).send("Missing PKCE code verifier. Session may have expired.");
             return;
         }
 
@@ -253,8 +276,12 @@ export const googleCallback = async (req: Request, res: Response): Promise<void>
                 client_secret: clientSecret!,
                 redirect_uri: redirectUri,
                 grant_type: "authorization_code",
+                code_verifier: codeVerifier,
             }),
         });
+
+        // Clear the PKCE cookie
+        res.clearCookie("oauth_pkce_verifier");
 
         const tokenData = await tokenRes.json();
         if (!tokenData.access_token) {
@@ -288,14 +315,21 @@ export const googleCallback = async (req: Request, res: Response): Promise<void>
                     role: "MEMBER",
                 },
             });
-        } else if (!user.isGoogleUser) {
+        } else {
+            // Account Linking & Profile Synchronization
             user = await prisma.user.update({
                 where: { email: normalizedEmail },
-                data: { isGoogleUser: true, isEmailVerified: true, avatar: user.avatar || userData.picture },
+                data: { 
+                    isGoogleUser: true, 
+                    isEmailVerified: true, 
+                    avatar: user.avatar || userData.picture,
+                    firstName: user.firstName || userData.given_name,
+                    lastName: user.lastName || userData.family_name
+                },
             });
         }
 
-        await generateSession(res, user);
+        await generateSession(req, res, user);
 
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
         res.redirect(`${frontendUrl}/projects`);
@@ -427,3 +461,54 @@ export const verifyEmail = async (req: Request, res: Response): Promise<void> =>
     }
 };
 
+// ======================= SESSION MANAGEMENT =======================
+
+export const getSessions = async (req: Request, res: Response): Promise<void> => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, error: "Not authenticated" });
+            return;
+        }
+
+        const sessions = await prisma.session.findMany({
+            where: { userId: req.user.id },
+            select: {
+                id: true,
+                createdAt: true,
+                expiresAt: true,
+                device: true,
+                ip: true,
+            },
+            orderBy: { createdAt: "desc" }
+        });
+
+        res.status(200).json({ success: true, data: sessions });
+    } catch (error) {
+        console.error("Error getting sessions:", error);
+        res.status(500).json({ success: false, error: "Failed to get sessions" });
+    }
+};
+
+export const revokeSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, error: "Not authenticated" });
+            return;
+        }
+
+        const { id } = req.params;
+        const session = await prisma.session.findUnique({ where: { id } });
+
+        if (!session || session.userId !== req.user.id) {
+            res.status(404).json({ success: false, error: "Session not found" });
+            return;
+        }
+
+        await prisma.session.delete({ where: { id } });
+
+        res.status(200).json({ success: true, message: "Session revoked" });
+    } catch (error) {
+        console.error("Error revoking session:", error);
+        res.status(500).json({ success: false, error: "Failed to revoke session" });
+    }
+};

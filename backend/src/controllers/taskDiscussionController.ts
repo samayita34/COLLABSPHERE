@@ -3,6 +3,7 @@ import prisma from "../lib/prisma";
 import { createAndSendNotification } from "../services/notificationService";
 import { createAuditLog } from "../services/auditService";
 import { NotificationType, AuditAction } from "../../generated/prisma/enums";
+import xss from "xss";
 
 export const getComments = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -62,7 +63,7 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
         // Create comment
         const comment = await prisma.taskComment.create({
             data: {
-                text,
+                text: xss(text),
                 taskId,
                 authorId: userId,
                 parentId: parentId || null,
