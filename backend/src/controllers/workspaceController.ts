@@ -325,6 +325,40 @@ export const getWorkspaceOverview = async (req: Request, res: Response): Promise
         allTasks.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
         const recentTasks = allTasks.slice(0, 8);
 
+        const pendingTasks = allTasks.filter((t: any) => ["TODO", "IN_PROGRESS", "REVIEW"].includes(t.status)).slice(0, 8);
+        
+        const todayStr = new Date().toISOString().split('T')[0];
+        const dueTodayTasks = allTasks.filter((t: any) => t.dueDate && typeof t.dueDate.toISOString === 'function' ? t.dueDate.toISOString().split('T')[0] === todayStr : t.dueDate && new Date(t.dueDate).toISOString().split('T')[0] === todayStr).slice(0, 8);
+        
+        const next7Days = new Date();
+        next7Days.setDate(next7Days.getDate() + 7);
+        const upcomingDeadlineTasks = allTasks.filter((t: any) => {
+            if (!t.dueDate) return false;
+            const due = new Date(t.dueDate);
+            return due > new Date() && due <= next7Days && due.toISOString().split('T')[0] !== todayStr;
+        }).slice(0, 8);
+
+        const recentDocuments = await prisma.document.findMany({
+            where: { project: { workspaceId: id } },
+            orderBy: { updatedAt: "desc" },
+            take: 5,
+            select: { id: true, title: true, updatedAt: true, project: { select: { id: true, name: true } } }
+        });
+
+        const recentActivity = await prisma.auditLog.findMany({
+            where: { workspaceId: id },
+            orderBy: { createdAt: "desc" },
+            take: 8,
+            select: {
+                id: true,
+                action: true,
+                entityType: true,
+                createdAt: true,
+                details: true,
+                user: { select: { id: true, firstName: true, lastName: true, email: true } }
+            }
+        });
+
         const recentProjects = projects.slice(0, 6).map((p: any) => {
             const total = p.tasks.length;
             const completed = p.tasks.filter((t: any) => t.status === "DONE").length;
@@ -366,6 +400,11 @@ export const getWorkspaceOverview = async (req: Request, res: Response): Promise
                 },
                 recentProjects,
                 recentTasks,
+                pendingTasks,
+                dueTodayTasks,
+                upcomingDeadlineTasks,
+                recentDocuments,
+                recentActivity,
             },
         });
     } catch (error: any) {

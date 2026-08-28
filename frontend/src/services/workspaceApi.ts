@@ -55,6 +55,76 @@ export interface WorkspaceOverviewData {
         } | null;
         updatedAt: string;
     }>;
+    pendingTasks: Array<{
+        id: string;
+        title: string;
+        status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
+        priority: "LOW" | "MEDIUM" | "HIGH";
+        dueDate?: string | null;
+        projectName: string;
+        projectId: string;
+        assignee?: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            email: string;
+        } | null;
+        updatedAt: string;
+    }>;
+    dueTodayTasks: Array<{
+        id: string;
+        title: string;
+        status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
+        priority: "LOW" | "MEDIUM" | "HIGH";
+        dueDate?: string | null;
+        projectName: string;
+        projectId: string;
+        assignee?: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            email: string;
+        } | null;
+        updatedAt: string;
+    }>;
+    upcomingDeadlineTasks: Array<{
+        id: string;
+        title: string;
+        status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
+        priority: "LOW" | "MEDIUM" | "HIGH";
+        dueDate?: string | null;
+        projectName: string;
+        projectId: string;
+        assignee?: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            email: string;
+        } | null;
+        updatedAt: string;
+    }>;
+    recentDocuments: Array<{
+        id: string;
+        title: string;
+        updatedAt: string;
+        project: {
+            id: string;
+            name: string;
+        };
+    }>;
+    recentActivity: Array<{
+        id: string;
+        action: string;
+        entityType: string;
+        createdAt: string;
+        details?: any;
+        user: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            email: string;
+        };
+    }>;
 }
 
 /**

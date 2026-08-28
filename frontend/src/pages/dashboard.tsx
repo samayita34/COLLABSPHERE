@@ -385,51 +385,159 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Recent Tasks Panel */}
+            {/* Tasks Panel */}
             <div className="cs-panel">
               <div className="cs-panel-header">
                 <div>
-                  <h2 className="cs-panel-title">Latest Workspace Tasks</h2>
-                  <p className="cs-panel-subtitle">Recently updated tasks across projects</p>
+                  <h2 className="cs-panel-title">Tasks & Deadlines</h2>
+                  <p className="cs-panel-subtitle">Action items requiring your attention</p>
                 </div>
-                <button className="cs-link-btn" onClick={() => navigate("/projects")}>
-                  Projects →
+                <button className="cs-link-btn" onClick={() => navigate("/my-tasks")}>
+                  My Tasks →
                 </button>
               </div>
 
               <div className="cs-tasks-list">
-                {(!data?.recentTasks || data.recentTasks.length === 0) ? (
+                {(!data?.pendingTasks?.length && !data?.dueTodayTasks?.length && !data?.upcomingDeadlineTasks?.length) ? (
                   <div style={{ textAlign: "center", padding: "30px 20px", color: "#64748b" }}>
-                    <p style={{ margin: 0, fontSize: "0.95rem" }}>No tasks created yet in this workspace.</p>
+                    <p style={{ margin: 0, fontSize: "0.95rem" }}>No active tasks or upcoming deadlines.</p>
                   </div>
                 ) : (
-                  data.recentTasks.map((t) => {
-                    const isDone = t.status === "DONE";
-                    return (
-                      <div 
-                        key={t.id} 
-                        className={`cs-task-item ${isDone ? "completed" : ""}`}
-                        onClick={() => navigate(`/projects/${t.projectId}`)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <div className={`cs-checkbox ${isDone ? "checked" : ""}`}>
-                          {isDone && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                          )}
-                        </div>
-
-                        <div className="cs-task-details">
-                          <p className="cs-task-title">{t.title}</p>
-                          <div className="cs-task-tags">
-                            <span className="cs-task-proj">{t.projectName}</span>
-                            <span className={`cs-priority-pill ${t.priority.toLowerCase()}`}>
-                              {t.priority}
-                            </span>
+                  <>
+                    {/* Due Today */}
+                    {data?.dueTodayTasks && data.dueTodayTasks.length > 0 && (
+                      <div style={{ marginBottom: "16px" }}>
+                        <h3 style={{ fontSize: "12px", color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>Due Today</h3>
+                        {data.dueTodayTasks.map((t) => (
+                          <div key={t.id} className="cs-task-item" onClick={() => navigate(`/projects/${t.projectId}`)} style={{ cursor: "pointer", borderLeft: "3px solid #ef4444" }}>
+                            <div className="cs-task-details">
+                              <p className="cs-task-title">{t.title}</p>
+                              <div className="cs-task-tags">
+                                <span className="cs-task-proj">{t.projectName}</span>
+                              </div>
+                            </div>
+                            <div className="cs-task-due" style={{ color: "#ef4444", fontWeight: "600" }}>Today</div>
                           </div>
-                        </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Upcoming Deadlines */}
+                    {data?.upcomingDeadlineTasks && data.upcomingDeadlineTasks.length > 0 && (
+                      <div style={{ marginBottom: "16px" }}>
+                        <h3 style={{ fontSize: "12px", color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>Upcoming Deadlines (Next 7 Days)</h3>
+                        {data.upcomingDeadlineTasks.map((t) => (
+                          <div key={t.id} className="cs-task-item" onClick={() => navigate(`/projects/${t.projectId}`)} style={{ cursor: "pointer", borderLeft: "3px solid #f59e0b" }}>
+                            <div className="cs-task-details">
+                              <p className="cs-task-title">{t.title}</p>
+                              <div className="cs-task-tags">
+                                <span className="cs-task-proj">{t.projectName}</span>
+                              </div>
+                            </div>
+                            <div className="cs-task-due" style={{ color: "#f59e0b" }}>
+                              {new Date(t.dueDate!).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                        <div className="cs-task-due">
-                          <span>{t.status === "DONE" ? "Done" : t.status === "IN_PROGRESS" ? "In Progress" : t.status === "REVIEW" ? "Review" : "To Do"}</span>
+                    {/* Pending Tasks */}
+                    {data?.pendingTasks && data.pendingTasks.length > 0 && (
+                      <div>
+                        <h3 style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>Pending Tasks</h3>
+                        {data.pendingTasks.map((t) => (
+                          <div key={t.id} className="cs-task-item" onClick={() => navigate(`/projects/${t.projectId}`)} style={{ cursor: "pointer" }}>
+                            <div className="cs-task-details">
+                              <p className="cs-task-title">{t.title}</p>
+                              <div className="cs-task-tags">
+                                <span className="cs-task-proj">{t.projectName}</span>
+                                <span className={`cs-priority-pill ${t.priority.toLowerCase()}`}>{t.priority}</span>
+                              </div>
+                            </div>
+                            <div className="cs-task-due">
+                              <span>{t.status.replace("_", " ")}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Second Row Grid: Documents + Activity */}
+          <div className="cs-main-grid" style={{ marginTop: "24px" }}>
+            
+            {/* Recent Documents Panel */}
+            <div className="cs-panel">
+              <div className="cs-panel-header">
+                <div>
+                  <h2 className="cs-panel-title">Recent Documents</h2>
+                  <p className="cs-panel-subtitle">Latest collaborative docs in this workspace</p>
+                </div>
+                <button className="cs-link-btn" onClick={() => navigate("/documents")}>
+                  All Documents →
+                </button>
+              </div>
+              <div className="cs-project-cards">
+                {(!data?.recentDocuments || data.recentDocuments.length === 0) ? (
+                  <div style={{ textAlign: "center", padding: "30px 20px", color: "#64748b" }}>
+                    <p style={{ margin: 0, fontSize: "0.95rem" }}>No documents found.</p>
+                  </div>
+                ) : (
+                  data.recentDocuments.map((doc) => (
+                    <div key={doc.id} className="cs-project-row" onClick={() => navigate(`/projects/${doc.project.id}?tab=documents`)} style={{ cursor: "pointer", padding: "12px 16px" }}>
+                      <div className="cs-proj-icon" style={{ background: "#e0e7ff", color: "#4f46e5" }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                      </div>
+                      <div className="cs-proj-info">
+                        <div className="cs-proj-head">
+                          <strong className="cs-proj-name" style={{ fontSize: "14px" }}>{doc.title}</strong>
+                        </div>
+                        <div className="cs-proj-sub" style={{ fontSize: "11px" }}>
+                          <span>{doc.project.name}</span>
+                          <span className="cs-dot-sep">•</span>
+                          <span>Updated {new Date(doc.updatedAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Team Activity Panel */}
+            <div className="cs-panel">
+              <div className="cs-panel-header">
+                <div>
+                  <h2 className="cs-panel-title">Team Activity</h2>
+                  <p className="cs-panel-subtitle">Latest workspace events</p>
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "16px" }}>
+                {(!data?.recentActivity || data.recentActivity.length === 0) ? (
+                  <div style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>
+                    <p style={{ margin: 0, fontSize: "0.95rem" }}>No recent activity.</p>
+                  </div>
+                ) : (
+                  data.recentActivity.map((log) => {
+                    const initials = (log.user.firstName?.[0] || "") + (log.user.lastName?.[0] || "") || log.user.email.substring(0, 2).toUpperCase();
+                    return (
+                      <div key={log.id} style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
+                        <div className="cs-avatar-sm" style={{ width: "28px", height: "28px", fontSize: "10px", flexShrink: 0 }}>
+                          {initials}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ margin: "0 0 4px", fontSize: "13px", color: "#1e293b", lineHeight: "1.4" }}>
+                            <strong>{log.user.firstName || log.user.email}</strong> {log.action.replace(/_/g, " ").toLowerCase()} <strong style={{ color: "#4f46e5" }}>{log.entityType}</strong>
+                          </p>
+                          <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+                            {new Date(log.createdAt).toLocaleString()}
+                          </span>
                         </div>
                       </div>
                     );
