@@ -111,13 +111,11 @@ model Notification {
 
   link   String?
   isRead Boolean @default(false)
-  read   Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   @@index([userId, isRead])
-  @@index([userId, read])
   @@index([userId, createdAt])
   @@index([workspaceId])
 }
@@ -216,6 +214,8 @@ model Session {
   revokedAt        DateTime?
   device           String?
   ip               String?
+
+  @@index([userId])
 }
 
 enum VerificationTokenType {
@@ -364,7 +364,6 @@ model Project {
   documents     Document[]
   files         File[]
   folders       Folder[]
-  messages      ChatMessage[]
   notifications Notification[]
   boards        Board[]
   labels        Label[]
@@ -523,7 +522,7 @@ model TaskAttachment {
   task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   uploadedById String
-  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
 
   commentId String?
   comment   TaskComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
@@ -541,7 +540,7 @@ model TimeEntry {
   task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   date      DateTime @default(now())
   createdAt DateTime @default(now())
@@ -715,8 +714,6 @@ model ChatMessage {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  project   Project? @relation(fields: [projectId], references: [id])
-  projectId String?
 }
 
 model MessageReaction {
@@ -756,7 +753,7 @@ model TaskComment {
   task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   authorId String
-  author   User   @relation(fields: [authorId], references: [id])
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   parentId String?
   parent   TaskComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)

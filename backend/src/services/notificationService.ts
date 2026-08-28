@@ -35,7 +35,6 @@ export const createAndSendNotification = async (input: CreateNotificationInput) 
                 message,
                 link,
                 isRead: false,
-                read: false,
             },
         });
 
