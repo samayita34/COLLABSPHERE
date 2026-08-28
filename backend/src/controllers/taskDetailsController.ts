@@ -36,6 +36,34 @@ export const addChecklistItem = async (req: Request, res: Response): Promise<voi
         const { checklistId } = req.params;
         const { content } = req.body;
 
+        const checklist = await prisma.taskChecklist.findUnique({
+            where: { id: checklistId },
+            include: { task: true }
+        });
+
+        if (!checklist) {
+            res.status(404).json({ success: false, error: "Checklist not found" });
+            return;
+        }
+
+        // Verify user has access to the task's project
+        const member = await prisma.projectMember.findUnique({
+            where: { projectId_userId: { projectId: checklist.task.projectId, userId: req.user!.id } }
+        });
+        const wsMember = await prisma.workspaceMember.findFirst({
+            where: {
+                userId: req.user!.id,
+                workspace: { projects: { some: { id: checklist.task.projectId } } }
+            }
+        });
+
+        const project = await prisma.project.findUnique({ where: { id: checklist.task.projectId } });
+
+        if (!member && (!wsMember || wsMember.role !== "WORKSPACE_ADMIN") && project?.ownerId !== req.user!.id) {
+            res.status(404).json({ success: false, error: "Access denied or checklist not found" });
+            return;
+        }
+
         const item = await prisma.taskChecklistItem.create({
             data: { content, checklistId }
         });
@@ -50,6 +78,35 @@ export const updateChecklistItem = async (req: Request, res: Response): Promise<
     try {
         const { itemId } = req.params;
         const { isCompleted } = req.body;
+
+        const itemToUpdate = await prisma.taskChecklistItem.findUnique({
+            where: { id: itemId },
+            include: { checklist: { include: { task: true } } }
+        });
+
+        if (!itemToUpdate) {
+            res.status(404).json({ success: false, error: "Item not found" });
+            return;
+        }
+
+        const projectId = itemToUpdate.checklist.task.projectId;
+
+        // Verify user has access to the task's project
+        const member = await prisma.projectMember.findUnique({
+            where: { projectId_userId: { projectId, userId: req.user!.id } }
+        });
+        const wsMember = await prisma.workspaceMember.findFirst({
+            where: {
+                userId: req.user!.id,
+                workspace: { projects: { some: { id: projectId } } }
+            }
+        });
+        const project = await prisma.project.findUnique({ where: { id: projectId } });
+
+        if (!member && (!wsMember || wsMember.role !== "WORKSPACE_ADMIN") && project?.ownerId !== req.user!.id) {
+            res.status(404).json({ success: false, error: "Access denied or item not found" });
+            return;
+        }
 
         const item = await prisma.taskChecklistItem.update({
             where: { id: itemId },

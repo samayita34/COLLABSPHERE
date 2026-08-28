@@ -210,7 +210,7 @@ export const deleteFile = async (req: Request, res: Response): Promise<void> => 
             include: { versions: true }
         });
 
-        if (!file) {
+        if (!file || file.projectId !== projectId) {
             res.status(404).json({ success: false, error: "File not found" });
             return;
         }
@@ -253,7 +253,8 @@ export const downloadFile = async (req: Request, res: Response): Promise<void> =
         const versionId = req.query.versionId as string | undefined;
 
         const file = await prisma.file.findUnique({ where: { id: fileId } });
-        if (!file) {
+        const { projectId } = req.params;
+        if (!file || file.projectId !== projectId) {
             res.status(404).json({ success: false, error: "File not found" });
             return;
         }
@@ -297,8 +298,9 @@ export const toggleLockFile = async (req: Request, res: Response): Promise<void>
     try {
         const { fileId } = req.params;
         const file = await prisma.file.findUnique({ where: { id: fileId } });
+        const { projectId } = req.params;
 
-        if (!file) {
+        if (!file || file.projectId !== projectId) {
             res.status(404).json({ success: false, error: "File not found" });
             return;
         }

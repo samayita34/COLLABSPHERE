@@ -194,7 +194,7 @@ export const requirePermission = (permission: Permission) => {
  */
 export const requireTaskAccess = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const id = req.params.id;
+        const id = req.params.id || req.params.taskId;
         const task = await prisma.task.findUnique({ where: { id }, select: { projectId: true } });
         if (!task) {
             res.status(404).json({ success: false, error: "Task not found" });

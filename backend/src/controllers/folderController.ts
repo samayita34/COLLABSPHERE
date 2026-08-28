@@ -54,11 +54,17 @@ export const renameFolder = async (req: Request, res: Response): Promise<void> =
             return;
         }
 
-        const folder = await prisma.folder.update({
+        const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+        if (!folder || folder.projectId !== projectId) {
+            res.status(404).json({ success: false, error: "Folder not found" });
+            return;
+        }
+
+        const updatedFolder = await prisma.folder.update({
             where: { id: folderId },
             data: { name }
         });
-        res.status(200).json({ success: true, data: folder });
+        res.status(200).json({ success: true, data: updatedFolder });
     } catch (error) {
         console.error("Error renaming folder:", error);
         res.status(500).json({ success: false, error: "Failed to rename folder" });
@@ -75,11 +81,17 @@ export const moveFolder = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
-        const folder = await prisma.folder.update({
+        const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+        if (!folder || folder.projectId !== projectId) {
+            res.status(404).json({ success: false, error: "Folder not found" });
+            return;
+        }
+
+        const updatedFolder = await prisma.folder.update({
             where: { id: folderId },
             data: { parentId: parentId || null }
         });
-        res.status(200).json({ success: true, data: folder });
+        res.status(200).json({ success: true, data: updatedFolder });
     } catch (error) {
         console.error("Error moving folder:", error);
         res.status(500).json({ success: false, error: "Failed to move folder" });
@@ -89,6 +101,12 @@ export const moveFolder = async (req: Request, res: Response): Promise<void> => 
 export const deleteFolder = async (req: Request, res: Response): Promise<void> => {
     try {
         const { projectId, folderId } = req.params;
+        const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+        if (!folder || folder.projectId !== projectId) {
+            res.status(404).json({ success: false, error: "Folder not found" });
+            return;
+        }
+
         await prisma.folder.delete({
             where: { id: folderId }
         });

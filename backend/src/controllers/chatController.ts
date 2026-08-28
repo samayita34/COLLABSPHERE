@@ -44,6 +44,15 @@ export const createDirectMessage = async (req: Request, res: Response): Promise<
             return;
         }
 
+        // Check if user is actually a member of the provided workspace
+        const wsMember = await prisma.workspaceMember.findUnique({
+            where: { workspaceId_userId: { workspaceId, userId } }
+        });
+        if (!wsMember) {
+            res.status(403).json({ success: false, error: "Access denied to workspace" });
+            return;
+        }
+
         // Check if DM already exists
         const existingChannels = await prisma.channel.findMany({
             where: { type: "DIRECT_MESSAGE", workspaceId },

@@ -60,6 +60,12 @@ export const createColumn = async (req: Request, res: Response): Promise<void> =
             return;
         }
 
+        const board = await prisma.board.findUnique({ where: { id: boardId } });
+        if (!board || board.projectId !== req.params.projectId) {
+            res.status(404).json({ success: false, error: "Board not found" });
+            return;
+        }
+
         const column = await prisma.column.create({
             data: {
                 name: name.trim(),
@@ -83,6 +89,16 @@ export const updateColumn = async (req: Request, res: Response): Promise<void> =
         const updateData: any = {};
         if (name !== undefined) updateData.name = String(name).trim();
         if (order !== undefined && typeof order === "number") updateData.order = order;
+
+        const columnToUpdate = await prisma.column.findUnique({ 
+            where: { id },
+            include: { board: true }
+        });
+        
+        if (!columnToUpdate || columnToUpdate.board.projectId !== req.params.projectId) {
+            res.status(404).json({ success: false, error: "Column not found" });
+            return;
+        }
 
         const column = await prisma.column.update({
             where: { id },
