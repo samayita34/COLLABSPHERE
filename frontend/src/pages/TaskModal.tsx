@@ -101,8 +101,9 @@ export default function TaskModal({
 
                 <div className="task-modal-body">
                     <div className="field">
-                        <label>Title</label>
+                        <label htmlFor="task-title">Title</label>
                         <input
+                            id="task-title"
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
@@ -112,8 +113,9 @@ export default function TaskModal({
                     </div>
 
                     <div className="field">
-                        <label>Description</label>
+                        <label htmlFor="task-desc">Description</label>
                         <textarea
+                            id="task-desc"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             placeholder="Add more detail (optional)"
@@ -122,8 +124,9 @@ export default function TaskModal({
                     </div>
 
                     <div className="field">
-                        <label>Column</label>
+                        <label htmlFor="task-col">Column</label>
                         <select
+                            id="task-col"
                             value={columnId || ""}
                             onChange={(e) => setColumnId(e.target.value)}
                         >
@@ -153,8 +156,9 @@ export default function TaskModal({
 
                     <div className="field-row">
                         <div className="field">
-                            <label>Due date</label>
+                            <label htmlFor="task-due">Due date</label>
                             <input
+                                id="task-due"
                                 type="text"
                                 value={due}
                                 onChange={(e) => setDue(e.target.value)}
@@ -163,8 +167,9 @@ export default function TaskModal({
                         </div>
 
                         <div className="field">
-                            <label>Assignee</label>
+                            <label htmlFor="task-assignee">Assignee</label>
                             <select
+                                id="task-assignee"
                                 value={assignee}
                                 onChange={(e) => setAssignee(e.target.value)}
                             >

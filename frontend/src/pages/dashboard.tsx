@@ -233,15 +233,19 @@ export default function Dashboard() {
 
           {/* Error Banner */}
           {error && (
-            <div style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", padding: "12px 16px", borderRadius: "8px", marginBottom: "20px" }}>
-              {error}
+            <div className="cs-error-banner">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span>{error}</span>
             </div>
           )}
 
           {/* Loading Indicator */}
           {loading && !data && (
-            <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
-              Loading workspace overview...
+            <div className="cs-stats-grid" style={{ marginBottom: "20px" }}>
+              <div className="cs-skeleton cs-skeleton-stat"></div>
+              <div className="cs-skeleton cs-skeleton-stat"></div>
+              <div className="cs-skeleton cs-skeleton-stat"></div>
+              <div className="cs-skeleton cs-skeleton-stat"></div>
             </div>
           )}
 
@@ -325,13 +329,11 @@ export default function Dashboard() {
 
               <div className="cs-project-cards">
                 {(!data?.recentProjects || data.recentProjects.length === 0) ? (
-                  <div style={{ textAlign: "center", padding: "30px 20px", color: "#64748b" }}>
-                    <p style={{ margin: "0 0 10px", fontSize: "0.95rem" }}>No projects found in this workspace.</p>
-                    <button 
-                      className="cs-btn-primary" 
-                      style={{ fontSize: "0.8rem", padding: "6px 12px" }}
-                      onClick={() => setIsCreateModalOpen(true)}
-                    >
+                  <div className="cs-empty-state">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <h3>No Active Projects</h3>
+                    <p>Get started by creating a new project stream for your workspace.</p>
+                    <button className="cs-btn-primary" onClick={() => setIsCreateModalOpen(true)}>
                       + Create First Project
                     </button>
                   </div>
@@ -399,8 +401,10 @@ export default function Dashboard() {
 
               <div className="cs-tasks-list">
                 {(!data?.pendingTasks?.length && !data?.dueTodayTasks?.length && !data?.upcomingDeadlineTasks?.length) ? (
-                  <div style={{ textAlign: "center", padding: "30px 20px", color: "#64748b" }}>
-                    <p style={{ margin: 0, fontSize: "0.95rem" }}>No active tasks or upcoming deadlines.</p>
+                  <div className="cs-empty-state">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <h3>You're All Caught Up!</h3>
+                    <p>No active tasks or upcoming deadlines require your attention.</p>
                   </div>
                 ) : (
                   <>
@@ -485,8 +489,10 @@ export default function Dashboard() {
               </div>
               <div className="cs-project-cards">
                 {(!data?.recentDocuments || data.recentDocuments.length === 0) ? (
-                  <div style={{ textAlign: "center", padding: "30px 20px", color: "#64748b" }}>
-                    <p style={{ margin: 0, fontSize: "0.95rem" }}>No documents found.</p>
+                  <div className="cs-empty-state">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <h3>No Recent Documents</h3>
+                    <p>Start collaborating by creating a document in one of your projects.</p>
                   </div>
                 ) : (
                   data.recentDocuments.map((doc) => (
@@ -520,8 +526,10 @@ export default function Dashboard() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "16px" }}>
                 {(!data?.recentActivity || data.recentActivity.length === 0) ? (
-                  <div style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>
-                    <p style={{ margin: 0, fontSize: "0.95rem" }}>No recent activity.</p>
+                  <div className="cs-empty-state">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    <h3>Quiet Workspace</h3>
+                    <p>No recent team activity has been recorded yet.</p>
                   </div>
                 ) : (
                   data.recentActivity.map((log) => {

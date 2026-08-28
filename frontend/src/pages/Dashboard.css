@@ -997,6 +997,94 @@
   }
 }
 
+/* ── SKELETON LOADERS ── */
+.cs-skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 400% 100%;
+  animation: cs-shimmer 1.5s infinite linear;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.cs-skeleton-title {
+  height: 24px;
+  width: 40%;
+  margin-bottom: 12px;
+}
+
+.cs-skeleton-text {
+  height: 16px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.cs-skeleton-stat {
+  height: 80px;
+  border-radius: 8px;
+}
+
+.cs-skeleton-card {
+  height: 120px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+@keyframes cs-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ── EMPTY STATES ── */
+.cs-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  background: #f8fafc;
+  border: 1px dashed var(--cs-border);
+  border-radius: 8px;
+  color: var(--cs-text-sub);
+}
+
+.cs-empty-state svg {
+  color: var(--cs-text-muted);
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.cs-empty-state h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--cs-text-main);
+}
+
+.cs-empty-state p {
+  font-size: 0.9rem;
+  margin: 0 0 20px;
+  max-width: 300px;
+}
+
+/* ── ERROR BANNER ── */
+.cs-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 @media (max-width: 800px) {
   .cs-sidebar {
     display: none;
