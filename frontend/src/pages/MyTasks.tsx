@@ -340,17 +340,17 @@ export default function MyTasks() {
                               fontSize: "10px", 
                               padding: "2px 7px", 
                               borderRadius: "4px",
-                              background: t.priority === "HIGH" ? "#fbf0f0" : t.priority === "MEDIUM" ? "#fcf6e8" : "#f0ede4",
-                              color: t.priority === "HIGH" ? "#b91c1c" : t.priority === "MEDIUM" ? "#b45309" : "#5a594f",
+                              background: t.priority === "high" ? "#fbf0f0" : t.priority === "medium" ? "#fcf6e8" : "#f0ede4",
+                              color: t.priority === "high" ? "#b91c1c" : t.priority === "medium" ? "#b45309" : "#5a594f",
                               border: "1px solid #e7e3d8"
                             }}
                           >
-                            {t.priority || "MEDIUM"}
+                            {t.priority || "medium"}
                           </span>
                         </td>
 
                         <td style={{ padding: "14px 16px", fontFamily: "IBM Plex Mono, monospace", fontSize: "11.5px", color: "#9a968a" }}>
-                          {t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"}
+                          {t.due ? new Date(t.due).toLocaleDateString() : "—"}
                         </td>
 
                         <td style={{ padding: "14px 16px" }}>
