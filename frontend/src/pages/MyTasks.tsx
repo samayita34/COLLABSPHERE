@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchMyTasksApi, updateTaskSemanticStatusApi, type MyTaskItem } from "../services/projectApi";
 import { AppSidebar } from "../components/AppSidebar";
@@ -17,12 +17,11 @@ const STATUS_TABS = [
 type StatusTab = (typeof STATUS_TABS)[number]["key"];
 
 export default function MyTasks() {
-  const navigate = useNavigate();
   const { activeWorkspace } = useWorkspace();
 
   const [tasks, setTasks] = useState<MyTaskItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
 
   const [taskScope, setTaskScope] = useState<"all" | "assigned" | "created">("all");
   const [activeTab, setActiveTab] = useState<StatusTab>("all");

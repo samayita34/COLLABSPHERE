@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchWorkspaceAnalyticsApi, type WorkspaceAnalyticsData } from "../services/workspaceApi";
 import { AppSidebar } from "../components/AppSidebar";
@@ -15,7 +14,6 @@ function formatBytes(bytes: number) {
 }
 
 export default function Analytics() {
-  const navigate = useNavigate();
   const { activeWorkspace } = useWorkspace();
   
   const [data, setData] = useState<WorkspaceAnalyticsData | null>(null);

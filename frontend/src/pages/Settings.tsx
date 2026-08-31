@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { updateWorkspaceApi } from "../services/workspaceApi";
@@ -8,8 +7,7 @@ import { AppTopbar } from "../components/AppTopbar";
 import "./Projects.css";
 
 export default function Settings() {
-  const navigate = useNavigate();
-  const { userFullName, userInitials, user, logout } = useAuth();
+  const { userFullName, userInitials, user } = useAuth();
   const { activeWorkspace, refreshContext } = useWorkspace();
 
   const [activeTab, setActiveTab] = useState<"workspace" | "profile" | "preferences">("workspace");

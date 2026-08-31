@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { fetchProjects } from "../services/projectApi";
 import type { MappedProject } from "../services/projectApi";
-import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { CreateProjectModal } from "./CreateProjectModal";
-import { WorkspaceSelector } from "../components/WorkspaceSelector";
-import NotificationCenter from "../components/NotificationCenter";
 import { AppSidebar } from "../components/AppSidebar";
 import { AppTopbar } from "../components/AppTopbar";
 import "./Projects.css";

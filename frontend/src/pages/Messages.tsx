@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchWorkspaceMessages, type WorkspaceMessage } from "../services/workspaceApi";
 import { socketService } from "../services/socket";
@@ -11,7 +10,6 @@ import "./ProjectWorkspace.css";
 import "./Messages.css";
 
 export default function Messages() {
-    const { userFullName, userInitials, logout } = useAuth();
     const { activeWorkspace } = useWorkspace();
 
     const [messages, setMessages] = useState<WorkspaceMessage[]>([]);

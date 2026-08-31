@@ -69,7 +69,7 @@ export default function ProjectWorkspace() {
     const { id, slug } = useParams<{ id?: string; slug?: string }>();
     const navigate = useNavigate();
     const location = useLocation();
-    const { userFullName, userInitials, logout } = useAuth();
+    const { userFullName, userInitials } = useAuth();
     const { activeWorkspace } = useWorkspace();
     const { toggleSidebar, isOpen } = useSidebar();
     const routeParam = id || slug || "";

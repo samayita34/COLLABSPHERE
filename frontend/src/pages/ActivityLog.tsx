@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { useWorkspace } from "../context/WorkspaceContext";
-import { useAuth } from "../context/AuthContext";
 import { fetchAuditLogs, type AuditLogItem } from "../services/auditApi";
 import { AppSidebar } from "../components/AppSidebar";
 import { AppTopbar } from "../components/AppTopbar";
@@ -10,7 +8,6 @@ import "./ActivityLog.css";
 
 export const ActivityLog: React.FC = () => {
     const { activeWorkspace } = useWorkspace();
-    const { userFullName, userInitials, logout } = useAuth();
     const [logs, setLogs] = useState<AuditLogItem[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);

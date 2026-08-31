@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchWorkspaceDocuments } from "../services/workspaceApi";
 import { updateDocumentApi, type WorkspaceDocument } from "../services/projectApi";

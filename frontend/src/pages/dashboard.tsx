@@ -12,7 +12,7 @@ export default function Dashboard() {
   const { activeWorkspace } = useWorkspace();
   
   const [data, setData] = useState<WorkspaceOverviewData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
