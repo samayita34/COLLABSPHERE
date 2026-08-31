@@ -59,6 +59,31 @@ export const getFilesByProject = async (req: Request, res: Response): Promise<vo
     }
 };
 
+import fs from "fs";
+
+function determineFileType(fileName: string, mimeType?: string): FileType {
+    const ext = fileName.split(".").pop()?.toUpperCase() || "";
+    if (["PNG", "WEBP", "SVG"].includes(ext)) return FileType.PNG;
+    if (["JPG", "JPEG", "GIF"].includes(ext)) return FileType.JPG;
+    if (["DOC", "DOCX", "TXT", "MD", "RTF"].includes(ext)) return FileType.DOC;
+    if (["XLS", "XLSX", "CSV"].includes(ext)) return FileType.XLS;
+    if (["PPT", "PPTX"].includes(ext)) return FileType.PPT;
+    if (["ZIP", "TAR", "GZ", "RAR", "7Z"].includes(ext)) return FileType.ZIP;
+    if (["MP4", "MOV", "AVI", "WEBM", "MKV"].includes(ext)) return FileType.MP4;
+    if (["FIG", "PSD", "AI"].includes(ext)) return FileType.FIG;
+    if (ext === "PDF") return FileType.PDF;
+
+    if (mimeType?.includes("image/jpeg")) return FileType.JPG;
+    if (mimeType?.includes("image")) return FileType.PNG;
+    if (mimeType?.includes("video")) return FileType.MP4;
+    if (mimeType?.includes("zip") || mimeType?.includes("compressed")) return FileType.ZIP;
+    if (mimeType?.includes("word") || mimeType?.includes("document") || mimeType?.includes("text")) return FileType.DOC;
+    if (mimeType?.includes("excel") || mimeType?.includes("sheet") || mimeType?.includes("csv")) return FileType.XLS;
+    if (mimeType?.includes("powerpoint") || mimeType?.includes("presentation")) return FileType.PPT;
+
+    return FileType.PDF;
+}
+
 export const createFile = async (req: Request, res: Response): Promise<void> => {
     try {
         const projectId = req.params.projectId as string;
@@ -66,11 +91,12 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
         const uploadedFile = req.file;
 
         if (!uploadedFile) {
-            res.status(400).json({ success: false, error: "File buffer is required" });
+            res.status(400).json({ success: false, error: "File is required for upload" });
             return;
         }
 
-        if (!name || typeof name !== "string" || name.trim() === "") {
+        const fileName = (name && typeof name === "string" && name.trim()) ? name.trim() : uploadedFile.originalname;
+        if (!fileName) {
             res.status(400).json({ success: false, error: "File name is required" });
             return;
         }
@@ -81,12 +107,28 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
+        // Get file buffer (handles memoryStorage as well as diskStorage fallback)
+        let fileBuffer: Buffer | null = (uploadedFile as any).buffer || null;
+        if (!fileBuffer && (uploadedFile as any).path) {
+            try {
+                fileBuffer = await fs.promises.readFile((uploadedFile as any).path);
+            } catch (readErr) {
+                console.error("Error reading uploaded temp file:", readErr);
+            }
+        }
+
+        if (!fileBuffer) {
+            res.status(400).json({ success: false, error: "Unable to read uploaded file data" });
+            return;
+        }
+
         // Check workspace storage quota
-        const workspace = await prisma.workspace.findUnique({
-            where: { id: req.workspace?.id }
-        });
+        const workspaceId = req.workspace?.id || req.project?.workspaceId;
+        const workspace = workspaceId ? await prisma.workspace.findUnique({
+            where: { id: workspaceId }
+        }) : null;
         
-        const newSize = BigInt(uploadedFile.size);
+        const newSize = BigInt(uploadedFile.size || fileBuffer.length);
         if (workspace && workspace.storageUsed + newSize > workspace.storageQuota) {
             res.status(403).json({ success: false, error: "Storage quota exceeded" });
             return;
@@ -97,9 +139,9 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
             where: {
                 projectId,
                 folderId: folderId || null,
-                name: name.trim()
+                name: fileName
             },
-            include: { versions: { orderBy: { versionNum: 'desc' }, take: 1 } }
+            include: { versions: { orderBy: { versionNum: "desc" }, take: 1 } }
         });
 
         if (file && file.isLocked && file.lockedById !== userId) {
@@ -108,35 +150,30 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
         }
 
         // Upload to Storage
-        const s3Key = `projects/${projectId}/${Date.now()}-${name}`;
-        await storageService.uploadFile(s3Key, uploadedFile.buffer, uploadedFile.mimetype);
+        const s3Key = `projects/${projectId}/${Date.now()}-${fileName}`;
+        await storageService.uploadFile(s3Key, fileBuffer, uploadedFile.mimetype);
 
         let newVersionNum = 1;
         
         if (!file) {
-            // Create new file
-            let fileType: FileType = FileType.PDF;
-            // determine type logic could be enhanced based on mimetype
-            if (uploadedFile.mimetype.includes('image')) fileType = FileType.PNG;
-            else if (uploadedFile.mimetype.includes('video')) fileType = FileType.MP4;
-            else if (uploadedFile.mimetype.includes('zip')) fileType = FileType.ZIP;
+            const fileType = determineFileType(fileName, uploadedFile.mimetype);
 
             file = await prisma.file.create({
                 data: {
-                    name: name.trim(),
-                    description: description || null,
+                    name: fileName,
+                    description: description ? String(description).trim() : null,
                     projectId,
                     folderId: folderId || null,
                     type: fileType
                 },
-                include: { versions: true } // just for type compatibility below
+                include: { versions: true }
             });
         } else {
             newVersionNum = file.versions.length > 0 ? file.versions[0].versionNum + 1 : 1;
         }
 
         // Create new version
-        const newVersion = await prisma.fileVersion.create({
+        await prisma.fileVersion.create({
             data: {
                 versionNum: newVersionNum,
                 s3Key,
@@ -154,12 +191,17 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
             });
         }
 
+        // Clean up temp file if present on disk
+        if ((uploadedFile as any).path) {
+            fs.promises.unlink((uploadedFile as any).path).catch(() => {});
+        }
+
         // Audit Log
         logAuditAction({
             userId,
-            workspaceId: req.workspace?.id,
+            workspaceId,
             projectId,
-            action: file.versions ? AuditAction.FILE_UPLOADED : AuditAction.FILE_UPLOADED,
+            action: AuditAction.FILE_UPLOADED,
             entityType: "File",
             entityId: file.id,
             details: { name: file.name, version: newVersionNum },
@@ -171,7 +213,7 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
         if (req.project?.ownerId && req.project.ownerId !== userId) {
             createAndSendNotification({
                 userId: req.project.ownerId,
-                workspaceId: req.workspace?.id,
+                workspaceId,
                 type: NotificationType.FILE_UPLOADED,
                 title: "File Uploaded",
                 message: `File "${file.name}" was uploaded in project "${req.project.name}".`,
@@ -179,12 +221,12 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
             }).catch((err) => console.error("Notification error:", err));
         }
 
-        const updatedFile = await prisma.file.findUnique({
+        const fullFile = await prisma.file.findUnique({
             where: { id: file.id },
             include: {
                 versions: {
-                    include: { uploadedBy: { select: { id: true, firstName: true, lastName: true } } },
-                    orderBy: { versionNum: 'desc' }
+                    include: { uploadedBy: { select: { id: true, firstName: true, lastName: true, email: true } } },
+                    orderBy: { versionNum: "desc" }
                 },
                 lockedBy: { select: { id: true, firstName: true, lastName: true } }
             }
@@ -192,11 +234,12 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
 
         res.status(201).json({
             success: true,
-            data: formatFile(updatedFile),
+            message: "File uploaded successfully",
+            data: formatFile(fullFile),
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error creating file:", error);
-        res.status(500).json({ success: false, error: "Failed to create/upload file" });
+        res.status(500).json({ success: false, error: error.message || "Failed to upload file" });
     }
 };
 

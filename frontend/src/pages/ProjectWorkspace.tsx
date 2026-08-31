@@ -17,6 +17,7 @@ import { AppSidebar } from "../components/AppSidebar";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import { socketService } from "../services/socket";
 import NotificationCenter from "../components/NotificationCenter";
+import { CheckSquare2, Users, FileText, Activity, ClipboardList, Plus, Search, Calendar, User, ChevronRight, Loader2, AlertCircle } from "lucide-react";
 
 /* =========================
    TYPES
@@ -41,7 +42,15 @@ interface ProjectDocument {
 
 
 
-const activity: { text: string; time: string }[] = [];
+interface AuditLogEntry {
+    id: string;
+    action: string;
+    entityType: string;
+    entityId?: string;
+    details?: any;
+    createdAt: string;
+    user?: { id: string; firstName: string; lastName: string; email: string };
+}
 
 const TABS = ["Overview", "Tasks", "Board", "Members", "Documents", "Files", "Chat", "Activity", "Settings"] as const;
 type Tab = (typeof TABS)[number];
@@ -95,6 +104,12 @@ export default function ProjectWorkspace() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [board, setBoard] = useState<Board | null>(null);
 
+    // Activity / Audit log
+    const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+    const [auditLoading, setAuditLoading] = useState(false);
+    const [taskSearch, setTaskSearch] = useState("");
+    const [memberSearch, setMemberSearch] = useState("");
+
     /* Tasks tab filters */
     const [statusFilter, setStatusFilter] = useState<"all" | string>("all");
     const [priorityFilter, setPriorityFilter] = useState<"all" | TaskPriority>("all");
@@ -130,6 +145,19 @@ export default function ProjectWorkspace() {
                         setBoard(apiBoards[0]); // Primary board
                     }
                     setError(null);
+
+                    // Fetch recent audit logs for activity trail
+                    const wsId = data.workspaceId || activeWorkspace?.id;
+                    if (wsId) {
+                        fetch(`/api/audit-logs?workspaceId=${wsId}&limit=20`, { credentials: "include" })
+                            .then((r) => r.json())
+                            .then((res) => {
+                                if (res.success && isMounted) {
+                                    setAuditLogs(res.data || []);
+                                }
+                            })
+                            .catch(console.error);
+                    }
                 }
             })
             .catch((err) => {
@@ -800,20 +828,32 @@ export default function ProjectWorkspace() {
                                     </div>
 
                                     <div className="activity-list">
-                                        {activity.length === 0 ? (
+                                        {auditLogs.length === 0 ? (
                                             <div style={{ color: "#64748b", fontSize: "13px", padding: "8px 0" }}>
                                                 No activity yet.
                                             </div>
                                         ) : (
-                                            activity.map((a, i) => (
-                                                <div className="activity-row" key={i}>
-                                                    <div className="activity-bullet" />
-                                                    <div className="activity-body">
-                                                        <p>{a.text}</p>
-                                                        <span>{a.time}</span>
+                                            auditLogs.slice(0, 5).map((log, i) => {
+                                                const actor = log.user ? `${log.user.firstName} ${log.user.lastName}` : "System";
+                                                const label = log.action
+                                                    .replace(/_/g, " ")
+                                                    .toLowerCase()
+                                                    .replace(/\b\w/g, (c) => c.toUpperCase());
+                                                const when = new Date(log.createdAt);
+                                                const timeStr = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                                                return (
+                                                    <div className="activity-row" key={log.id || i}>
+                                                        <div className="activity-bullet" />
+                                                        <div className="activity-body">
+                                                            <p>
+                                                                <strong>{actor}</strong> {label.toLowerCase()}{" "}
+                                                                {log.details?.name || log.details?.title || log.entityType?.toLowerCase()}
+                                                            </p>
+                                                            <span>{timeStr}</span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))
+                                                );
+                                            })
                                         )}
                                     </div>
                                 </div>
@@ -826,246 +866,325 @@ export default function ProjectWorkspace() {
                     {/* TASKS TAB (LIST VIEW) */}
                     {activeTab === "Tasks" && (
                         <div className="tab-pane">
-
                             <div className="pane-toolbar">
                                 <div className="pane-title">
-                                    <h2>Tasks ({filteredTasks.length})</h2>
-                                    <p>Structured view of all deliverable work items.</p>
+                                    <h2>Tasks <span className="tab-count">{filteredTasks.length}</span></h2>
+                                    <p>Structured view of all work items in this project.</p>
                                 </div>
 
                                 <div className="pane-actions">
-
-                                    <div className="filter-group">
-
-                                        <select
-                                            className="filter-select"
-                                            value={statusFilter}
-                                            onChange={(e) => setStatusFilter(e.target.value as any)}
-                                        >
-                                            <option value="all">All</option>
-                                            {board?.columns.map((c) => (
-                                                <option key={c.id} value={c.id}>
-                                                    {c.name}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        <select
-                                            className="filter-select"
-                                            value={priorityFilter}
-                                            onChange={(e) => setPriorityFilter(e.target.value as any)}
-                                        >
-                                            {PRIORITY_FILTERS.map((f) => (
-                                                <option key={f.key} value={f.key}>
-                                                    {f.label}
-                                                </option>
-                                            ))}
-                                        </select>
-
+                                    <div className="tw-search-box">
+                                        <Search size={14} color="#9a968a" />
+                                        <input
+                                            placeholder="Search tasks..."
+                                            value={taskSearch}
+                                            onChange={(e) => setTaskSearch(e.target.value)}
+                                        />
                                     </div>
 
-                                    <button
-                                        className="cs-btn cs-btn-primary"
-                                        onClick={() => openCreateModal("todo")}
-                                    >
-                                        + New task
-                                    </button>
+                                    <select className="filter-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                                        <option value="all">All statuses</option>
+                                        {board?.columns.map((c) => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
 
+                                    <select className="filter-select" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as any)}>
+                                        {PRIORITY_FILTERS.map((f) => (
+                                            <option key={f.key} value={f.key}>{f.label}</option>
+                                        ))}
+                                    </select>
+
+                                    <button className="cs-btn cs-btn-primary" onClick={() => openCreateModal(board?.columns[0]?.id)}>
+                                        <Plus size={14} style={{ marginRight: 4 }} />
+                                        New Task
+                                    </button>
                                 </div>
                             </div>
 
-                            <div className="task-list-container">
-                                {filteredTasks.length === 0 ? (
-                                    <div className="empty-state">
-                                        <p>No tasks match the selected filters.</p>
+                            {/* Group tasks by column */}
+                            {filteredTasks.filter(t => !taskSearch || t.title.toLowerCase().includes(taskSearch.toLowerCase()) || (t.description || "").toLowerCase().includes(taskSearch.toLowerCase())).length === 0 ? (
+                                <div className="tw-empty-state">
+                                    <CheckSquare2 size={40} color="#c9c4b4" />
+                                    <h3>No tasks found</h3>
+                                    <p>Try adjusting your filters or create a new task.</p>
+                                    <button className="cs-btn cs-btn-primary" onClick={() => openCreateModal(board?.columns[0]?.id)} style={{ marginTop: 12 }}>
+                                        <Plus size={14} style={{ marginRight: 4 }} /> Create First Task
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="tw-task-table">
+                                    {/* Table Header */}
+                                    <div className="tw-task-header">
+                                        <span></span>
+                                        <span>Task</span>
+                                        <span>Status</span>
+                                        <span>Priority</span>
+                                        <span>Assignee</span>
+                                        <span>Due Date</span>
                                     </div>
-                                ) : (
-                                    filteredTasks.map((t) => (
-                                        <div
-                                            className={`task-row ${t.columnId === doneColumnId ? "done" : ""} clickable`}
-                                            key={t.id}
-                                            onClick={() => openEditModal(t)}
-                                        >
-                                            <div className={`task-check ${t.columnId === doneColumnId ? "checked" : ""}`}>
-                                                {t.columnId === doneColumnId ? "✓" : ""}
-                                            </div>
 
-                                            <div className="task-body">
-                                                <div className="task-title-row">
-                                                    <span className="task-title">{t.title}</span>
-                                                    <span className={`priority-tag ${t.priority ? t.priority.toLowerCase() : "medium"}`}>
-                                                        {t.priority}
-                                                    </span>
+                                    {filteredTasks
+                                        .filter(t => !taskSearch || t.title.toLowerCase().includes(taskSearch.toLowerCase()) || (t.description || "").toLowerCase().includes(taskSearch.toLowerCase()))
+                                        .map((t) => {
+                                            const isDone = t.columnId === doneColumnId;
+                                            const colName = board?.columns.find(c => c.id === t.columnId)?.name || "Unknown";
+                                            const assigneeMember = members.find(m => m.initials === t.assignee);
+                                            const isOverdue = t.due && !isDone && new Date(t.due) < new Date();
+                                            return (
+                                                <div
+                                                    className={`tw-task-row ${isDone ? "tw-done" : ""}`}
+                                                    key={t.id}
+                                                    onClick={() => openEditModal(t)}
+                                                >
+                                                    <div className={`tw-task-check ${isDone ? "checked" : ""}`}>
+                                                        {isDone ? "✓" : ""}
+                                                    </div>
+
+                                                    <div className="tw-task-main">
+                                                        <span className="tw-task-title">{t.title}</span>
+                                                        {t.description && (
+                                                            <span className="tw-task-desc">{t.description}</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div>
+                                                        <span className={`tw-status-badge tw-status-${colName.toLowerCase().replace(/\s+/g, "-")}`}>
+                                                            {colName}
+                                                        </span>
+                                                    </div>
+
+                                                    <div>
+                                                        <span className={`priority-tag ${t.priority?.toLowerCase() || "medium"}`}>
+                                                            {t.priority}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="tw-assignee">
+                                                        <div className="tw-avatar" title={assigneeMember?.name || t.assignee}>
+                                                            {t.assignee || "?"}
+                                                        </div>
+                                                        <span>{assigneeMember?.name?.split(" ")[0] || t.assignee}</span>
+                                                    </div>
+
+                                                    <div className={`tw-due-date ${isOverdue ? "overdue" : ""}`}>
+                                                        <Calendar size={12} />
+                                                        <span>{t.due || "—"}</span>
+                                                    </div>
                                                 </div>
-
-                                                {t.description && (
-                                                    <p className="task-desc">{t.description}</p>
-                                                )}
-
-                                                <div className="task-meta">
-                                                    <span className="status-badge">{board?.columns.find(c => c.id === t.columnId)?.name || "Unknown"}</span>
-                                                    <span className="meta-sep">·</span>
-                                                    <span>Due {t.due}</span>
-                                                    <span className="meta-sep">·</span>
-                                                    <span>{memberName(t.assignee)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-
+                                            );
+                                        })
+                                    }
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* BOARD TAB (KANBAN VIEW) */}
+                                      {/* BOARD TAB (KANBAN VIEW) */}
                     {activeTab === "Board" && (
                         <div className="tab-pane">
-
                             <div className="pane-toolbar">
                                 <div className="pane-title">
                                     <h2>Kanban Board</h2>
                                     <p>Drag and drop tasks between columns to update status.</p>
                                 </div>
 
-                                <button
-                                    className="cs-btn cs-btn-primary"
-                                    onClick={() => openCreateModal("todo")}
-                                >
-                                    + New task
+                                <button className="cs-btn cs-btn-primary" onClick={() => openCreateModal(board?.columns[0]?.id)}>
+                                    <Plus size={14} style={{ marginRight: 4 }} />
+                                    New Task
                                 </button>
                             </div>
 
-                            <div className="board-grid">
-                                                {board?.columns.map((col) => {
-                                                    const colTasks = tasks.filter((t) => t.columnId === col.id);
-                                                    const isTarget = dragOverColumn === col.id;
+                            <div className="kb-board">
+                                {board?.columns.map((col) => {
+                                    const colTasks = tasks.filter((t) => t.columnId === col.id);
+                                    const isTarget = dragOverColumn === col.id;
 
                                     return (
                                         <div
                                             key={col.id}
-                                            className={`board-column ${isTarget ? "drag-over" : ""}`}
-                                            onDragOver={(e) => {
-                                                e.preventDefault();
-                                                setDragOverColumn(col.id);
-                                            }}
+                                            className={`kb-column ${isTarget ? "kb-drag-over" : ""}`}
+                                            onDragOver={(e) => { e.preventDefault(); setDragOverColumn(col.id); }}
                                             onDragLeave={() => setDragOverColumn(null)}
                                             onDrop={(e) => handleDrop(col.id, e)}
                                         >
-                                            <div className="column-header">
-                                                <div className="column-title">
-                                                    <span className="column-dot" />
+                                            <div className="kb-col-header">
+                                                <div className="kb-col-title">
+                                                    <span className="kb-col-dot" />
                                                     <strong>{col.name}</strong>
+                                                    <span className="kb-col-count">{colTasks.length}</span>
                                                 </div>
-                                                <span className="column-count">{colTasks.length}</span>
+                                                <button className="kb-add-btn" onClick={() => openCreateModal(col.id)} title="Add task to column">
+                                                    <Plus size={13} />
+                                                </button>
                                             </div>
 
-                                            <div className="column-body">
-                                                {colTasks.map((t) => (
-                                                    <div
-                                                        key={t.id}
-                                                        className={`kanban-card ${draggingId === t.id ? "dragging" : ""}`}
-                                                        draggable
-                                                        onDragStart={(e) => {
-                                                            setDraggingId(t.id);
-                                                            e.dataTransfer.setData("text/plain", t.id);
-                                                        }}
-                                                        onDragEnd={() => setDraggingId(null)}
-                                                        onClick={() => openEditModal(t)}
-                                                    >
-                                                        <div className="card-header-row">
-                                                            <span className={`priority-tag ${t.priority}`}>
-                                                                {t.priority}
-                                                            </span>
+                                            <div className="kb-col-body">
+                                                {colTasks.length === 0 && !isTarget && (
+                                                    <div className="kb-empty-col">
+                                                        Drop tasks here
+                                                    </div>
+                                                )}
 
-                                                            <div className="assignee-avatar" title={memberName(t.assignee)}>
-                                                                {t.assignee}
+                                                {colTasks.map((t) => {
+                                                    const assigneeMember = members.find(m => m.initials === t.assignee);
+                                                    return (
+                                                        <div
+                                                            key={t.id}
+                                                            className={`kb-card ${draggingId === t.id ? "kb-dragging" : ""} priority-border-${t.priority?.toLowerCase() || "medium"}`}
+                                                            draggable
+                                                            onDragStart={(e) => { setDraggingId(t.id); e.dataTransfer.setData("text/plain", t.id); }}
+                                                            onDragEnd={() => setDraggingId(null)}
+                                                            onClick={() => openEditModal(t)}
+                                                        >
+                                                            <div className="kb-card-top">
+                                                                <span className={`priority-tag ${t.priority?.toLowerCase() || "medium"}`}>
+                                                                    {t.priority}
+                                                                </span>
+                                                                <div className="tw-avatar sm" title={assigneeMember?.name || t.assignee}>
+                                                                    {t.assignee || "?"}
+                                                                </div>
+                                                            </div>
+
+                                                            <h4 className="kb-card-title">{t.title}</h4>
+
+                                                            {t.description && (
+                                                                <p className="kb-card-desc">{t.description}</p>
+                                                            )}
+
+                                                            <div className="kb-card-footer">
+                                                                <span className="kb-due">
+                                                                    <Calendar size={11} />
+                                                                    {t.due || "No date"}
+                                                                </span>
                                                             </div>
                                                         </div>
-
-                                                        <h4 className="card-title">{t.title}</h4>
-
-                                                        {t.description && (
-                                                            <p className="card-desc">{t.description}</p>
-                                                        )}
-
-                                                        <div className="card-footer-row">
-                                                            <span className="card-due">◷ {t.due}</span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-
-                                                <button
-                                                    className="add-card-btn"
-                                                    onClick={() => openCreateModal(col.id)}
-                                                >
-                                                    + Add task
-                                                </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );
                                 })}
-                            </div>
 
+                                {!board && (
+                                    <div className="tw-empty-state" style={{ gridColumn: "1 / -1" }}>
+                                        <ClipboardList size={40} color="#9a968a" />
+                                        <h3>No board configured</h3>
+                                        <p>Create a board to start organizing tasks.</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
                     {/* MEMBERS TAB */}
                     {activeTab === "Members" && (
                         <div className="tab-pane">
-
                             <div className="pane-toolbar">
                                 <div className="pane-title">
-                                    <h2>Team Members ({members.length})</h2>
+                                    <h2>Team Members <span className="tab-count">{members.length}</span></h2>
                                     <p>People with access to this project workspace.</p>
                                 </div>
 
-                                <button
-                                    className="cs-btn cs-btn-primary"
-                                    onClick={() => setAddMemberOpen(true)}
-                                >
-                                    + Add member
-                                </button>
+                                <div className="pane-actions">
+                                    <div className="tw-search-box">
+                                        <Search size={14} color="#9a968a" />
+                                        <input
+                                            placeholder="Search members..."
+                                            value={memberSearch}
+                                            onChange={(e) => setMemberSearch(e.target.value)}
+                                        />
+                                    </div>
+                                    <button className="cs-btn cs-btn-primary" onClick={() => setAddMemberOpen(true)}>
+                                        <Plus size={14} style={{ marginRight: 4 }} />
+                                        Add Member
+                                    </button>
+                                </div>
                             </div>
 
                             {memberError && (
-                                <p role="alert" style={{ color: "var(--danger, #e53e3e)", margin: "0 0 12px", fontSize: "0.875rem" }}>
-                                    ⚠ {memberError}
-                                </p>
+                                <div className="tw-error-banner">
+                                    <AlertCircle size={15} />
+                                    <span>{memberError}</span>
+                                </div>
                             )}
 
-                            <div className="members-grid">
-                                {members.map((m) => (
-                                    <div
-                                        className="member-card"
-                                        key={m.initials}
-                                        onClick={() => setDetailMember(m)}
-                                    >
-                                        <div className="member-avatar-lg">{m.initials}</div>
-                                        <h3>{m.name}</h3>
-                                        <p className="member-role">{m.role}</p>
-                                        <p className="member-email">{m.email}</p>
-                                    </div>
-                                ))}
-                            </div>
+                            {members.filter(m => !memberSearch || m.name.toLowerCase().includes(memberSearch.toLowerCase()) || m.email?.toLowerCase().includes(memberSearch.toLowerCase())).length === 0 ? (
+                                <div className="tw-empty-state">
+                                    <Users size={40} color="#9a968a" />
+                                    <h3>No members found</h3>
+                                    <p>{memberSearch ? "Try a different search term." : "Add your first team member to get started."}</p>
+                                    <button className="cs-btn cs-btn-primary" onClick={() => setAddMemberOpen(true)} style={{ marginTop: 12 }}>
+                                        <Plus size={14} style={{ marginRight: 4 }} /> Add Member
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="tw-members-grid">
+                                    {members
+                                        .filter(m => !memberSearch || m.name.toLowerCase().includes(memberSearch.toLowerCase()) || m.email?.toLowerCase().includes(memberSearch.toLowerCase()))
+                                        .map((m) => {
+                                            const stats = memberStats(m);
+                                            const workloadPct = stats.assigned === 0 ? 0 : Math.round((stats.completed / stats.assigned) * 100);
+                                            return (
+                                                <div
+                                                    className="tw-member-card"
+                                                    key={m.initials}
+                                                    onClick={() => setDetailMember(m)}
+                                                >
+                                                    <div className="tw-member-card-top">
+                                                        <div className="tw-member-avatar">{m.initials}</div>
+                                                        <div className="tw-member-info">
+                                                            <strong>{m.name}</strong>
+                                                            <span className="tw-member-role-badge">{m.role}</span>
+                                                        </div>
+                                                        <ChevronRight size={15} color="#9a968a" style={{ marginLeft: "auto", flexShrink: 0 }} />
+                                                    </div>
 
+                                                    {m.email && (
+                                                        <div className="tw-member-email">{m.email}</div>
+                                                    )}
+
+                                                    <div className="tw-member-stats">
+                                                        <div className="tw-stat">
+                                                            <strong>{stats.assigned}</strong>
+                                                            <span>Assigned</span>
+                                                        </div>
+                                                        <div className="tw-stat">
+                                                            <strong>{stats.completed}</strong>
+                                                            <span>Done</span>
+                                                        </div>
+                                                        <div className="tw-stat">
+                                                            <strong>{stats.remaining}</strong>
+                                                            <span>Active</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {stats.assigned > 0 && (
+                                                        <div className="tw-workload-bar">
+                                                            <div className="tw-workload-fill" style={{ width: `${workloadPct}%` }} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })
+                                    }
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* DOCUMENTS TAB */}
                     {activeTab === "Documents" && (
                         <div className="tab-pane">
-
                             <div className="pane-toolbar">
                                 <div className="pane-title">
-                                    <h2>Project Documents ({filteredDocs.length})</h2>
+                                    <h2>Documents <span className="tab-count">{filteredDocs.length}</span></h2>
                                     <p>Specifications, notes, and requirements for this workspace.</p>
                                 </div>
 
                                 <div className="pane-actions">
-
-                                    <div className="search">
-                                        <span>⌕</span>
+                                    <div className="tw-search-box">
+                                        <Search size={14} color="#9a968a" />
                                         <input
                                             placeholder="Search documents..."
                                             value={docSearch}
@@ -1073,53 +1192,55 @@ export default function ProjectWorkspace() {
                                         />
                                     </div>
 
-                                    <select
-                                        className="filter-select"
-                                        value={docFilter}
-                                        onChange={(e) => setDocFilter(e.target.value as any)}
-                                    >
+                                    <select className="filter-select" value={docFilter} onChange={(e) => setDocFilter(e.target.value as any)}>
                                         {DOC_TYPE_FILTERS.map((f) => (
-                                            <option key={f.key} value={f.key}>
-                                                {f.label}
-                                            </option>
+                                            <option key={f.key} value={f.key}>{f.label}</option>
                                         ))}
                                     </select>
 
-                                    <button
-                                        className="cs-btn cs-btn-primary"
-                                        onClick={() => setAddDocOpen(true)}
-                                    >
-                                        + New document
+                                    <button className="cs-btn cs-btn-primary" onClick={() => setAddDocOpen(true)}>
+                                        <Plus size={14} style={{ marginRight: 4 }} />
+                                        New Document
                                     </button>
-
                                 </div>
                             </div>
 
-                            <div className="documents-grid">
-                                {filteredDocs.length === 0 ? (
-                                    <div className="empty-state">
-                                        <p>No documents found.</p>
-                                    </div>
-                                ) : (
-                                    filteredDocs.map((d) => (
+                            {filteredDocs.length === 0 ? (
+                                <div className="tw-empty-state">
+                                    <FileText size={40} color="#9a968a" />
+                                    <h3>No documents yet</h3>
+                                    <p>Create your first specification, note, or requirement document.</p>
+                                    <button className="cs-btn cs-btn-primary" onClick={() => setAddDocOpen(true)} style={{ marginTop: 12 }}>
+                                        <Plus size={14} style={{ marginRight: 4 }} /> Create Document
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="tw-docs-grid">
+                                    {filteredDocs.map((d) => (
                                         <div
-                                            className="doc-card"
+                                            className="tw-doc-card"
                                             key={d.id}
                                             onClick={() => setDetailDoc(d)}
                                         >
-                                            <div className="doc-type-badge">{d.type}</div>
-                                            <h3>{d.name}</h3>
-                                            <p className="doc-desc">{d.description}</p>
-
-                                            <div className="doc-meta">
-                                                <span>Owner: {d.owner}</span>
-                                                <span>Updated: {d.updatedAt}</span>
+                                            <div className="tw-doc-icon">
+                                                <span>
+                                                    {d.type}
+                                                </span>
+                                            </div>
+                                            <div className="tw-doc-body">
+                                                <h4>{d.name}</h4>
+                                                <p>{d.description || "No description provided."}</p>
+                                            </div>
+                                            <div className="tw-doc-meta">
+                                                <span>
+                                                    <User size={11} /> {d.owner}
+                                                </span>
+                                                <span>Updated {new Date(d.updatedAt).toLocaleDateString()}</span>
                                             </div>
                                         </div>
-                                    ))
-                                )}
-                            </div>
-
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -1147,28 +1268,98 @@ export default function ProjectWorkspace() {
                             <div className="pane-toolbar">
                                 <div className="pane-title">
                                     <h2>Activity Log</h2>
-                                    <p>Full record of updates across this project.</p>
+                                    <p>Full audit trail of changes across this project and workspace.</p>
                                 </div>
+                                <button
+                                    className="cs-btn cs-btn-secondary"
+                                    onClick={() => {
+                                        if (!activeWorkspace?.id) return;
+                                        setAuditLoading(true);
+                                        fetch(`/api/audit-logs?workspaceId=${activeWorkspace.id}&limit=50`, { credentials: "include" })
+                                            .then(r => r.json())
+                                            .then(res => { if (res.success) setAuditLogs(res.data || []); })
+                                            .catch(console.error)
+                                            .finally(() => setAuditLoading(false));
+                                    }}
+                                    style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                                >
+                                    {auditLoading ? <Loader2 size={13} className="tw-spin" /> : <Activity size={13} />}
+                                    Refresh
+                                </button>
                             </div>
 
-                            <div className="activity-list">
-                                {activity.length === 0 ? (
-                                    <div className="empty-state" style={{ textAlign: "center", padding: "40px 0", color: "#64748b" }}>
-                                        <p style={{ margin: 0, fontSize: "14px", fontWeight: 500 }}>No activity yet</p>
-                                        <p style={{ margin: "4px 0 0", fontSize: "12.5px" }}>Updates and changes across this project will appear here.</p>
-                                    </div>
-                                ) : (
-                                    activity.map((a, i) => (
-                                        <div className="activity-row" key={i}>
-                                            <div className="activity-bullet" />
-                                            <div className="activity-body">
-                                                <p>{a.text}</p>
-                                                <span>{a.time}</span>
+                            {auditLoading && auditLogs.length === 0 ? (
+                                <div className="tw-empty-state">
+                                    <Loader2 size={32} color="#9a968a" className="tw-spin" />
+                                    <p style={{ marginTop: 8 }}>Loading activity...</p>
+                                </div>
+                            ) : auditLogs.length === 0 ? (
+                                <div className="tw-empty-state">
+                                    <Activity size={40} color="#9a968a" />
+                                    <h3>No activity yet</h3>
+                                    <p>Actions like task creation, member changes, and file uploads will appear here.</p>
+                                    <button
+                                        className="cs-btn cs-btn-secondary"
+                                        style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6 }}
+                                        onClick={() => {
+                                            if (!activeWorkspace?.id) return;
+                                            setAuditLoading(true);
+                                            fetch(`/api/audit-logs?workspaceId=${activeWorkspace.id}&limit=50`, { credentials: "include" })
+                                                .then(r => r.json())
+                                                .then(res => { if (res.success) setAuditLogs(res.data || []); })
+                                                .catch(console.error)
+                                                .finally(() => setAuditLoading(false));
+                                        }}
+                                    >
+                                        <Activity size={13} /> Load Activity
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="tw-timeline">
+                                    {auditLogs.map((log, i) => {
+                                        const actorName = log.user ? `${log.user.firstName} ${log.user.lastName}` : "System";
+                                        const when = new Date(log.createdAt);
+                                        const timeStr = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                                        const dateStr = when.toLocaleDateString([], { month: "short", day: "numeric" });
+                                        const isToday = new Date().toDateString() === when.toDateString();
+
+                                        const label = log.action
+                                            .replace(/_/g, " ")
+                                            .toLowerCase()
+                                            .replace(/\b\w/g, c => c.toUpperCase());
+
+                                        return (
+                                            <div className="tw-timeline-item" key={log.id || i}>
+                                                <div className="tw-timeline-left">
+                                                    <div className="tw-timeline-dot" />
+                                                    {i < auditLogs.length - 1 && <div className="tw-timeline-line" />}
+                                                </div>
+                                                <div className="tw-timeline-body">
+                                                    <div className="tw-timeline-header">
+                                                        <div className="tw-mini-avatar">
+                                                            {actorName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <strong>{actorName}</strong>
+                                                            <span className="tw-action-label">{label}</span>
+                                                        </div>
+                                                    </div>
+                                                    {log.details && (
+                                                        <div className="tw-timeline-details">
+                                                            {log.details.name && <span>📄 {log.details.name}</span>}
+                                                            {log.details.title && <span>📋 {log.details.title}</span>}
+                                                        </div>
+                                                    )}
+                                                    <div className="tw-timeline-time">
+                                                        <span className="tw-entity-chip">{log.entityType}</span>
+                                                        <span>{isToday ? `Today at ${timeStr}` : `${dateStr} at ${timeStr}`}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     )}
 

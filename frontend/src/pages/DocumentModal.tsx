@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { RichTextEditor } from "../components/RichTextEditor";
 
 /* =========================
@@ -253,10 +253,12 @@ export function DocumentDetailModal({ document: doc, onClose }: DocumentDetailMo
 
 /* =========================
    ADD DOCUMENT MODAL
-   Simple local-state form. The new document is handed back to
-   ProjectWorkspace, which stamps created/updated dates and
-   prepends it to the live `documents` state.
+   Supports uploading a local file (.pdf, .doc, .docx, .txt, .md, .xls, .ppt)
+   or creating a blank collaborative document.
 ========================= */
+
+import { fetchProjects, type MappedProject } from "../services/projectApi";
+import { UploadCloud, FileText, X as CloseIcon } from "lucide-react";
 
 interface AddDocumentModalProps {
     onClose: () => void;
@@ -266,21 +268,119 @@ interface AddDocumentModalProps {
         type: DocType;
         owner: string;
         size?: string;
+        content?: string;
+        projectId?: string;
     }) => void;
+    workspaceId?: string;
+    defaultProjectId?: string;
+    initialFile?: File | null;
 }
 
 const TYPE_OPTIONS: DocType[] = ["DOC", "PDF", "XLS", "PPT"];
 
-export function AddDocumentModal({ onClose, onSave }: AddDocumentModalProps) {
+function detectDocType(fileName: string): DocType {
+    const ext = fileName.split(".").pop()?.toLowerCase() || "";
+    if (ext === "pdf") return "PDF";
+    if (ext === "xls" || ext === "xlsx" || ext === "csv") return "XLS";
+    if (ext === "ppt" || ext === "pptx") return "PPT";
+    return "DOC";
+}
+
+function formatDocSize(bytes: number): string {
+    if (!bytes || bytes === 0) return "0 KB";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+export function AddDocumentModal({
+    onClose,
+    onSave,
+    workspaceId,
+    defaultProjectId,
+    initialFile,
+}: AddDocumentModalProps) {
     useEscapeToClose(onClose);
+    const { userFullName } = useAuth();
 
-    const [name, setName] = useState("");
+    const [mode, setMode] = useState<"upload" | "blank">(initialFile ? "upload" : "upload");
+    const [selectedFile, setSelectedFile] = useState<File | null>(initialFile || null);
+    const [name, setName] = useState(initialFile ? initialFile.name.replace(/\.[^/.]+$/, "") : "");
     const [description, setDescription] = useState("");
-    const [type, setType] = useState<DocType>("DOC");
-    const [owner, setOwner] = useState("");
-    const [size, setSize] = useState("");
+    const [type, setType] = useState<DocType>(initialFile ? detectDocType(initialFile.name) : "DOC");
+    const [owner, setOwner] = useState(userFullName || "Workspace Member");
+    const [size, setSize] = useState(initialFile ? formatDocSize(initialFile.size) : "");
+    const [content, setContent] = useState<string>("");
+    const [isDragging, setIsDragging] = useState(false);
+    
+    // Project selection
+    const [projects, setProjects] = useState<MappedProject[]>([]);
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(defaultProjectId || "");
+    const [loadingProjects, setLoadingProjects] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const canSave = name.trim().length > 0 && owner.trim().length > 0;
+    useEffect(() => {
+        if (workspaceId) {
+            setLoadingProjects(true);
+            fetchProjects(workspaceId)
+                .then((projs) => {
+                    setProjects(projs);
+                    if (defaultProjectId && projs.some((p) => p.id === defaultProjectId)) {
+                        setSelectedProjectId(defaultProjectId);
+                    } else if (projs.length > 0) {
+                        setSelectedProjectId(projs[0].id);
+                    }
+                })
+                .catch((err) => console.error("Failed to load projects", err))
+                .finally(() => setLoadingProjects(false));
+        }
+    }, [workspaceId, defaultProjectId]);
+
+    const handleFileChosen = (file: File) => {
+        setSelectedFile(file);
+        const autoName = file.name.replace(/\.[^/.]+$/, "");
+        setName(autoName);
+        const detected = detectDocType(file.name);
+        setType(detected);
+        setSize(formatDocSize(file.size));
+
+        // If it's a text/markdown/html file, read its content
+        const ext = file.name.split(".").pop()?.toLowerCase() || "";
+        if (["txt", "md", "json", "html", "htm", "rtf"].includes(ext) || file.type.startsWith("text/")) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target?.result as string;
+                if (text) setContent(text);
+            };
+            reader.readAsText(file);
+        } else {
+            setContent(`Uploaded local file: ${file.name} (${formatDocSize(file.size)})`);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleFileChosen(e.dataTransfer.files[0]);
+        }
+    };
+
+    const canSave = name.trim().length > 0 && owner.trim().length > 0 && (!workspaceId || selectedProjectId);
 
     const handleSave = () => {
         if (!canSave) return;
@@ -290,6 +390,8 @@ export function AddDocumentModal({ onClose, onSave }: AddDocumentModalProps) {
             type,
             owner: owner.trim(),
             size: size.trim() || undefined,
+            content: content.trim() || undefined,
+            projectId: selectedProjectId || defaultProjectId || undefined,
         });
     };
 
@@ -297,27 +399,201 @@ export function AddDocumentModal({ onClose, onSave }: AddDocumentModalProps) {
         <div className="modal-overlay" onMouseDown={onClose}>
             <div
                 className="task-modal"
+                style={{ maxWidth: "560px", width: "100%" }}
                 role="dialog"
                 aria-modal="true"
                 aria-label="New document"
                 onMouseDown={(e) => e.stopPropagation()}
             >
                 <div className="task-modal-header">
-                    <h3>New document</h3>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <FileText size={20} color="#2563eb" />
+                        <h3>New Document</h3>
+                    </div>
                     <button className="modal-close" onClick={onClose} aria-label="Close">
                         ✕
                     </button>
                 </div>
 
                 <div className="task-modal-body">
+                    {/* Tab Selection */}
+                    <div style={{ display: "flex", gap: "6px", background: "#f1f5f9", padding: "4px", borderRadius: "8px", marginBottom: "18px" }}>
+                        <button
+                            type="button"
+                            onClick={() => setMode("upload")}
+                            style={{
+                                flex: 1,
+                                padding: "6px 12px",
+                                border: "none",
+                                borderRadius: "6px",
+                                fontSize: "13px",
+                                fontWeight: mode === "upload" ? 600 : 500,
+                                background: mode === "upload" ? "#ffffff" : "transparent",
+                                color: mode === "upload" ? "#1e293b" : "#64748b",
+                                cursor: "pointer",
+                                boxShadow: mode === "upload" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                            }}
+                        >
+                            Upload Local File (PDF, DOC, XLS, TXT)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMode("blank")}
+                            style={{
+                                flex: 1,
+                                padding: "6px 12px",
+                                border: "none",
+                                borderRadius: "6px",
+                                fontSize: "13px",
+                                fontWeight: mode === "blank" ? 600 : 500,
+                                background: mode === "blank" ? "#ffffff" : "transparent",
+                                color: mode === "blank" ? "#1e293b" : "#64748b",
+                                cursor: "pointer",
+                                boxShadow: mode === "blank" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                            }}
+                        >
+                            Blank Document
+                        </button>
+                    </div>
+
+                    {/* File Dropzone (Upload Mode) */}
+                    {mode === "upload" && (
+                        <>
+                            {!selectedFile ? (
+                                <div
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                    onClick={() => fileInputRef.current?.click()}
+                                    style={{
+                                        border: isDragging ? "2px dashed #2563eb" : "2px dashed #cbd5e1",
+                                        background: isDragging ? "#eff6ff" : "#f8fafc",
+                                        borderRadius: "10px",
+                                        padding: "28px 16px",
+                                        textAlign: "center",
+                                        cursor: "pointer",
+                                        transition: "all 0.15s ease",
+                                        marginBottom: "16px",
+                                    }}
+                                >
+                                    <UploadCloud size={34} color={isDragging ? "#2563eb" : "#64748b"} style={{ margin: "0 auto 8px" }} />
+                                    <div style={{ fontSize: "13.5px", fontWeight: 600, color: "#1e293b", marginBottom: "2px" }}>
+                                        Select document from your computer
+                                    </div>
+                                    <div style={{ fontSize: "12px", color: "#64748b" }}>
+                                        PDF, DOCX, TXT, MD, XLS, PPT
+                                    </div>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.rtf,.html"
+                                        style={{ display: "none" }}
+                                        onChange={(e) => {
+                                            if (e.target.files && e.target.files[0]) {
+                                                handleFileChosen(e.target.files[0]);
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            ) : (
+                                <div style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    padding: "10px 14px",
+                                    background: "#f1f5f9",
+                                    border: "1px solid #e2e8f0",
+                                    borderRadius: "8px",
+                                    marginBottom: "16px"
+                                }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                                        <div style={{
+                                            width: "34px",
+                                            height: "34px",
+                                            background: "#dbeafe",
+                                            color: "#1d4ed8",
+                                            borderRadius: "6px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            fontWeight: 700,
+                                            fontSize: "11px",
+                                            flexShrink: 0
+                                        }}>
+                                            {type}
+                                        </div>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ fontSize: "13px", fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                {selectedFile.name}
+                                            </div>
+                                            <div style={{ fontSize: "11.5px", color: "#64748b" }}>
+                                                {size}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedFile(null);
+                                            setSize("");
+                                            setContent("");
+                                        }}
+                                        style={{
+                                            border: "none",
+                                            background: "transparent",
+                                            color: "#64748b",
+                                            cursor: "pointer",
+                                            padding: "4px",
+                                        }}
+                                        title="Change file"
+                                    >
+                                        <CloseIcon size={16} />
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* Target Project (if workspace has multiple projects) */}
+                    {workspaceId && (
+                        <div className="field">
+                            <label>Target Project *</label>
+                            {loadingProjects ? (
+                                <div style={{ fontSize: "12px", color: "#64748b" }}>Loading projects...</div>
+                            ) : projects.length === 0 ? (
+                                <div style={{ fontSize: "12px", color: "#dc2626" }}>No projects available in workspace.</div>
+                            ) : (
+                                <select
+                                    value={selectedProjectId}
+                                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                                    required
+                                    style={{
+                                        width: "100%",
+                                        padding: "8px 12px",
+                                        borderRadius: "6px",
+                                        border: "1px solid #d1d5db",
+                                        fontSize: "13px",
+                                    }}
+                                >
+                                    {projects.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.code ? `[${p.code}] ` : ""}{p.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+                    )}
+
                     <div className="field">
-                        <label>Document name</label>
+                        <label>Document Name *</label>
                         <input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. Onboarding Guide"
-                            autoFocus
+                            placeholder="e.g. Engineering Architecture Spec"
+                            autoFocus={mode === "blank"}
+                            required
                         />
                     </div>
 
@@ -327,7 +603,7 @@ export function AddDocumentModal({ onClose, onSave }: AddDocumentModalProps) {
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             placeholder="What is this document about? (optional)"
-                            rows={3}
+                            rows={2}
                         />
                     </div>
 
@@ -344,24 +620,15 @@ export function AddDocumentModal({ onClose, onSave }: AddDocumentModalProps) {
                         </div>
 
                         <div className="field">
-                            <label>Owner</label>
+                            <label>Owner *</label>
                             <input
                                 type="text"
                                 value={owner}
                                 onChange={(e) => setOwner(e.target.value)}
-                                placeholder="e.g. Aditi Rao"
+                                placeholder="e.g. John Doe"
+                                required
                             />
                         </div>
-                    </div>
-
-                    <div className="field">
-                        <label>Size (optional)</label>
-                        <input
-                            type="text"
-                            value={size}
-                            onChange={(e) => setSize(e.target.value)}
-                            placeholder="e.g. 1.2 MB"
-                        />
                     </div>
                 </div>
 
@@ -377,11 +644,11 @@ export function AddDocumentModal({ onClose, onSave }: AddDocumentModalProps) {
                             disabled={!canSave}
                             onClick={handleSave}
                         >
-                            Add document
+                            {mode === "upload" && selectedFile ? "Upload Document" : "Create Document"}
                         </button>
                     </div>
                 </div>
             </div>
         </div>
     );
-}
+}
