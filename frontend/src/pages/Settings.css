@@ -1,0 +1,401 @@
+/* ─── COLLABSPHERE Settings & Preferences Styling ─── */
+
+.cs-settings-tabs-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--cs-border);
+  padding-bottom: 14px;
+}
+
+.cs-settings-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cs-text-sub);
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cs-settings-tab-btn:hover {
+  background: #f8fafc;
+  color: var(--cs-text-main);
+  border-color: #cbd5e1;
+}
+
+.cs-settings-tab-btn.active {
+  background: #4f46e5;
+  color: #ffffff;
+  border-color: #4f46e5;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+}
+
+.cs-settings-grid-layout {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .cs-settings-grid-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cs-settings-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cs-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cs-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cs-text-main);
+}
+
+.cs-field-help {
+  font-size: 11.5px;
+  color: var(--cs-text-muted);
+}
+
+.cs-input-field,
+.cs-textarea-field {
+  width: 100%;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--cs-text-main);
+  outline: none;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.cs-input-field:focus,
+.cs-textarea-field:focus {
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 1px var(--cs-accent);
+}
+
+.cs-id-copy-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid var(--cs-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.cs-id-copy-box code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: var(--cs-text-sub);
+}
+
+.cs-copy-id-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cs-text-main);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.cs-copy-id-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.cs-form-actions-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 8px;
+}
+
+/* Danger Zone Box */
+.cs-danger-zone-box {
+  margin-top: 20px;
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cs-danger-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #991b1b;
+}
+
+.cs-danger-text {
+  font-size: 12px;
+  color: #b91c1c;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.cs-btn-danger-outline {
+  align-self: flex-start;
+  margin-top: 6px;
+  background: #ffffff;
+  border: 1px solid #fca5a5;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cs-btn-danger-outline:hover {
+  background: #fee2e2;
+}
+
+/* Profile Banner */
+.cs-profile-card-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #f8fafc;
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.cs-profile-avatar-hero {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+  flex-shrink: 0;
+}
+
+.cs-profile-hero-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cs-profile-hero-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cs-text-main);
+  margin: 0;
+}
+
+.cs-profile-hero-email {
+  font-size: 12.5px;
+  color: var(--cs-text-muted);
+}
+
+.cs-profile-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  background: #eeedff;
+  color: #4f46e5;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.cs-security-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--cs-border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--cs-text-sub);
+}
+
+.cs-session-summary-box {
+  background: #f8fafc;
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.cs-session-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cs-session-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cs-session-device {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cs-text-main);
+}
+
+.cs-session-time {
+  font-size: 11.5px;
+  color: var(--cs-text-muted);
+}
+
+/* Alert Notification */
+.cs-settings-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+.cs-settings-alert.success {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+/* Toggles */
+.cs-toggles-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cs-toggle-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.cs-toggle-card:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+.cs-toggle-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cs-toggle-info {
+  flex: 1;
+}
+
+.cs-toggle-title {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--cs-text-main);
+}
+
+.cs-toggle-desc {
+  font-size: 12px;
+  color: var(--cs-text-muted);
+  margin: 3px 0 0 0;
+}
+
+/* Modern Switch Toggle */
+.cs-switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.cs-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.cs-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: 0.25s;
+  border-radius: 24px;
+}
+
+.cs-switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.25s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.cs-switch input:checked + .cs-switch-slider {
+  background-color: #4f46e5;
+}
+
+.cs-switch input:checked + .cs-switch-slider:before {
+  transform: translateX(18px);
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { io as Client, Socket } from '../../frontend/node_modules/socket.io-client';
+import { io as Client, Socket } from 'socket.io-client';
 
 const API_URL = 'http://localhost:3000/api';
 const SOCKET_URL = 'http://localhost:3000';
@@ -204,7 +204,7 @@ test('Test 6 — Real-time Socket.IO newMessage broadcast', async () => {
             });
         });
 
-        clientSocket.on('connect_error', (err) => {
+        clientSocket.on('connect_error', (err: any) => {
             clientSocket.disconnect();
             reject(err);
         });

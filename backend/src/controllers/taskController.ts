@@ -75,14 +75,26 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
-        // Fetch all tasks in projects belonging to this workspace assigned to this user
+        const scope = (req.query.scope as string) || "all";
+
+        let whereClause: any = {
+            project: { workspaceId },
+        };
+
+        if (scope === "assigned") {
+            whereClause.assigneeId = userId;
+        } else if (scope === "created") {
+            whereClause.project = { workspaceId, ownerId: userId };
+        } else if (scope === "mine") {
+            whereClause.OR = [
+                { assigneeId: userId },
+                { assigneeId: null, project: { ownerId: userId } }
+            ];
+        }
+        // If scope === "all", fetches all tasks in the workspace projects
+
         const tasks = await prisma.task.findMany({
-            where: {
-                assigneeId: userId,
-                project: {
-                    workspaceId,
-                },
-            },
+            where: whereClause,
             include: {
                 assignee: { select: safeUserSelect },
                 column: { select: { id: true, name: true, order: true } },
@@ -232,6 +244,51 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             }
         }
 
+        // Validate and resolve columnId safely
+        let targetColumnId: string | null = columnId && typeof columnId === "string" && columnId.trim() ? columnId.trim() : null;
+
+        if (targetColumnId) {
+            const colExists = await prisma.column.findUnique({ where: { id: targetColumnId } });
+            if (!colExists) {
+                targetColumnId = null;
+            }
+        }
+
+        if (!targetColumnId) {
+            const board = await prisma.board.findFirst({
+                where: { projectId },
+                include: { columns: { orderBy: { order: "asc" } } },
+            });
+            if (board && board.columns.length > 0) {
+                targetColumnId = board.columns[0].id;
+            } else {
+                const newBoard = await prisma.board.create({
+                    data: {
+                        name: "Default Board",
+                        projectId,
+                        columns: {
+                            create: [
+                                { name: "To Do", order: 1000 },
+                                { name: "In Progress", order: 2000 },
+                                { name: "Done", order: 3000 },
+                            ],
+                        },
+                    },
+                    include: { columns: true },
+                });
+                targetColumnId = newBoard.columns[0].id;
+            }
+        }
+
+        // Validate swimlaneId safely
+        let targetSwimlaneId: string | null = swimlaneId && typeof swimlaneId === "string" && swimlaneId.trim() ? swimlaneId.trim() : null;
+        if (targetSwimlaneId) {
+            const swimlaneExists = await prisma.swimlane.findUnique({ where: { id: targetSwimlaneId } });
+            if (!swimlaneExists) {
+                targetSwimlaneId = null;
+            }
+        }
+
         const task = await prisma.task.create({
             data: {
                 title: xss(title.trim()),
@@ -240,12 +297,13 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
                 dueDate: parsedDueDate,
                 projectId,
                 assigneeId: assigneeId ? assigneeId.trim() : null,
-                columnId: columnId ? columnId.trim() : null,
-                swimlaneId: swimlaneId ? swimlaneId.trim() : null,
+                columnId: targetColumnId,
+                swimlaneId: targetSwimlaneId,
                 order: typeof order === "number" ? order : 0,
             },
             include: {
                 assignee: { select: safeUserSelect },
+                column: { select: { id: true, name: true, boardId: true } },
             },
         });
 

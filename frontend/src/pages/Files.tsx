@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchWorkspaceFiles } from "../services/workspaceApi";
 import { type WorkspaceFile } from "../services/projectApi";
-import { WorkspaceSelector } from "../components/WorkspaceSelector";
-// import { FileDetailModal, type ProjectFile } from "./FileModal"; // We don't have FileDetailModal for this simplified view right now
+import { AppSidebar } from "../components/AppSidebar";
+import { AppTopbar } from "../components/AppTopbar";
 import "./Projects.css";
 import "./ProjectWorkspace.css";
 
@@ -31,8 +31,6 @@ const FILE_CATEGORY_MAP: Record<string, "images" | "documents" | "design" | "arc
 };
 
 export default function Files() {
-    const navigate = useNavigate();
-    const { userFullName, userInitials, logout } = useAuth();
     const { activeWorkspace } = useWorkspace();
     
     const [files, setFiles] = useState<WorkspaceFile[]>([]);
@@ -77,10 +75,13 @@ export default function Files() {
     }, [activeWorkspace]);
 
     const filteredFiles = files.filter((f) => {
-        const cat = FILE_CATEGORY_MAP[f.type];
+        const ext = f.name.split(".").pop()?.toUpperCase() || "";
+        const cat = FILE_CATEGORY_MAP[ext] || "documents";
         const catMatch = fileFilter === "all" || cat === fileFilter;
+        
+        const latestVersion = f.versions && f.versions.length > 0 ? f.versions[f.versions.length - 1] : null;
+
         const q = fileSearch.trim().toLowerCase();
-        const latestVersion = f.versions?.[0];
         const searchMatch =
             !q ||
             f.name.toLowerCase().includes(q) ||
@@ -95,73 +96,15 @@ export default function Files() {
 
     return (
         <div className="projects-page">
-            <aside className="projects-sidebar">
-                <div className="brand">
-                    <span>Collabsphere</span>
-                    <small>ENT</small>
-                </div>
-
-                <WorkspaceSelector />
-
-                <div className="nav-title">NAVIGATION</div>
-
-                <nav>
-                    <Link to="/overview">Overview</Link>
-                    <Link to="/projects">Projects</Link>
-                    <Link to="/my-tasks">My Tasks</Link>
-                    <Link to="/documents">Documents</Link>
-                    <Link to="/files" className="selected">
-                        Files
-                        <span>{files.length}</span>
-                    </Link>
-                    <Link to="/messages">Messages</Link>
-                    <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Analytics</a>
-                    <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Settings</a>
-                </nav>
-
-                <div className="profile">
-                    <div className="profile-avatar">{userInitials}</div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <strong style={{ display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{userFullName}</strong>
-                        <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Workspace Member</span>
-                    </div>
-
-                    <button
-                        onClick={logout}
-                        style={{
-                            background: "transparent",
-                            border: "none",
-                            color: "#ef4444",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                        }}
-                        title="Sign out"
-                    >
-                        Sign out
-                    </button>
-                </div>
-            </aside>
+            <AppSidebar activePage="files" filesCount={files.length} />
 
             <main className="projects-main">
-                <header className="topbar">
-                    <div className="breadcrumb">
-                        Workspace / <strong>Files</strong>
-                    </div>
-
-                    <div className="topbar-actions">
-                        <div className="search">
-                            <span>?</span>
-                            <input placeholder="Search anything..." />
-                            <kbd>? K</kbd>
-                        </div>
-                        <button className="notification">?</button>
-                        <div className="profile-avatar">{userInitials}</div>
-                    </div>
-                </header>
+                <AppTopbar 
+                    pageTitle="Files" 
+                    searchPlaceholder="Search files..."
+                    searchValue={fileSearch}
+                    onSearchChange={setFileSearch}
+                />
 
                 <section className="content">
                     <div className="page-heading">

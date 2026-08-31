@@ -1,3 +1,5 @@
+import { getCsrfHeaders } from "./apiUtils";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
 export interface Organization {
@@ -31,7 +33,7 @@ export async function fetchOrganizations(): Promise<Organization[]> {
 export async function createOrganizationApi(name: string, slug: string): Promise<Organization> {
     const res = await fetch(`${API_BASE_URL}/organizations`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
         credentials: "include",
         body: JSON.stringify({ name, slug }),
     });

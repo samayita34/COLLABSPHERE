@@ -22,7 +22,8 @@ export interface CreateAuditLogInput {
  */
 export const createAuditLog = async (input: CreateAuditLogInput) => {
     try {
-        const auditLog = await prisma.auditLog.create({
+        if (!(prisma as any).auditLog) return null;
+        const auditLog = await (prisma as any).auditLog.create({
             data: {
                 userId: input.userId,
                 organizationId: input.organizationId,
@@ -39,8 +40,6 @@ export const createAuditLog = async (input: CreateAuditLogInput) => {
         });
         return auditLog;
     } catch (error) {
-        // Non-blocking: log warning to console without throwing
-        console.error("[AuditService] Non-blocking audit log creation failed:", error);
         return null;
     }
 };

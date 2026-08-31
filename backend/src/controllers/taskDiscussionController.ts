@@ -1,30 +1,74 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import { createAndSendNotification } from "../services/notificationService";
-import { createAuditLog } from "../services/auditService";
-import { NotificationType, AuditAction } from "../../generated/prisma/enums";
+import { logAuditAction } from "../services/auditService";
+import { NotificationType } from "../../generated/prisma/enums";
 import xss from "xss";
+
+const safeUserSelect = {
+    id: true,
+    firstName: true,
+    lastName: true,
+    email: true,
+    avatar: true,
+};
+
+function formatAuthor(u: any) {
+    if (!u) return { id: "", fullName: "Anonymous", initials: "AN" };
+    const fn = u.firstName || "";
+    const ln = u.lastName || "";
+    const fullName = `${fn} ${ln}`.trim() || u.email || "Member";
+    const initials = ((fn[0] || "") + (ln[0] || "")).toUpperCase() || (u.email ? u.email.slice(0, 2).toUpperCase() : "MB");
+    return {
+        id: u.id,
+        fullName,
+        initials,
+        firstName: fn,
+        lastName: ln,
+        email: u.email,
+        avatar: u.avatar || null,
+    };
+}
+
+function formatComment(c: any): any {
+    return {
+        id: c.id,
+        text: c.text,
+        taskId: c.taskId,
+        authorId: c.authorId,
+        author: formatAuthor(c.author),
+        parentId: c.parentId,
+        attachments: c.attachments || [],
+        mentions: (c.mentions || []).map((m: any) => ({
+            id: m.id,
+            userId: m.userId,
+            user: formatAuthor(m.user),
+        })),
+        replies: (c.replies || []).map(formatComment),
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+    };
+}
 
 export const getComments = async (req: Request, res: Response): Promise<void> => {
     try {
         const { taskId } = req.params;
 
-        // Fetch comments and include author details, mentions, and nested replies (1 level deep is usually enough for a standard task discussion, or flat list sorted by created)
         const comments = await prisma.taskComment.findMany({
             where: { taskId, parentId: null },
             orderBy: { createdAt: "asc" },
             include: {
-                author: { select: { id: true, fullName: true, initials: true } },
+                author: { select: safeUserSelect },
                 mentions: {
-                    include: { user: { select: { id: true, fullName: true, initials: true } } }
+                    include: { user: { select: safeUserSelect } }
                 },
                 attachments: true,
                 replies: {
                     orderBy: { createdAt: "asc" },
                     include: {
-                        author: { select: { id: true, fullName: true, initials: true } },
+                        author: { select: safeUserSelect },
                         mentions: {
-                            include: { user: { select: { id: true, fullName: true, initials: true } } }
+                            include: { user: { select: safeUserSelect } }
                         },
                         attachments: true,
                     }
@@ -32,10 +76,10 @@ export const getComments = async (req: Request, res: Response): Promise<void> =>
             }
         });
 
-        res.status(200).json({ success: true, data: comments });
-    } catch (error) {
+        res.status(200).json({ success: true, data: comments.map(formatComment) });
+    } catch (error: any) {
         console.error("Error fetching comments:", error);
-        res.status(500).json({ success: false, error: "Failed to fetch comments" });
+        res.status(500).json({ success: false, error: error.message || "Failed to fetch comments" });
     }
 };
 
@@ -50,6 +94,11 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
+        if (!text || typeof text !== "string" || text.trim() === "") {
+            res.status(400).json({ success: false, error: "Comment text is required" });
+            return;
+        }
+
         const task = await prisma.task.findUnique({
             where: { id: taskId },
             include: { project: true }
@@ -60,73 +109,79 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
-        // Create comment
         const comment = await prisma.taskComment.create({
             data: {
-                text: xss(text),
+                text: xss(text.trim()),
                 taskId,
                 authorId: userId,
                 parentId: parentId || null,
-                // Connect existing attachments if provided
                 attachments: {
-                    connect: attachments.map((id: string) => ({ id }))
+                    connect: Array.isArray(attachments) ? attachments.map((id: string) => ({ id })) : []
                 },
-                // Create mentions
                 mentions: {
-                    create: mentions.map((mentionedUserId: string) => ({
+                    create: Array.isArray(mentions) ? mentions.map((mentionedUserId: string) => ({
                         userId: mentionedUserId
-                    }))
+                    })) : []
                 }
             },
             include: {
-                author: { select: { id: true, fullName: true, initials: true } },
-                mentions: { include: { user: { select: { id: true, fullName: true, initials: true } } } },
+                author: { select: safeUserSelect },
+                mentions: { include: { user: { select: safeUserSelect } } },
                 attachments: true,
-                replies: true
+                replies: {
+                    include: { author: { select: safeUserSelect } }
+                }
             }
         });
 
+        const formatted = formatComment(comment);
+
         // Notifications
         if (task.assigneeId && task.assigneeId !== userId) {
-            await createAndSendNotification({
+            createAndSendNotification({
                 userId: task.assigneeId,
+                workspaceId: req.workspace?.id,
                 projectId: task.projectId,
                 taskId: task.id,
                 type: NotificationType.TASK_COMMENT,
                 title: "New comment on your task",
-                message: `${comment.author.fullName} commented on "${task.title}"`,
-                link: `/app/projects/${task.projectId}/tasks`
-            });
+                message: `${formatted.author.fullName} commented on "${task.title}"`,
+                link: `/projects/${task.projectId}`
+            }).catch((err) => console.error("Notification error:", err));
         }
 
-        for (const mention of comment.mentions) {
-            if (mention.userId !== userId) {
-                await createAndSendNotification({
-                    userId: mention.userId,
-                    projectId: task.projectId,
-                    taskId: task.id,
-                    type: NotificationType.TASK_MENTION,
-                    title: "You were mentioned",
-                    message: `${comment.author.fullName} mentioned you in a comment on "${task.title}"`,
-                    link: `/app/projects/${task.projectId}/tasks`
-                });
+        if (Array.isArray(comment.mentions)) {
+            for (const mention of comment.mentions) {
+                if (mention.userId !== userId) {
+                    createAndSendNotification({
+                        userId: mention.userId,
+                        workspaceId: req.workspace?.id,
+                        projectId: task.projectId,
+                        taskId: task.id,
+                        type: NotificationType.TASK_MENTION,
+                        title: "You were mentioned",
+                        message: `${formatted.author.fullName} mentioned you in a comment on "${task.title}"`,
+                        link: `/projects/${task.projectId}`
+                    }).catch((err) => console.error("Notification error:", err));
+                }
             }
         }
 
         // Audit Logging
-        await createAuditLog({
+        logAuditAction({
             userId,
+            workspaceId: req.workspace?.id,
             projectId: task.projectId,
-            action: AuditAction.TASK_COMMENT_CREATED,
-            entityType: "TASK_COMMENT",
+            action: "TASK_COMMENT_CREATED",
+            entityType: "TaskComment",
             entityId: comment.id,
             details: { taskId: task.id, hasMentions: mentions.length > 0 }
-        });
+        }).catch((err) => console.error("Audit log error:", err));
 
-        res.status(201).json({ success: true, data: comment });
-    } catch (error) {
+        res.status(201).json({ success: true, data: formatted });
+    } catch (error: any) {
         console.error("Error creating comment:", error);
-        res.status(500).json({ success: false, error: "Failed to create comment" });
+        res.status(500).json({ success: false, error: error.message || "Failed to create comment" });
     }
 };
 
@@ -146,8 +201,6 @@ export const deleteComment = async (req: Request, res: Response): Promise<void> 
         }
 
         if (comment.authorId !== userId) {
-            // Need org admin or project admin, but for simplicity we'll just check author here,
-            // or rely on middleware if needed.
             res.status(403).json({ success: false, error: "You can only delete your own comments" });
             return;
         }
@@ -156,18 +209,19 @@ export const deleteComment = async (req: Request, res: Response): Promise<void> 
             where: { id: commentId }
         });
 
-        await createAuditLog({
+        logAuditAction({
             userId,
+            workspaceId: req.workspace?.id,
             projectId: comment.task.projectId,
-            action: AuditAction.TASK_COMMENT_DELETED,
-            entityType: "TASK_COMMENT",
+            action: "TASK_COMMENT_DELETED",
+            entityType: "TaskComment",
             entityId: commentId as string,
             details: { taskId: comment.taskId }
-        });
+        }).catch((err) => console.error("Audit log error:", err));
 
         res.status(200).json({ success: true, message: "Comment deleted" });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error deleting comment:", error);
-        res.status(500).json({ success: false, error: "Failed to delete comment" });
+        res.status(500).json({ success: false, error: error.message || "Failed to delete comment" });
     }
 };

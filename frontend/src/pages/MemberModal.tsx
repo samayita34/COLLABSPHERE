@@ -131,6 +131,7 @@ export function MemberDetailModal({ member, stats, onClose, onOpenTask }: Member
 interface AddMemberModalProps {
     onClose: () => void;
     onSave: (member: { name: string; email: string; role: string }) => void;
+    error?: string | null;
 }
 
 const ROLE_OPTIONS = [
@@ -139,7 +140,7 @@ const ROLE_OPTIONS = [
     { label: "Viewer", value: "VIEWER" },
 ];
 
-export function AddMemberModal({ onClose, onSave }: AddMemberModalProps) {
+export function AddMemberModal({ onClose, onSave, error }: AddMemberModalProps) {
     useEscapeToClose(onClose);
 
     const [name, setName] = useState("");
@@ -170,6 +171,11 @@ export function AddMemberModal({ onClose, onSave }: AddMemberModalProps) {
                 </div>
 
                 <div className="task-modal-body">
+                    {error && (
+                        <div style={{ color: "#ef4444", fontSize: "13px", marginBottom: "12px", background: "#fef2f2", padding: "8px 12px", borderRadius: "6px", border: "1px solid #fee2e2" }}>
+                            {error}
+                        </div>
+                    )}
                     <div className="field">
                         <label>Full name</label>
                         <input

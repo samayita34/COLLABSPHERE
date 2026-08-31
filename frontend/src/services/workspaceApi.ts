@@ -1,5 +1,6 @@
 import type { Member, WorkspaceDocument, WorkspaceFile } from "./projectApi";
 import { mapApiMemberToFrontend, mapApiDocumentToFrontend, mapApiFileToFrontend } from "./projectApi";
+import { getCsrfHeaders } from "./apiUtils";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
@@ -170,7 +171,7 @@ export async function createWorkspaceApi(
 ): Promise<Workspace> {
     const res = await fetch(`${API_BASE_URL}/workspaces`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
         credentials: "include",
         body: JSON.stringify({ organizationId, name, slug, description }),
     });

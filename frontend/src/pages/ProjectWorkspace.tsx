@@ -12,6 +12,8 @@ import { fetchProjectById, createTaskApi, updateTaskApi, updateTaskColumnApi, de
 import type { TaskPriority, Task, Member, MappedProject as Project, Board } from "../services/projectApi";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useSidebar } from "../context/SidebarContext";
+import { AppSidebar } from "../components/AppSidebar";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import { socketService } from "../services/socket";
 import NotificationCenter from "../components/NotificationCenter";
@@ -69,6 +71,7 @@ export default function ProjectWorkspace() {
     const location = useLocation();
     const { userFullName, userInitials, logout } = useAuth();
     const { activeWorkspace } = useWorkspace();
+    const { toggleSidebar, isOpen } = useSidebar();
     const routeParam = id || slug || "";
 
     const [project, setProject] = useState<Project | null>(null);
@@ -261,7 +264,10 @@ export default function ProjectWorkspace() {
                 members,
             })
                 .then((created) => {
-                    setTasks((prev) => [...prev, created]);
+                    setTasks((prev) => {
+                        const exists = prev.some((t) => t.id === created.id);
+                        return exists ? prev.map((t) => (t.id === created.id ? created : t)) : [...prev, created];
+                    });
                 })
                 .catch((err) => console.error("Failed to create task:", err));
         } else {
@@ -448,70 +454,43 @@ export default function ProjectWorkspace() {
     return (
         <div className="projects-page">
 
-            <aside className="projects-sidebar">
-
-                <div className="brand">
-                    <span>Collabsphere</span>
-                    <small>ENT</small>
-                </div>
-
-                <WorkspaceSelector />
-
-                <div className="nav-title">NAVIGATION</div>
-
-                <nav>
-                    <Link to="/overview">Overview</Link>
-                    <Link to="/projects" className="selected">
-                        Projects
-                        <span>{members.length}</span>
-                    </Link>
-                    <Link to="/my-tasks">My Tasks</Link>
-                    <Link to="/documents">Documents</Link>
-                    <Link to="/files">Files</Link>
-                    <Link to="/messages">Messages</Link>
-                    <Link to="/activity-log">Activity Log</Link>
-                    <Link to="/projects">Analytics</Link>
-                    <a href="#" onClick={(e) => { e.preventDefault(); setIsSettingsOpen(true); }}>Settings</a>
-                </nav>
-
-                <div className="profile">
-                    <div className="profile-avatar">{userInitials}</div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <strong style={{ display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{userFullName}</strong>
-                        <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Workspace Member</span>
-                    </div>
-
-                    <button
-                        onClick={logout}
-                        style={{
-                            background: "transparent",
-                            border: "none",
-                            color: "#ef4444",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                        }}
-                        title="Sign out"
-                    >
-                        Sign out
-                    </button>
-                </div>
-
-            </aside>
+            <AppSidebar activePage="projects" projectsCount={members.length} />
 
             <main className="projects-main">
 
                 <header className="topbar">
 
-                    <div className="breadcrumb">
-                        <Link to="/projects" style={{ color: "inherit", textDecoration: "none" }}>Workspace</Link>
-                        <span style={{ margin: "0 6px" }}>/</span>
-                        <Link to="/projects" style={{ color: "inherit", textDecoration: "none" }}>Projects</Link>
-                        <span style={{ margin: "0 6px" }}>/</span>
-                        <strong>{project.name}</strong>
+                    <div className="topbar-left">
+                        <button
+                            type="button"
+                            className="hamburger-btn"
+                            onClick={toggleSidebar}
+                            title={isOpen ? "Toggle / Float Sidebar" : "Open Sidebar"}
+                            aria-label="Toggle navigation sidebar"
+                        >
+                            <svg 
+                                width="18" 
+                                height="18" 
+                                viewBox="0 0 24 24" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                strokeWidth="2" 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round"
+                            >
+                                <line x1="3" y1="12" x2="21" y2="12" />
+                                <line x1="3" y1="6" x2="21" y2="6" />
+                                <line x1="3" y1="18" x2="21" y2="18" />
+                            </svg>
+                        </button>
+
+                        <div className="breadcrumb">
+                            <Link to="/projects" style={{ color: "inherit", textDecoration: "none" }}>Workspace</Link>
+                            <span style={{ margin: "0 6px" }}>/</span>
+                            <Link to="/projects" style={{ color: "inherit", textDecoration: "none" }}>Projects</Link>
+                            <span style={{ margin: "0 6px" }}>/</span>
+                            <strong>{project.name}</strong>
+                        </div>
                     </div>
 
                     <div className="topbar-actions">
@@ -1216,6 +1195,7 @@ export default function ProjectWorkspace() {
                 <AddMemberModal
                     onClose={() => { setAddMemberOpen(false); setMemberError(null); }}
                     onSave={handleAddMemberSave}
+                    error={memberError}
                 />
             )}
 

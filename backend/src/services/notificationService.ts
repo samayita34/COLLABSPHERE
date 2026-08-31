@@ -102,8 +102,11 @@ export const checkAndSendDueDateReminders = async () => {
                     gte: now,
                     lte: next24h,
                 },
-                status: { not: "DONE" },
                 assigneeId: { not: null },
+                OR: [
+                    { columnId: null },
+                    { column: { name: { notIn: ["Done", "Completed", "Finished", "Resolved", "done", "completed", "finished", "resolved"] } } }
+                ]
             },
             include: {
                 project: { select: { id: true, name: true, workspaceId: true } },

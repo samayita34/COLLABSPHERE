@@ -1,31 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchWorkspaceOverviewApi, type WorkspaceOverviewData } from "../services/workspaceApi";
-import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import { CreateProjectModal } from "./CreateProjectModal";
-import NotificationCenter from "../components/NotificationCenter";
-import "./Dashboard.css";
-
-function NavIcon({ t }: { t: string }) {
-  const p = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.75, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  switch (t) {
-    case "overview": return <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>;
-    case "projects": return <svg {...p}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>;
-    case "tasks": return <svg {...p}><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>;
-    case "documents": return <svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>;
-    case "files": return <svg {...p}><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"/><polyline points="14 2 14 8 20 8"/><path d="M2 15h10"/><path d="M9 18l3-3-3-3"/></svg>;
-    case "messages": return <svg {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
-    case "analytics": return <svg {...p}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>;
-    case "settings": return <svg {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
-    default: return null;
-  }
-}
+import { AppSidebar } from "../components/AppSidebar";
+import { AppTopbar } from "../components/AppTopbar";
+import "./Projects.css";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { userFullName, userInitials, logout } = useAuth();
   const { activeWorkspace } = useWorkspace();
   
   const [data, setData] = useState<WorkspaceOverviewData | null>(null);
@@ -73,499 +56,304 @@ export default function Dashboard() {
     ? 0 
     : Math.round((metrics.completedTasks / metrics.totalTasks) * 100);
 
-  const todayFormatted = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).toUpperCase();
-
-  const getStatusBadgeClass = (status: string) => {
-    if (status === "ACTIVE") return "success";
-    if (status === "COMPLETED") return "warning";
-    return "danger";
-  };
-
-  const getStatusDisplay = (status: string) => {
-    if (status === "ACTIVE") return "Active";
-    if (status === "COMPLETED") return "Completed";
-    return "Archived";
-  };
-
   return (
-    <div className="cs-dashboard">
+    <div className="projects-page">
 
-      {/* FIXED SIDEBAR */}
-      <aside className="cs-sidebar">
-        {/* Brand */}
-        <div className="cs-brand">
-          <span className="cs-brand-logo">
-            <span className="cs-brand-collab">COLLAB</span>
-            <span className="cs-brand-sphere">SPHERE</span>
-          </span>
-          <span className="cs-brand-badge">ENT</span>
-        </div>
+      <AppSidebar activePage="overview" projectsCount={metrics.totalProjects} />
 
-        {/* Dynamic Workspace Switcher */}
-        <WorkspaceSelector />
+      <main className="projects-main">
 
-        {/* Nav Links */}
-        <nav className="cs-nav">
-          <span className="cs-nav-group-title">MAIN WORKSPACE</span>
-          
-          <Link to="/overview" className="cs-nav-item active">
-            <NavIcon t="overview" />
-            <span className="cs-nav-label">Overview</span>
-          </Link>
+        <AppTopbar pageTitle="Overview" />
 
-          <Link to="/projects" className="cs-nav-item">
-            <NavIcon t="projects" />
-            <span className="cs-nav-label">Projects</span>
-            {metrics.totalProjects > 0 && (
-              <span className="cs-nav-badge">{metrics.totalProjects}</span>
-            )}
-          </Link>
+        <section className="content">
 
-          <Link to="/my-tasks" className="cs-nav-item">
-            <NavIcon t="tasks" />
-            <span className="cs-nav-label">My Tasks</span>
-            {metrics.inProgressTasks + metrics.todoTasks > 0 && (
-              <span className="cs-nav-badge">{metrics.inProgressTasks + metrics.todoTasks}</span>
-            )}
-          </Link>
-
-          <Link to="/documents" className="cs-nav-item">
-            <NavIcon t="documents" />
-            <span className="cs-nav-label">Documents</span>
-          </Link>
-
-          <Link to="/files" className="cs-nav-item">
-            <NavIcon t="files" />
-            <span className="cs-nav-label">Files</span>
-          </Link>
-
-          <Link to="/messages" className="cs-nav-item">
-            <NavIcon t="messages" />
-            <span className="cs-nav-label">Messages</span>
-          </Link>
-
-          <Link to="/analytics" className="cs-nav-item">
-            <NavIcon t="analytics" />
-            <span className="cs-nav-label">Analytics</span>
-          </Link>
-
-          <a href="#" className="cs-nav-item" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>
-            <NavIcon t="settings" />
-            <span className="cs-nav-label">Settings</span>
-          </a>
-        </nav>
-
-        {/* Sidebar Footer User Card */}
-        <div className="cs-sidebar-footer">
-          <div className="cs-user-card">
-            <div className="cs-user-avatar">{userInitials}</div>
-            <div className="cs-user-meta">
-              <span className="cs-user-name">{userFullName}</span>
-              <span className="cs-user-role">Workspace Member</span>
+          {/* PAGE HEADING */}
+          <div className="page-heading">
+            <div>
+              <h1>Workspace Overview</h1>
+              <p>Live metrics, active projects, and team output for <strong>{activeWorkspace?.name || "Workspace"}</strong>.</p>
             </div>
-            <button className="cs-logout-btn" onClick={logout} title="Sign Out">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+
+            <button className="new-project" onClick={() => setIsCreateModalOpen(true)}>
+              + New project
             </button>
           </div>
-        </div>
-      </aside>
 
-      {/* MAIN CONTAINER */}
-      <div className="cs-main-container">
-
-        {/* Topbar */}
-        <header className="cs-topbar">
-          <div className="cs-breadcrumb">
-            <span className="cs-bc-root">{activeWorkspace?.name || "Workspace"}</span>
-            <span className="cs-bc-divider">/</span>
-            <span className="cs-bc-current">Overview</span>
-          </div>
-
-          <div className="cs-topbar-actions">
-            <div className="cs-search-box">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" placeholder="Search projects, tasks..." />
-              <kbd>⌘K</kbd>
-            </div>
-
-            <NotificationCenter workspaceId={activeWorkspace?.id} />
-
-            <div className="cs-divider-v" />
-
-            <div className="cs-user-quick-profile">
-              <div className="cs-avatar-sm">{userInitials}</div>
-              <span className="cs-status-dot online" />
-            </div>
-          </div>
-        </header>
-
-        {/* Content */}
-        <main className="cs-content">
-
-          {/* Hero Banner */}
-          <div className="cs-hero-section">
-            <div>
-              <div className="cs-date-chip">
-                <span className="cs-chip-pulse" />
-                {todayFormatted}
-              </div>
-              <h1 className="cs-page-headline">Welcome back, {userFullName}</h1>
-              <p className="cs-page-subtext">
-                Live workspace telemetry for <strong>{activeWorkspace?.name || "your workspace"}</strong>.
-              </p>
-            </div>
-
-            <div className="cs-hero-cta">
-              <button className="cs-btn-secondary" onClick={() => navigate("/projects")}>
-                View Projects
-              </button>
-              <button className="cs-btn-primary" onClick={() => setIsCreateModalOpen(true)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                New Project
-              </button>
-            </div>
-          </div>
-
-          {/* Error Banner */}
+          {/* ERROR BANNER */}
           {error && (
-            <div className="cs-error-banner">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              <span>{error}</span>
+            <div style={{ background: "#fdf2f2", color: "#991b1b", border: "1px solid #f8d7da", padding: "12px 18px", borderRadius: "8px", marginBottom: "24px", fontSize: "13px" }}>
+              {error}
             </div>
           )}
 
-          {/* Loading Indicator */}
-          {loading && !data && (
-            <div className="cs-stats-grid" style={{ marginBottom: "20px" }}>
-              <div className="cs-skeleton cs-skeleton-stat"></div>
-              <div className="cs-skeleton cs-skeleton-stat"></div>
-              <div className="cs-skeleton cs-skeleton-stat"></div>
-              <div className="cs-skeleton cs-skeleton-stat"></div>
-            </div>
-          )}
-
-          {/* Dynamic Stats Grid */}
-          <div className="cs-stats-grid">
+          {/* KPI STATS ROW */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "18px", marginBottom: "34px" }}>
             
-            <div className="cs-stat-card">
-              <div className="cs-stat-header">
-                <span className="cs-stat-label">Active Projects</span>
+            <div style={{ border: "1px solid #e7e3d8", borderRadius: "10px", padding: "20px", background: "#ffffff" }}>
+              <div style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: "11px", color: "#9a968a", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Active Projects
               </div>
-              <div className="cs-stat-body">
-                <span className="cs-stat-val">{metrics.activeProjects}</span>
-                <div className="cs-stat-meta">
-                  <span className="cs-stat-pill pos">
-                    {metrics.totalProjects} Total
-                  </span>
-                  <span className="cs-stat-period">{metrics.completedProjects} completed</span>
-                </div>
+              <div style={{ fontFamily: "Fraunces, serif", fontSize: "32px", fontWeight: 500, color: "#14161c", margin: "8px 0 4px" }}>
+                {metrics.activeProjects}
+              </div>
+              <div style={{ fontSize: "12px", color: "#5a594f" }}>
+                {metrics.totalProjects} total streams
               </div>
             </div>
 
-            <div className="cs-stat-card">
-              <div className="cs-stat-header">
-                <span className="cs-stat-label">Pending Tasks</span>
+            <div style={{ border: "1px solid #e7e3d8", borderRadius: "10px", padding: "20px", background: "#ffffff" }}>
+              <div style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: "11px", color: "#9a968a", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Pending Tasks
               </div>
-              <div className="cs-stat-body">
-                <span className="cs-stat-val">{metrics.inProgressTasks + metrics.todoTasks}</span>
-                <div className="cs-stat-meta">
-                  <span className="cs-stat-pill warn">
-                    {metrics.inProgressTasks} in progress
-                  </span>
-                  <span className="cs-stat-period">{metrics.todoTasks} to do</span>
-                </div>
+              <div style={{ fontFamily: "Fraunces, serif", fontSize: "32px", fontWeight: 500, color: "#14161c", margin: "8px 0 4px" }}>
+                {metrics.inProgressTasks + metrics.todoTasks}
+              </div>
+              <div style={{ fontSize: "12px", color: "#5a594f" }}>
+                {metrics.inProgressTasks} in progress, {metrics.todoTasks} to do
               </div>
             </div>
 
-            <div className="cs-stat-card">
-              <div className="cs-stat-header">
-                <span className="cs-stat-label">Completed Tasks</span>
+            <div style={{ border: "1px solid #e7e3d8", borderRadius: "10px", padding: "20px", background: "#ffffff" }}>
+              <div style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: "11px", color: "#9a968a", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Completed Tasks
               </div>
-              <div className="cs-stat-body">
-                <span className="cs-stat-val">{metrics.completedTasks}</span>
-                <div className="cs-stat-meta">
-                  <span className="cs-stat-pill pos">
-                    {completionPct}% Done
-                  </span>
-                  <span className="cs-stat-period">of {metrics.totalTasks} total tasks</span>
-                </div>
+              <div style={{ fontFamily: "Fraunces, serif", fontSize: "32px", fontWeight: 500, color: "#14161c", margin: "8px 0 4px" }}>
+                {metrics.completedTasks}
+              </div>
+              <div style={{ fontSize: "12px", color: "#5a594f" }}>
+                {completionPct}% completion rate
               </div>
             </div>
 
-            <div className="cs-stat-card">
-              <div className="cs-stat-header">
-                <span className="cs-stat-label">Workspace Health</span>
+            <div style={{ border: "1px solid #e7e3d8", borderRadius: "10px", padding: "20px", background: "#ffffff" }}>
+              <div style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: "11px", color: "#9a968a", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Workspace Health
               </div>
-              <div className="cs-stat-body">
-                <span className="cs-stat-val">{completionPct}%</span>
-                <div className="cs-stat-meta">
-                  <span className="cs-stat-pill neu">Overall Progress</span>
-                  <span className="cs-stat-period">{metrics.totalProjects} active streams</span>
-                </div>
+              <div style={{ fontFamily: "Fraunces, serif", fontSize: "32px", fontWeight: 500, color: "#14161c", margin: "8px 0 4px" }}>
+                {completionPct}%
+              </div>
+              <div style={{ fontSize: "12px", color: "#5a594f" }}>
+                Across {metrics.totalTasks} total tasks
               </div>
             </div>
 
           </div>
 
-          {/* Main Grid: Projects + Tasks */}
-          <div className="cs-main-grid">
-
-            {/* Recent Projects Widget */}
-            <div className="cs-panel">
-              <div className="cs-panel-header">
-                <div>
-                  <h2 className="cs-panel-title">Recent Projects</h2>
-                  <p className="cs-panel-subtitle">Real-time status across active project streams</p>
-                </div>
-                <button className="cs-link-btn" onClick={() => navigate("/projects")}>
-                  View All ({metrics.totalProjects}) →
-                </button>
-              </div>
-
-              <div className="cs-project-cards">
-                {(!data?.recentProjects || data.recentProjects.length === 0) ? (
-                  <div className="cs-empty-state">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                    <h3>No Active Projects</h3>
-                    <p>Get started by creating a new project stream for your workspace.</p>
-                    <button className="cs-btn-primary" onClick={() => setIsCreateModalOpen(true)}>
-                      + Create First Project
-                    </button>
-                  </div>
-                ) : (
-                  data.recentProjects.map((p) => (
-                    <div 
-                      key={p.id} 
-                      className="cs-project-row"
-                      onClick={() => navigate(`/projects/${p.id}`)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      <div className="cs-proj-icon">
-                        {p.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      
-                      <div className="cs-proj-info">
-                        <div className="cs-proj-head">
-                          <strong className="cs-proj-name">{p.name}</strong>
-                          <span className={`cs-tag-badge ${getStatusBadgeClass(p.status)}`}>
-                            {getStatusDisplay(p.status)}
-                          </span>
-                        </div>
-                        
-                        <div className="cs-proj-sub">
-                          <span>{p.category}</span>
-                          <span className="cs-dot-sep">•</span>
-                          <span>{p.tasksCompleted}/{p.tasksTotal} tasks done</span>
-                        </div>
-
-                        <div className="cs-proj-progress">
-                          <div className="cs-bar-bg">
-                            <div 
-                              className={`cs-bar-fill ${getStatusBadgeClass(p.status)}`} 
-                              style={{ width: `${p.progress}%` }} 
-                            />
-                          </div>
-                          <span className="cs-pct">{p.progress}%</span>
-                        </div>
-                      </div>
-
-                      <div className="cs-proj-members">
-                        {p.members.slice(0, 3).map((m, i) => (
-                          <div key={m.id || i} className="cs-member-avatar" style={{ zIndex: 5 - i }} title={m.name}>
-                            {m.initials}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Tasks Panel */}
-            <div className="cs-panel">
-              <div className="cs-panel-header">
-                <div>
-                  <h2 className="cs-panel-title">Tasks & Deadlines</h2>
-                  <p className="cs-panel-subtitle">Action items requiring your attention</p>
-                </div>
-                <button className="cs-link-btn" onClick={() => navigate("/my-tasks")}>
-                  My Tasks →
-                </button>
-              </div>
-
-              <div className="cs-tasks-list">
-                {(!data?.pendingTasks?.length && !data?.dueTodayTasks?.length && !data?.upcomingDeadlineTasks?.length) ? (
-                  <div className="cs-empty-state">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    <h3>You're All Caught Up!</h3>
-                    <p>No active tasks or upcoming deadlines require your attention.</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Due Today */}
-                    {data?.dueTodayTasks && data.dueTodayTasks.length > 0 && (
-                      <div style={{ marginBottom: "16px" }}>
-                        <h3 style={{ fontSize: "12px", color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>Due Today</h3>
-                        {data.dueTodayTasks.map((t) => (
-                          <div key={t.id} className="cs-task-item" onClick={() => navigate(`/projects/${t.projectId}`)} style={{ cursor: "pointer", borderLeft: "3px solid #ef4444" }}>
-                            <div className="cs-task-details">
-                              <p className="cs-task-title">{t.title}</p>
-                              <div className="cs-task-tags">
-                                <span className="cs-task-proj">{t.projectName}</span>
-                              </div>
-                            </div>
-                            <div className="cs-task-due" style={{ color: "#ef4444", fontWeight: "600" }}>Today</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Upcoming Deadlines */}
-                    {data?.upcomingDeadlineTasks && data.upcomingDeadlineTasks.length > 0 && (
-                      <div style={{ marginBottom: "16px" }}>
-                        <h3 style={{ fontSize: "12px", color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>Upcoming Deadlines (Next 7 Days)</h3>
-                        {data.upcomingDeadlineTasks.map((t) => (
-                          <div key={t.id} className="cs-task-item" onClick={() => navigate(`/projects/${t.projectId}`)} style={{ cursor: "pointer", borderLeft: "3px solid #f59e0b" }}>
-                            <div className="cs-task-details">
-                              <p className="cs-task-title">{t.title}</p>
-                              <div className="cs-task-tags">
-                                <span className="cs-task-proj">{t.projectName}</span>
-                              </div>
-                            </div>
-                            <div className="cs-task-due" style={{ color: "#f59e0b" }}>
-                              {new Date(t.dueDate!).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Pending Tasks */}
-                    {data?.pendingTasks && data.pendingTasks.length > 0 && (
-                      <div>
-                        <h3 style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>Pending Tasks</h3>
-                        {data.pendingTasks.map((t) => (
-                          <div key={t.id} className="cs-task-item" onClick={() => navigate(`/projects/${t.projectId}`)} style={{ cursor: "pointer" }}>
-                            <div className="cs-task-details">
-                              <p className="cs-task-title">{t.title}</p>
-                              <div className="cs-task-tags">
-                                <span className="cs-task-proj">{t.projectName}</span>
-                                <span className={`cs-priority-pill ${t.priority.toLowerCase()}`}>{t.priority}</span>
-                              </div>
-                            </div>
-                            <div className="cs-task-due">
-                              <span>{t.status.replace("_", " ")}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-
-          </div>
-
-          {/* Second Row Grid: Documents + Activity */}
-          <div className="cs-main-grid" style={{ marginTop: "24px" }}>
+          {/* 2-COLUMN SECTION: RECENT PROJECTS & RECENT TASKS */}
+          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "28px", marginBottom: "34px" }}>
             
-            {/* Recent Documents Panel */}
-            <div className="cs-panel">
-              <div className="cs-panel-header">
-                <div>
-                  <h2 className="cs-panel-title">Recent Documents</h2>
-                  <p className="cs-panel-subtitle">Latest collaborative docs in this workspace</p>
-                </div>
-                <button className="cs-link-btn" onClick={() => navigate("/documents")}>
-                  All Documents →
-                </button>
+            {/* RECENT PROJECTS */}
+            <div style={{ border: "1px solid #e7e3d8", borderRadius: "10px", padding: "24px", background: "#ffffff" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
+                <h2 style={{ fontFamily: "Fraunces, serif", fontSize: "18px", fontWeight: 500, margin: 0 }}>
+                  Recent Projects
+                </h2>
+                <Link to="/projects" style={{ fontSize: "12.5px", color: "#5a594f", textDecoration: "none", fontWeight: 500 }}>
+                  View all ({metrics.totalProjects}) →
+                </Link>
               </div>
-              <div className="cs-project-cards">
-                {(!data?.recentDocuments || data.recentDocuments.length === 0) ? (
-                  <div className="cs-empty-state">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    <h3>No Recent Documents</h3>
-                    <p>Start collaborating by creating a document in one of your projects.</p>
-                  </div>
-                ) : (
-                  data.recentDocuments.map((doc) => (
-                    <div key={doc.id} className="cs-project-row" onClick={() => navigate(`/projects/${doc.project.id}?tab=documents`)} style={{ cursor: "pointer", padding: "12px 16px" }}>
-                      <div className="cs-proj-icon" style={{ background: "#e0e7ff", color: "#4f46e5" }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                      </div>
-                      <div className="cs-proj-info">
-                        <div className="cs-proj-head">
-                          <strong className="cs-proj-name" style={{ fontSize: "14px" }}>{doc.title}</strong>
-                        </div>
-                        <div className="cs-proj-sub" style={{ fontSize: "11px" }}>
-                          <span>{doc.project.name}</span>
-                          <span className="cs-dot-sep">•</span>
-                          <span>Updated {new Date(doc.updatedAt).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
 
-            {/* Team Activity Panel */}
-            <div className="cs-panel">
-              <div className="cs-panel-header">
-                <div>
-                  <h2 className="cs-panel-title">Team Activity</h2>
-                  <p className="cs-panel-subtitle">Latest workspace events</p>
+              {(!data?.recentProjects || data.recentProjects.length === 0) ? (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: "#9a968a" }}>
+                  <p style={{ margin: 0, fontSize: "13.5px" }}>No active projects in this workspace yet.</p>
+                  <button className="new-project" style={{ marginTop: "14px" }} onClick={() => setIsCreateModalOpen(true)}>
+                    + Create First Project
+                  </button>
                 </div>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "16px" }}>
-                {(!data?.recentActivity || data.recentActivity.length === 0) ? (
-                  <div className="cs-empty-state">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                    <h3>Quiet Workspace</h3>
-                    <p>No recent team activity has been recorded yet.</p>
-                  </div>
-                ) : (
-                  data.recentActivity.map((log) => {
-                    const initials = (log.user.firstName?.[0] || "") + (log.user.lastName?.[0] || "") || log.user.email.substring(0, 2).toUpperCase();
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {data.recentProjects.map((p) => {
+                    const initials = p.name.slice(0, 2).toUpperCase();
                     return (
-                      <div key={log.id} style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
-                        <div className="cs-avatar-sm" style={{ width: "28px", height: "28px", fontSize: "10px", flexShrink: 0 }}>
+                      <div 
+                        key={p.id} 
+                        onClick={() => navigate(`/projects/${p.id}`)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "14px",
+                          padding: "12px 16px",
+                          border: "1px solid #f0ede4",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          transition: "background 0.15s ease",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#fcfbf8")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
+                      >
+                        <div className="project-mark" style={{ width: "36px", height: "36px", fontSize: "12px" }}>
                           {initials}
                         </div>
+
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ margin: "0 0 4px", fontSize: "13px", color: "#1e293b", lineHeight: "1.4" }}>
-                            <strong>{log.user.firstName || log.user.email}</strong> {log.action.replace(/_/g, " ").toLowerCase()} <strong style={{ color: "#4f46e5" }}>{log.entityType}</strong>
-                          </p>
-                          <span style={{ fontSize: "11px", color: "#94a3b8" }}>
-                            {new Date(log.createdAt).toLocaleString()}
-                          </span>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <strong style={{ fontSize: "13.5px", fontWeight: 500, color: "#14161c" }}>{p.name}</strong>
+                            <span className={`status ${(p.status || "ACTIVE").toLowerCase()}`}>
+                              <span />
+                              {p.status}
+                            </span>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px" }}>
+                            <div style={{ flex: 1, height: "3px", background: "#f0ede4", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${p.progress}%`, height: "100%", background: "#232a3d" }} />
+                            </div>
+                            <span style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: "10.5px", color: "#9a968a" }}>
+                              {p.progress}%
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
-                  })
-                )}
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* RECENT TASKS */}
+            <div style={{ border: "1px solid #e7e3d8", borderRadius: "10px", padding: "24px", background: "#ffffff" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
+                <h2 style={{ fontFamily: "Fraunces, serif", fontSize: "18px", fontWeight: 500, margin: 0 }}>
+                  Recent Tasks
+                </h2>
+                <Link to="/my-tasks" style={{ fontSize: "12.5px", color: "#5a594f", textDecoration: "none", fontWeight: 500 }}>
+                  View board →
+                </Link>
               </div>
+
+              {(!data?.recentTasks || data.recentTasks.length === 0) ? (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: "#9a968a" }}>
+                  <p style={{ margin: 0, fontSize: "13.5px" }}>No tasks created yet.</p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {data.recentTasks.slice(0, 6).map((t) => (
+                    <div 
+                      key={t.id}
+                      onClick={() => navigate(`/projects/${t.projectId}?tab=tasks`)}
+                      style={{
+                        padding: "10px 14px",
+                        border: "1px solid #f0ede4",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#fcfbf8")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "13px", fontWeight: 500, color: "#14161c" }}>{t.title}</span>
+                        <span style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "#f0ede4", color: "#5a594f" }}>
+                          {t.status}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px", fontSize: "11px", color: "#9a968a" }}>
+                        <span>📁 {t.projectName}</span>
+                        <span>{t.dueDate ? new Date(t.dueDate).toLocaleDateString() : ""}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>
 
-        </main>
-      </div>
+          {/* BOTTOM ROW: RECENT DOCUMENTS & TEAM ACTIVITY */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "28px" }}>
+            
+            {/* DOCUMENTS */}
+            <div style={{ border: "1px solid #e7e3d8", borderRadius: "10px", padding: "24px", background: "#ffffff" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
+                <h2 style={{ fontFamily: "Fraunces, serif", fontSize: "18px", fontWeight: 500, margin: 0 }}>
+                  Recent Documents
+                </h2>
+                <Link to="/documents" style={{ fontSize: "12.5px", color: "#5a594f", textDecoration: "none", fontWeight: 500 }}>
+                  All Documents →
+                </Link>
+              </div>
 
-      {/* Create Project Modal */}
+              {(!data?.recentDocuments || data.recentDocuments.length === 0) ? (
+                <div style={{ textAlign: "center", padding: "30px 20px", color: "#9a968a", fontSize: "13px" }}>
+                  No recent documents found.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {data.recentDocuments.map((doc) => (
+                    <div 
+                      key={doc.id}
+                      onClick={() => navigate(`/projects/${doc.project.id}?tab=documents`)}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "10px 14px",
+                        border: "1px solid #f0ede4",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#fcfbf8")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
+                    >
+                      <div>
+                        <strong style={{ fontSize: "13px", fontWeight: 500, color: "#14161c", display: "block" }}>📄 {doc.title}</strong>
+                        <span style={{ fontSize: "11px", color: "#9a968a" }}>{doc.project.name}</span>
+                      </div>
+                      <span style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: "10.5px", color: "#9a968a" }}>
+                        {new Date(doc.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ACTIVITY LOG */}
+            <div style={{ border: "1px solid #e7e3d8", borderRadius: "10px", padding: "24px", background: "#ffffff" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
+                <h2 style={{ fontFamily: "Fraunces, serif", fontSize: "18px", fontWeight: 500, margin: 0 }}>
+                  Team Activity
+                </h2>
+                <Link to="/activity-log" style={{ fontSize: "12.5px", color: "#5a594f", textDecoration: "none", fontWeight: 500 }}>
+                  Full Audit Log →
+                </Link>
+              </div>
+
+              {(!data?.recentActivity || data.recentActivity.length === 0) ? (
+                <div style={{ textAlign: "center", padding: "30px 20px", color: "#9a968a", fontSize: "13px" }}>
+                  No recent team activity recorded.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {data.recentActivity.slice(0, 5).map((act) => (
+                    <div key={act.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", borderBottom: "1px solid #f8f6f0", fontSize: "12px" }}>
+                      <div className="profile-avatar" style={{ width: "24px", height: "24px", fontSize: "9px" }}>
+                        {act.user ? ((act.user.firstName || "")[0] + (act.user.lastName || "")[0]).toUpperCase() : "SY"}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <strong style={{ color: "#14161c" }}>{act.user?.firstName || "System"}</strong>
+                        <span style={{ color: "#5a594f", marginLeft: "6px" }}>{act.action.replace(/_/g, " ").toLowerCase()}</span>
+                      </div>
+                      <span style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: "10px", color: "#9a968a" }}>
+                        {new Date(act.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+
+        </section>
+      </main>
+
+      {/* CREATE PROJECT MODAL */}
       <CreateProjectModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onProjectCreated={() => {
-          loadData();
           setIsCreateModalOpen(false);
+          loadData();
         }}
         workspaceId={activeWorkspace?.id}
       />

@@ -107,34 +107,28 @@ app.use("/api/teams", teamRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/audit-logs", auditRoutes);
 
-// Protect all project workspace data APIs with authenticate middleware
-app.use("/api/projects", authenticate, projectRoutes);
+// Nested project sub-resource routes (must be mounted before base /api/projects route)
 app.use("/api/projects/:projectId/boards", authenticate, requireProjectAccess, boardRoutes);
-
-// Nested: GET /api/projects/:projectId/tasks  POST /api/projects/:projectId/tasks
 app.use("/api/projects/:projectId/tasks", authenticate, requireProjectAccess, taskRoutes);
+app.use("/api/projects/:projectId/tasks", authenticate, taskDetailsRoutes);
+app.use("/api/projects/:projectId/members", authenticate, requireProjectAccess, memberRoutes);
+app.use("/api/projects/:projectId/documents", authenticate, requireProjectAccess, documentRoutes);
+app.use("/api/projects/:projectId/files", authenticate, requireProjectAccess, fileRoutes);
+app.use("/api/projects/:projectId/folders", authenticate, requireProjectAccess, folderRoutes);
 
-// Top-level: GET /api/tasks/my-tasks  PATCH /api/tasks/:id  DELETE /api/tasks/:id
+// Base project routes
+app.use("/api/projects", authenticate, projectRoutes);
+
+// Top-level task & document routes
 app.get("/api/tasks/my-tasks", authenticate, getMyTasks);
 app.use("/api/tasks", authenticate, taskDetailsRoutes);
 app.patch("/api/tasks/:id", authenticate, requireTaskAccess, requirePermission(Permission.EDIT_TASK), updateTask);
 app.delete("/api/tasks/:id", authenticate, requireTaskAccess, requirePermission(Permission.DELETE_TASK), deleteTask);
 
-// Nested: GET/POST/DELETE /api/projects/:projectId/members[/:memberId]
-app.use("/api/projects/:projectId/members", authenticate, requireProjectAccess, memberRoutes);
-
-// Nested: GET/POST /api/projects/:projectId/documents
-app.use("/api/projects/:projectId/documents", authenticate, requireProjectAccess, documentRoutes);
 app.get("/api/documents", authenticate, getDocumentsByWorkspace);
 app.use("/api/documents/:documentId/versions", authenticate, requireDocumentAccess, documentVersionRoutes);
 app.patch("/api/documents/:id", authenticate, requireDocumentAccess, requirePermission(Permission.EDIT_DOCUMENT), updateDocument);
 app.delete("/api/documents/:id", authenticate, requireDocumentAccess, requirePermission(Permission.DELETE_DOCUMENT), deleteDocument);
-
-// Nested: GET/POST /api/projects/:projectId/files
-app.use("/api/projects/:projectId/files", authenticate, requireProjectAccess, fileRoutes);
-app.use("/api/projects/:projectId/folders", authenticate, requireProjectAccess, folderRoutes);
-// NOTE: /api/files/:id DELETE route is handled by fileRoutes now nested under project. We can comment or keep if workspace-level deletion is needed.
-// app.delete("/api/files/:id", authenticate, requireFileAccess, requirePermission(Permission.DELETE_FILES), deleteFile);
 
 // Chat API
 app.use("/api/chat", chatRoutes);

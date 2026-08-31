@@ -331,6 +331,26 @@ export function mapApiTaskToFrontend(apiTask: any): Task {
  * Map backend project API response item to frontend MappedProject type.
  */
 export function mapApiProjectToFrontend(apiProject: any): MappedProject {
+    if (!apiProject) {
+        return {
+            id: "",
+            workspaceId: "",
+            slug: "",
+            initials: "PR",
+            name: "Untitled Project",
+            category: "General",
+            description: "",
+            status: "ACTIVE",
+            progress: 0,
+            tasksDone: 0,
+            tasksTotal: 0,
+            tasksFormatted: "0/0",
+            date: "",
+            members: [],
+            memberInitials: [],
+            tasks: [],
+        };
+    }
     const members: Member[] = (apiProject.members || []).map(mapApiMemberToFrontend);
     const tasks: Task[] = (apiProject.tasks || []).map(mapApiTaskToFrontend);
 
@@ -458,7 +478,7 @@ export async function createTaskApi(
         members: Member[];         // to resolve initials → userId
     }
 ): Promise<Task> {
-    const assigneeId = payload.members.find((m) => m.initials === payload.assignee)?.userId ?? null;
+    const assigneeId = payload.members.find((m) => m.initials === payload.assignee || m.name === payload.assignee || m.email === payload.assignee)?.userId ?? null;
     const body: Record<string, unknown> = {
         title: payload.title,
         priority: toApiPriority(payload.priority),
@@ -833,7 +853,7 @@ export async function createProjectApi(payload: {
     if (!res.ok) {
         throw new Error(json.error || `Failed to create project (HTTP ${res.status})`);
     }
-    return mapApiProjectToFrontend(json.data);
+    return mapApiProjectToFrontend(json.project ?? json.data);
 }
 
 /**
@@ -873,11 +893,11 @@ export function mapApiMyTaskToFrontend(apiTask: any): MyTaskItem {
 }
 
 /**
- * GET /api/tasks/my-tasks?workspaceId=<workspaceId>
- * Fetches all tasks assigned to current user in the workspace across all projects.
+ * GET /api/tasks/my-tasks?workspaceId=<workspaceId>&scope=<scope>
+ * Fetches tasks in the workspace (assigned, created, or all).
  */
-export async function fetchMyTasksApi(workspaceId: string): Promise<MyTaskItem[]> {
-    const res = await fetch(`${API_BASE_URL}/tasks/my-tasks?workspaceId=${encodeURIComponent(workspaceId)}`, {
+export async function fetchMyTasksApi(workspaceId: string, scope: string = "all"): Promise<MyTaskItem[]> {
+    const res = await fetch(`${API_BASE_URL}/tasks/my-tasks?workspaceId=${encodeURIComponent(workspaceId)}&scope=${encodeURIComponent(scope)}`, {
         credentials: "include",
     });
     if (!res.ok) {
@@ -1070,26 +1090,27 @@ export interface TaskComment {
     updatedAt: string;
 }
 
-export async function fetchTaskCommentsApi(projectId: string, taskId: string): Promise<TaskComment[]> {
-    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/tasks/${taskId}/comments`, { credentials: "include" });
+export async function fetchTaskCommentsApi(_projectId: string, taskId: string): Promise<TaskComment[]> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/comments`, { credentials: "include" });
     if (!res.ok) throw new Error("Failed to fetch comments");
     const json = await res.json();
-    return json.data;
+    return json.data || [];
 }
 
-export async function createTaskCommentApi(projectId: string, taskId: string, payload: { text: string; parentId?: string; mentions?: string[]; attachments?: string[] }): Promise<TaskComment> {
-    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/tasks/${taskId}/comments`, {
+export async function createTaskCommentApi(_projectId: string, taskId: string, payload: { text: string; parentId?: string; mentions?: string[]; attachments?: string[] }): Promise<TaskComment> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
     });
     const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create comment");
     return json.data;
 }
 
-export async function deleteTaskCommentApi(projectId: string, commentId: string): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/tasks/comments/${commentId}`, {
+export async function deleteTaskCommentApi(_projectId: string, commentId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/tasks/comments/${commentId}`, {
         method: "DELETE",
         credentials: "include",
     });

@@ -17,6 +17,7 @@ export function setAuthCookies(res: Response, accessToken: string, refreshToken:
         httpOnly: true,
         secure: isProd,
         sameSite: "lax",
+        path: "/",
         maxAge: 15 * 60 * 1000, // 15 minutes
     });
 

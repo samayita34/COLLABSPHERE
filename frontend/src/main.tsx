@@ -19,11 +19,14 @@ import Files from "./pages/Files";
 import Messages from "./pages/Messages";
 import ActivityLog from "./pages/ActivityLog";
 import Analytics from "./pages/Analytics";
+import Settings from "./pages/Settings";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import { WorkspaceProvider } from "./context/WorkspaceContext";
 import { SocketProvider } from "./context/SocketContext";
+import { SidebarProvider } from "./context/SidebarContext";
+import "./services/apiUtils";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -36,6 +39,7 @@ createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <WorkspaceProvider>
         <SocketProvider>
+        <SidebarProvider>
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/signup" element={<SignUp />} />
@@ -55,8 +59,10 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/messages" element={<Messages />} />
             <Route path="/activity-log" element={<ActivityLog />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>
+        </SidebarProvider>
         </SocketProvider>
         </WorkspaceProvider>
       </AuthProvider>

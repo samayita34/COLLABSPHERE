@@ -29,18 +29,7 @@ export const getWorkspaceAnalytics = async (req: Request, res: Response): Promis
             where: { projectId: { in: projectIds } }
         });
 
-        // Consider a task completed if it's in a column whose name indicates completion
-        const completedColumns = await prisma.column.findMany({
-            where: {
-                board: { projectId: { in: projectIds } },
-                name: { in: ["Done", "Completed", "Finished", "Resolved"] }
-            },
-            select: { id: true }
-        });
-        
-        // Note: Prisma does not support case-insensitive 'in' natively for arrays without raw queries in all DBs.
-        // We will just do a secondary filter manually or just trust exact matches for simplicity in this schema.
-        // Actually, we can fetch all columns and filter in JS if needed.
+        // Fetch all columns and filter completion column IDs
         const allColumns = await prisma.column.findMany({
             where: { board: { projectId: { in: projectIds } } },
             select: { id: true, name: true }
@@ -115,19 +104,8 @@ export const getWorkspaceAnalytics = async (req: Request, res: Response): Promis
             };
         }).sort((a: any, b: any) => b.completedTasks - a.completedTasks);
 
-        // 4. Active Users (Last 7 days via AuditLog)
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-        const activeUserLogs = await prisma.auditLog.groupBy({
-            by: ['userId'],
-            where: {
-                workspaceId: id,
-                createdAt: { gte: sevenDaysAgo },
-                userId: { not: null }
-            }
-        });
-        const activeUsersCount = activeUserLogs.length;
+        // 4. Active Users (workspace members)
+        const activeUsersCount = workspace.members.length;
         
         // 5. Document Activity (Last 30 days)
         const documentActivityCount = await prisma.document.count({
@@ -145,7 +123,14 @@ export const getWorkspaceAnalytics = async (req: Request, res: Response): Promis
 
         // 7. Chat Statistics
         const chatStatistics = await prisma.chatMessage.count({
-            where: { projectId: { in: projectIds } }
+            where: {
+                channel: {
+                    OR: [
+                        { workspaceId: id },
+                        { projectId: { in: projectIds } }
+                    ]
+                }
+            }
         });
 
         // 8. Workspace Growth (Users, projects, tasks)

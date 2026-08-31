@@ -37,6 +37,8 @@ export const getJwtSecret = (): string => {
     return secret;
 };
 
+import { hashToken, setAuthCookies, clearAuthCookies } from "../lib/tokens";
+
 export const authenticate = async (
     req: Request,
     res: Response,
@@ -51,52 +53,75 @@ export const authenticate = async (
             token = req.headers.authorization.split(" ")[1];
         }
 
-        if (!token) {
-            res.status(401).json({
-                success: false,
-                error: "Authentication required. Please log in.",
-            });
-            return;
-        }
-
         const secret = getJwtSecret();
-        const decoded = jwt.verify(token, secret) as { userId: string; email: string };
 
-        const user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
-            select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                avatar: true,
-                role: true,
-                isEmailVerified: true,
-                isGoogleUser: true,
-                createdAt: true,
-                updatedAt: true,
-            },
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, secret) as { userId: string; email: string };
+                const user = await prisma.user.findUnique({
+                    where: { id: decoded.userId },
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        avatar: true,
+                        role: true,
+                        isEmailVerified: true,
+                        isGoogleUser: true,
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                });
+
+                if (user) {
+                    req.user = user as SafeUser;
+                    next();
+                    return;
+                }
+            } catch (e: any) {
+                // If token is invalid or expired, fall through to try refreshToken
+            }
+        }
+
+        // Silent refresh attempt using refreshToken cookie
+        if (req.cookies && req.cookies.refreshToken) {
+            const refreshToken = req.cookies.refreshToken;
+            const hash = hashToken(refreshToken);
+            const session = await prisma.session.findUnique({
+                where: { refreshTokenHash: hash },
+                include: { user: true },
+            });
+
+            if (session && !session.revokedAt && new Date() <= session.expiresAt && session.user) {
+                const user = session.user;
+                const newAccessToken = jwt.sign({ userId: user.id, email: user.email }, secret, { expiresIn: "15m" });
+                setAuthCookies(res, newAccessToken, refreshToken);
+
+                req.user = {
+                    id: user.id,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    email: user.email,
+                    avatar: user.avatar,
+                    role: user.role,
+                    isEmailVerified: user.isEmailVerified,
+                    isGoogleUser: user.isGoogleUser,
+                    createdAt: user.createdAt,
+                    updatedAt: user.updatedAt,
+                };
+                next();
+                return;
+            } else {
+                clearAuthCookies(res);
+            }
+        }
+
+        res.status(401).json({
+            success: false,
+            error: "Authentication required. Please log in.",
         });
-
-        if (!user) {
-            res.status(401).json({
-                success: false,
-                error: "User associated with this token no longer exists.",
-            });
-            return;
-        }
-
-        req.user = user as SafeUser;
-        next();
     } catch (error: any) {
-        if (error.name === "JsonWebTokenError" || error.name === "TokenExpiredError") {
-            res.status(401).json({
-                success: false,
-                error: "Invalid or expired authentication token.",
-            });
-            return;
-        }
-
         console.error("Auth middleware error:", error);
         res.status(500).json({
             success: false,

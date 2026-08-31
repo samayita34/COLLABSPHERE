@@ -7,11 +7,12 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { CreateProjectModal } from "./CreateProjectModal";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import NotificationCenter from "../components/NotificationCenter";
+import { AppSidebar } from "../components/AppSidebar";
+import { AppTopbar } from "../components/AppTopbar";
 import "./Projects.css";
 
 export default function Projects() {
   const navigate = useNavigate();
-  const { userFullName, userInitials, logout } = useAuth();
   const { activeWorkspace } = useWorkspace();
   const [projectsList, setProjectsList] = useState<MappedProject[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -62,81 +63,11 @@ export default function Projects() {
   return (
     <div className="projects-page">
 
-      <aside className="projects-sidebar">
-
-        <div className="brand">
-          <span>Collabsphere</span>
-          <small>ENT</small>
-        </div>
-
-        <WorkspaceSelector />
-
-        <div className="nav-title">NAVIGATION</div>
-
-        <nav>
-          <Link to="/overview">Overview</Link>
-          <Link to="/projects" className="selected">
-            Projects
-            <span>{projectsList.length}</span>
-          </Link>
-          <Link to="/my-tasks">My Tasks</Link>
-          <Link to="/documents">Documents</Link>
-          <Link to="/files">Files</Link>
-          <Link to="/messages">Messages</Link>
-          <Link to="/activity-log">Activity Log</Link>
-          <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Analytics</a>
-          <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Settings</a>
-        </nav>
-
-        <div className="profile">
-          <div className="profile-avatar">{userInitials}</div>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <strong style={{ display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{userFullName}</strong>
-            <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Workspace Member</span>
-          </div>
-
-          <button
-            onClick={logout}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#ef4444",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              padding: "4px 8px",
-              borderRadius: "4px",
-            }}
-            title="Sign out"
-          >
-            Sign out
-          </button>
-        </div>
-
-      </aside>
+      <AppSidebar activePage="projects" projectsCount={projectsList.length} />
 
       <main className="projects-main">
 
-        <header className="topbar">
-
-          <div className="breadcrumb">
-            Workspace / <strong>Projects</strong>
-          </div>
-
-          <div className="topbar-actions">
-            <div className="search">
-              <span>⌕</span>
-              <input placeholder="Search anything..." />
-              <kbd>⌘ K</kbd>
-            </div>
-
-            <NotificationCenter workspaceId={activeWorkspace?.id} />
-
-            <div className="profile-avatar">{userInitials}</div>
-          </div>
-
-        </header>
+        <AppTopbar pageTitle="Projects" />
 
         <section className="content">
 

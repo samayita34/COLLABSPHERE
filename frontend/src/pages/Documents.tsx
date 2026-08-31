@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchWorkspaceDocuments } from "../services/workspaceApi";
 import { updateDocumentApi, type WorkspaceDocument } from "../services/projectApi";
-import { WorkspaceSelector } from "../components/WorkspaceSelector";
+import { AppSidebar } from "../components/AppSidebar";
+import { AppTopbar } from "../components/AppTopbar";
 import { DocumentDetailModal, type ProjectDocument } from "./DocumentModal";
 import "./Projects.css";
 import "./ProjectWorkspace.css";
@@ -18,8 +19,6 @@ const DOC_TYPE_FILTERS: { key: "all" | "DOC" | "PDF" | "XLS" | "PPT"; label: str
 ];
 
 export default function Documents() {
-    const navigate = useNavigate();
-    const { userFullName, userInitials, logout } = useAuth();
     const { activeWorkspace } = useWorkspace();
     
     const [documents, setDocuments] = useState<WorkspaceDocument[]>([]);
@@ -91,73 +90,15 @@ export default function Documents() {
 
     return (
         <div className="projects-page">
-            <aside className="projects-sidebar">
-                <div className="brand">
-                    <span>Collabsphere</span>
-                    <small>ENT</small>
-                </div>
-
-                <WorkspaceSelector />
-
-                <div className="nav-title">NAVIGATION</div>
-
-                <nav>
-                    <Link to="/overview">Overview</Link>
-                    <Link to="/projects">Projects</Link>
-                    <Link to="/my-tasks">My Tasks</Link>
-                    <Link to="/documents" className="selected">
-                        Documents
-                        <span>{documents.length}</span>
-                    </Link>
-                    <Link to="/files">Files</Link>
-                    <Link to="/messages">Messages</Link>
-                    <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Analytics</a>
-                    <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Settings</a>
-                </nav>
-
-                <div className="profile">
-                    <div className="profile-avatar">{userInitials}</div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <strong style={{ display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{userFullName}</strong>
-                        <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Workspace Member</span>
-                    </div>
-
-                    <button
-                        onClick={logout}
-                        style={{
-                            background: "transparent",
-                            border: "none",
-                            color: "#ef4444",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                        }}
-                        title="Sign out"
-                    >
-                        Sign out
-                    </button>
-                </div>
-            </aside>
+            <AppSidebar activePage="documents" documentsCount={documents.length} />
 
             <main className="projects-main">
-                <header className="topbar">
-                    <div className="breadcrumb">
-                        Workspace / <strong>Documents</strong>
-                    </div>
-
-                    <div className="topbar-actions">
-                        <div className="search">
-                            <span>?</span>
-                            <input placeholder="Search anything..." />
-                            <kbd>? K</kbd>
-                        </div>
-                        <button className="notification">?</button>
-                        <div className="profile-avatar">{userInitials}</div>
-                    </div>
-                </header>
+                <AppTopbar 
+                    pageTitle="Documents" 
+                    searchPlaceholder="Search documents..."
+                    searchValue={docSearch}
+                    onSearchChange={setDocSearch}
+                />
 
                 <section className="content">
                     <div className="page-heading">

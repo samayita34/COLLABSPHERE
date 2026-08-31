@@ -27,7 +27,7 @@ export const getChannels = async (req: Request, res: Response): Promise<void> =>
             }
         });
 
-        const channels = members.map(m => m.channel);
+        const channels = members.map((m: any) => m.channel);
         res.status(200).json({ success: true, channels });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
@@ -59,10 +59,10 @@ export const createDirectMessage = async (req: Request, res: Response): Promise<
             include: { members: true }
         });
 
-        const dm = existingChannels.find(c => 
+        const dm = existingChannels.find((c: any) => 
             c.members.length === 2 && 
-            c.members.some(m => m.userId === userId) && 
-            c.members.some(m => m.userId === targetUserId)
+            c.members.some((m: any) => m.userId === userId) && 
+            c.members.some((m: any) => m.userId === targetUserId)
         );
 
         if (dm) {
@@ -256,6 +256,134 @@ export const toggleReaction = async (req: Request, res: Response): Promise<void>
         }
 
         res.status(200).json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+export const getProjectMessages = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id, projectId } = req.params;
+        const targetProjectId = projectId || id;
+        const userId = req.user?.id;
+
+        if (!userId) {
+            res.status(401).json({ success: false, error: "Unauthorized" });
+            return;
+        }
+
+        const project = await prisma.project.findUnique({ where: { id: targetProjectId } });
+        if (!project) {
+            res.status(404).json({ success: false, error: "Project not found" });
+            return;
+        }
+
+        let channel = await prisma.channel.findFirst({
+            where: { projectId: targetProjectId, type: "PROJECT" }
+        });
+
+        if (!channel) {
+            channel = await prisma.channel.create({
+                data: {
+                    projectId: targetProjectId,
+                    workspaceId: project.workspaceId,
+                    type: "PROJECT",
+                    name: `${project.name} Chat`
+                }
+            });
+        }
+
+        const messages = await prisma.chatMessage.findMany({
+            where: { channelId: channel.id, parentId: null },
+            include: {
+                sender: { select: { id: true, firstName: true, lastName: true, email: true } }
+            },
+            orderBy: { createdAt: "asc" }
+        });
+
+        const formatted = messages.map((m: any) => {
+            const fn = m.sender.firstName || "";
+            const ln = m.sender.lastName || "";
+            const initials = (fn[0] || "") + (ln[0] || "") || m.sender.email.slice(0, 2);
+            return {
+                id: m.id,
+                text: m.text || "",
+                senderInitials: initials.toUpperCase(),
+                senderName: `${fn} ${ln}`.trim() || m.sender.email,
+                timestamp: m.createdAt.toISOString(),
+                createdAt: m.createdAt
+            };
+        });
+
+        res.status(200).json({ success: true, data: formatted });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+export const sendProjectMessage = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id, projectId } = req.params;
+        const targetProjectId = projectId || id;
+        const { text } = req.body;
+        const userId = req.user?.id;
+
+        if (!userId || !text) {
+            res.status(400).json({ success: false, error: "Missing message text" });
+            return;
+        }
+
+        const project = await prisma.project.findUnique({ where: { id: targetProjectId } });
+        if (!project) {
+            res.status(404).json({ success: false, error: "Project not found" });
+            return;
+        }
+
+        let channel = await prisma.channel.findFirst({
+            where: { projectId: targetProjectId, type: "PROJECT" }
+        });
+
+        if (!channel) {
+            channel = await prisma.channel.create({
+                data: {
+                    projectId: targetProjectId,
+                    workspaceId: project.workspaceId,
+                    type: "PROJECT",
+                    name: `${project.name} Chat`
+                }
+            });
+        }
+
+        const message = await prisma.chatMessage.create({
+            data: {
+                channelId: channel.id,
+                senderId: userId,
+                text: xss(text)
+            },
+            include: {
+                sender: { select: { id: true, firstName: true, lastName: true, email: true } }
+            }
+        });
+
+        const fn = message.sender.firstName || "";
+        const ln = message.sender.lastName || "";
+        const initials = (fn[0] || "") + (ln[0] || "") || message.sender.email.slice(0, 2);
+        const formatted = {
+            id: message.id,
+            text: message.text || "",
+            senderInitials: initials.toUpperCase(),
+            senderName: `${fn} ${ln}`.trim() || message.sender.email,
+            timestamp: message.createdAt.toISOString(),
+            createdAt: message.createdAt
+        };
+
+        try {
+            const io = getIO();
+            io.to(`channel_${channel.id}`).emit("new_message", formatted);
+            io.to(`project_${targetProjectId}`).emit("project_message", formatted);
+        } catch (e) {}
+
+        res.status(201).json({ success: true, data: formatted });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }

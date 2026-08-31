@@ -3,13 +3,14 @@ import { Link } from "react-router-dom";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useAuth } from "../context/AuthContext";
 import { fetchAuditLogs, type AuditLogItem } from "../services/auditApi";
-import { WorkspaceSelector } from "../components/WorkspaceSelector";
-import NotificationCenter from "../components/NotificationCenter";
+import { AppSidebar } from "../components/AppSidebar";
+import { AppTopbar } from "../components/AppTopbar";
+import "./Projects.css";
 import "./ActivityLog.css";
 
 export const ActivityLog: React.FC = () => {
     const { activeWorkspace } = useWorkspace();
-    const { userInitials } = useAuth();
+    const { userFullName, userInitials, logout } = useAuth();
     const [logs, setLogs] = useState<AuditLogItem[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -73,134 +74,135 @@ export const ActivityLog: React.FC = () => {
     };
 
     return (
-        <div className="activity-page">
-            {/* Header Nav */}
-            <header className="dashboard-header" style={{ padding: "16px 32px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
-                    <Link to="/projects" className="brand-wordmark" style={{ textDecoration: "none" }}>
-                        <span className="brand-collab">COLLAB</span><span className="brand-sphere">SPHERE</span>
-                    </Link>
-                    <WorkspaceSelector />
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                    <Link to="/projects" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "0.9rem" }}>Projects</Link>
-                    <Link to="/my-tasks" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "0.9rem" }}>My Tasks</Link>
-                    <Link to="/documents" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "0.9rem" }}>Documents</Link>
-                    <Link to="/files" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "0.9rem" }}>Files</Link>
-                    <Link to="/activity-log" style={{ color: "#6366f1", textDecoration: "none", fontWeight: 600, fontSize: "0.9rem" }}>Activity Log</Link>
-                    <NotificationCenter workspaceId={activeWorkspace?.id} />
-                    
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "12px" }}>
-                        <div className="profile-avatar" style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: "0.8rem" }}>
-                            {userInitials}
+        <div className="projects-page">
+            <AppSidebar activePage="activity-log" activityCount={logs.length} />
+
+            {/* MAIN VIEWPORT */}
+            <main className="projects-main">
+                <AppTopbar pageTitle="Activity Log" searchPlaceholder="Search audit logs..." />
+
+                {/* CONTENT */}
+                <section className="content">
+                    <div className="page-heading">
+                        <div>
+                            <h1>Workspace Activity & Audit Log</h1>
+                            <p>Track system actions, security events, and project modifications within <strong>{activeWorkspace?.name || "your workspace"}</strong>.</p>
                         </div>
+
+                        <select
+                            className="category"
+                            value={actionFilter}
+                            onChange={(e) => setActionFilter(e.target.value)}
+                            style={{ outline: "none", cursor: "pointer" }}
+                        >
+                            <option value="">All Audit Actions</option>
+                            <option value="USER_LOGIN">User Login</option>
+                            <option value="USER_LOGOUT">User Logout</option>
+                            <option value="USER_SIGNUP">User Signup</option>
+                            <option value="PROJECT_CREATED">Project Created</option>
+                            <option value="PROJECT_UPDATED">Project Updated</option>
+                            <option value="PROJECT_DELETED">Project Deleted</option>
+                            <option value="PROJECT_ARCHIVED">Project Archived</option>
+                            <option value="TASK_CREATED">Task Created</option>
+                            <option value="TASK_UPDATED">Task Updated</option>
+                            <option value="TASK_DELETED">Task Deleted</option>
+                            <option value="TASK_ASSIGNED">Task Assigned</option>
+                            <option value="TASK_STATUS_CHANGED">Task Status Changed</option>
+                            <option value="DOCUMENT_CREATED">Document Created</option>
+                            <option value="DOCUMENT_UPDATED">Document Updated</option>
+                            <option value="DOCUMENT_DELETED">Document Deleted</option>
+                            <option value="DOCUMENT_RESTORED">Document Restored</option>
+                            <option value="FILE_UPLOADED">File Uploaded</option>
+                            <option value="FILE_DELETED">File Deleted</option>
+                            <option value="MEMBER_INVITED">Member Invited</option>
+                            <option value="MEMBER_REMOVED">Member Removed</option>
+                            <option value="ROLE_UPDATED">Role Updated</option>
+                            <option value="WORKSPACE_CREATED">Workspace Created</option>
+                            <option value="WORKSPACE_UPDATED">Workspace Updated</option>
+                            <option value="WORKSPACE_MEMBER_ADDED">Workspace Member Added</option>
+                            <option value="WORKSPACE_MEMBER_REMOVED">Workspace Member Removed</option>
+                            <option value="MESSAGE_SENT">Message Sent</option>
+                        </select>
                     </div>
-                </div>
-            </header>
 
-            <div className="activity-container">
-                <div className="activity-header">
-                    <div className="activity-title">
-                        <h1>Workspace Activity & Audit Log</h1>
-                        <p>Track system actions, security events, and project modifications within {activeWorkspace?.name || "your workspace"}.</p>
-                    </div>
-                </div>
-
-                <div className="activity-filters">
-                    <select
-                        className="activity-select"
-                        value={actionFilter}
-                        onChange={(e) => setActionFilter(e.target.value)}
-                    >
-                        <option value="">All Audit Actions</option>
-                        <option value="USER_LOGIN">User Login</option>
-                        <option value="USER_LOGOUT">User Logout</option>
-                        <option value="USER_SIGNUP">User Signup</option>
-                        <option value="PROJECT_CREATED">Project Created</option>
-                        <option value="PROJECT_UPDATED">Project Updated</option>
-                        <option value="PROJECT_DELETED">Project Deleted</option>
-                        <option value="PROJECT_ARCHIVED">Project Archived</option>
-                        <option value="TASK_CREATED">Task Created</option>
-                        <option value="TASK_UPDATED">Task Updated</option>
-                        <option value="TASK_DELETED">Task Deleted</option>
-                        <option value="TASK_ASSIGNED">Task Assigned</option>
-                        <option value="TASK_STATUS_CHANGED">Task Status Changed</option>
-                        <option value="DOCUMENT_CREATED">Document Created</option>
-                        <option value="DOCUMENT_UPDATED">Document Updated</option>
-                        <option value="DOCUMENT_DELETED">Document Deleted</option>
-                        <option value="DOCUMENT_RESTORED">Document Restored</option>
-                        <option value="FILE_UPLOADED">File Uploaded</option>
-                        <option value="FILE_DELETED">File Deleted</option>
-                        <option value="MEMBER_INVITED">Member Invited</option>
-                        <option value="MEMBER_REMOVED">Member Removed</option>
-                        <option value="ROLE_UPDATED">Role Updated</option>
-                        <option value="WORKSPACE_CREATED">Workspace Created</option>
-                        <option value="WORKSPACE_UPDATED">Workspace Updated</option>
-                        <option value="WORKSPACE_MEMBER_ADDED">Workspace Member Added</option>
-                        <option value="WORKSPACE_MEMBER_REMOVED">Workspace Member Removed</option>
-                        <option value="MESSAGE_SENT">Message Sent</option>
-                    </select>
-                </div>
-
-                <div className="audit-card">
-                    {loading ? (
-                        <div className="activity-empty">Loading workspace activity logs...</div>
-                    ) : error ? (
-                        <div className="activity-empty" style={{ color: "#ef4444" }}>{error}</div>
-                    ) : logs.length === 0 ? (
-                        <div className="activity-empty">No activity records found matching the criteria.</div>
-                    ) : (
-                        <table className="audit-table">
-                            <thead>
-                                <tr>
-                                    <th>Actor</th>
-                                    <th>Action</th>
-                                    <th>Entity</th>
-                                    <th>Details / Metadata</th>
-                                    <th>IP Address</th>
-                                    <th>Timestamp</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {logs.map((log) => (
-                                    <tr key={log.id}>
-                                        <td>
-                                            <div className="audit-user">
-                                                <div className="audit-avatar">{getInitials(log.user)}</div>
-                                                <div>
-                                                    <div className="audit-user-name">
-                                                        {log.user ? `${log.user.firstName} ${log.user.lastName}`.trim() : "System / Automated"}
-                                                    </div>
-                                                    <div className="audit-user-email">{log.user?.email || "system@collabsphere.local"}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span className={`action-badge ${log.action}`}>
-                                                {log.action.replace(/_/g, " ")}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span style={{ fontWeight: 500 }}>{log.entityType}</span>
-                                        </td>
-                                        <td>
-                                            <span style={{ color: "#94a3b8" }}>{formatDetails(log.details, log.metadata)}</span>
-                                        </td>
-                                        <td>
-                                            <span className="audit-ip">{log.ipAddress || "127.0.0.1"}</span>
-                                        </td>
-                                        <td>
-                                            <span className="audit-time" title={new Date(log.createdAt).toLocaleString()}>
-                                                {formatTime(log.createdAt)}
-                                            </span>
-                                        </td>
+                    <div style={{ border: "1px solid #e7e3d8", borderRadius: "10px", background: "#ffffff", overflow: "hidden" }}>
+                        {loading ? (
+                            <div style={{ textAlign: "center", padding: "60px 0", color: "#9a968a", fontSize: "14px" }}>
+                                Loading workspace activity logs...
+                            </div>
+                        ) : error ? (
+                            <div style={{ padding: "40px", color: "#b91c1c", textAlign: "center", fontSize: "14px" }}>
+                                {error}
+                            </div>
+                        ) : logs.length === 0 ? (
+                            <div style={{ padding: "60px 20px", textAlign: "center", color: "#9a968a", fontSize: "14px" }}>
+                                No activity records found matching the criteria.
+                            </div>
+                        ) : (
+                            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                                <thead>
+                                    <tr style={{ background: "#fcfbf8", borderBottom: "1px solid #e7e3d8" }}>
+                                        <th style={{ padding: "12px 18px", fontFamily: "IBM Plex Mono, monospace", fontSize: "10.5px", letterSpacing: "0.08em", color: "#9a968a", textTransform: "uppercase" }}>Actor</th>
+                                        <th style={{ padding: "12px 18px", fontFamily: "IBM Plex Mono, monospace", fontSize: "10.5px", letterSpacing: "0.08em", color: "#9a968a", textTransform: "uppercase" }}>Action</th>
+                                        <th style={{ padding: "12px 18px", fontFamily: "IBM Plex Mono, monospace", fontSize: "10.5px", letterSpacing: "0.08em", color: "#9a968a", textTransform: "uppercase" }}>Entity</th>
+                                        <th style={{ padding: "12px 18px", fontFamily: "IBM Plex Mono, monospace", fontSize: "10.5px", letterSpacing: "0.08em", color: "#9a968a", textTransform: "uppercase" }}>Details / Metadata</th>
+                                        <th style={{ padding: "12px 18px", fontFamily: "IBM Plex Mono, monospace", fontSize: "10.5px", letterSpacing: "0.08em", color: "#9a968a", textTransform: "uppercase" }}>IP Address</th>
+                                        <th style={{ padding: "12px 18px", fontFamily: "IBM Plex Mono, monospace", fontSize: "10.5px", letterSpacing: "0.08em", color: "#9a968a", textTransform: "uppercase" }}>Timestamp</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-            </div>
+                                </thead>
+                                <tbody>
+                                    {logs.map((log) => (
+                                        <tr key={log.id} style={{ borderBottom: "1px solid #f0ede4" }}>
+                                            <td style={{ padding: "14px 18px" }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                                    <div className="profile-avatar" style={{ width: "26px", height: "26px", fontSize: "10px" }}>
+                                                        {getInitials(log.user)}
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontSize: "13px", fontWeight: 500, color: "#14161c" }}>
+                                                            {log.user ? `${log.user.firstName} ${log.user.lastName}`.trim() : "System / Automated"}
+                                                        </div>
+                                                        <div style={{ fontSize: "11px", color: "#9a968a" }}>
+                                                            {log.user?.email || "system@collabsphere.local"}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: "14px 18px" }}>
+                                                <span 
+                                                    style={{ 
+                                                        fontFamily: "IBM Plex Mono, monospace", 
+                                                        fontSize: "10.5px", 
+                                                        padding: "3px 8px", 
+                                                        borderRadius: "4px", 
+                                                        background: "#f0ede4", 
+                                                        color: "#232a3d",
+                                                        border: "1px solid #e7e3d8"
+                                                    }}
+                                                >
+                                                    {log.action.replace(/_/g, " ")}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: "14px 18px", fontSize: "13px", fontWeight: 500, color: "#14161c" }}>
+                                                {log.entityType}
+                                            </td>
+                                            <td style={{ padding: "14px 18px", fontSize: "12px", color: "#5a594f", maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={formatDetails(log.details, log.metadata)}>
+                                                {formatDetails(log.details, log.metadata)}
+                                            </td>
+                                            <td style={{ padding: "14px 18px", fontFamily: "IBM Plex Mono, monospace", fontSize: "11.5px", color: "#9a968a" }}>
+                                                {log.ipAddress || "127.0.0.1"}
+                                            </td>
+                                            <td style={{ padding: "14px 18px", fontFamily: "IBM Plex Mono, monospace", fontSize: "11.5px", color: "#9a968a" }} title={new Date(log.createdAt).toLocaleString()}>
+                                                {formatTime(log.createdAt)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </section>
+            </main>
         </div>
     );
 };

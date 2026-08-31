@@ -1,364 +1,281 @@
-/* ==========================================================================
-   MY TASKS PAGE CSS
-   ========================================================================== */
+/* ─── COLLABSPHERE My Tasks & Action Items Styling ─── */
 
-.my-tasks-page {
-    display: flex;
-    min-height: 100vh;
-    background: #f8fafc;
-    color: #0f172a;
-    font-family: Inter, system-ui, -apple-system, sans-serif;
+.cs-task-scope-toggle {
+  display: flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  gap: 2px;
 }
 
-.my-tasks-main {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
+.cs-scope-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cs-text-sub);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.my-tasks-content {
-    flex: 1;
-    padding: 32px 40px;
-    max-width: 1200px;
-    width: 100%;
+.cs-scope-btn:hover {
+  color: var(--cs-text-main);
 }
 
-.my-tasks-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 24px;
+.cs-scope-btn.active {
+  background: #ffffff;
+  color: var(--cs-accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-.my-tasks-header h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0 0 6px 0;
+.cs-tasks-control-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--cs-border);
+  background: #f8fafc;
+  border-radius: 12px 12px 0 0;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.my-tasks-header p {
-    font-size: 0.9rem;
-    color: #64748b;
-    margin: 0;
+.cs-tasks-tabs-group {
+  display: flex;
+  gap: 6px;
 }
 
-.my-tasks-filters-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
+.cs-tasks-tab-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--cs-text-sub);
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.my-tasks-tab-group {
-    display: flex;
-    gap: 4px;
-    background: #f1f5f9;
-    padding: 4px;
-    border-radius: 8px;
+.cs-tasks-tab-pill:hover {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: var(--cs-text-main);
 }
 
-.my-tasks-tab {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 6px;
-    border: none;
-    background: transparent;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: #64748b;
-    cursor: pointer;
-    transition: all 0.15s ease;
+.cs-tasks-tab-pill.active {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: var(--cs-accent);
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.my-tasks-tab:hover {
-    color: #0f172a;
+.cs-tasks-count-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #e2e8f0;
+  color: #475569;
 }
 
-.my-tasks-tab.active {
-    background: #ffffff;
-    color: #4f46e5;
-    font-weight: 600;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+.cs-tasks-tab-pill.active .cs-tasks-count-pill {
+  background: #eeedff;
+  color: var(--cs-accent);
 }
 
-.my-tasks-tab-badge {
-    font-size: 0.75rem;
-    padding: 1px 6px;
-    border-radius: 10px;
-    background: #e2e8f0;
-    color: #475569;
+.cs-tasks-filter-select {
+  height: 34px;
+  padding: 0 12px;
+  background: #ffffff;
+  border: 1px solid var(--cs-border);
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--cs-text-main);
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.my-tasks-tab.active .my-tasks-tab-badge {
-    background: #eeedff;
-    color: #4f46e5;
+.cs-tasks-filter-select:focus {
+  border-color: var(--cs-accent);
 }
 
-.my-tasks-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+.cs-tasks-table-wrapper {
+  overflow-x: auto;
 }
 
-.my-tasks-search {
-    position: relative;
-    display: flex;
-    align-items: center;
+.cs-tasks-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
 }
 
-.my-tasks-search input {
-    height: 36px;
-    padding: 0 12px 0 32px;
-    border-radius: 6px;
-    border: 1px solid #e2e8f0;
-    background: #ffffff;
-    font-size: 0.85rem;
-    color: #0f172a;
-    outline: none;
-    width: 220px;
-    transition: border-color 0.15s, box-shadow 0.15s;
+.cs-tasks-table thead th {
+  padding: 12px 18px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--cs-border);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--cs-text-muted);
 }
 
-.my-tasks-search input:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+.cs-tasks-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.12s ease;
 }
 
-.my-tasks-search-icon {
-    position: absolute;
-    left: 10px;
-    color: #94a3b8;
-    pointer-events: none;
+.cs-tasks-table tbody tr:hover {
+  background: #f8fafc;
 }
 
-.my-tasks-select {
-    height: 36px;
-    padding: 0 12px;
-    border-radius: 6px;
-    border: 1px solid #e2e8f0;
-    background: #ffffff;
-    font-size: 0.85rem;
-    color: #0f172a;
-    outline: none;
-    cursor: pointer;
+.cs-tasks-table tbody tr.row-done {
+  background: #fafafa;
+  opacity: 0.75;
 }
 
-.my-tasks-select:focus {
-    border-color: #6366f1;
+.cs-tasks-table tbody tr.row-done .cs-task-name {
+  text-decoration: line-through;
+  color: var(--cs-text-muted);
 }
 
-/* OVERDUE BANNER */
-.my-tasks-alert-banner {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #991b1b;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    margin-bottom: 16px;
+.cs-tasks-table tbody td {
+  padding: 14px 18px;
+  font-size: 13px;
+  color: var(--cs-text-main);
+  vertical-align: middle;
 }
 
-/* TASKS TABLE / LIST */
-.my-tasks-table {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+.cs-task-check-circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #ffffff;
 }
 
-.my-tasks-table-header {
-    display: grid;
-    grid-template-columns: 40px 1fr 180px 110px 120px 110px;
-    align-items: center;
-    padding: 12px 16px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #64748b;
+.cs-task-check-circle:hover {
+  border-color: var(--cs-accent);
+  background: #f8fafc;
 }
 
-.my-tasks-row {
-    display: grid;
-    grid-template-columns: 40px 1fr 180px 110px 120px 110px;
-    align-items: center;
-    padding: 14px 16px;
-    border-bottom: 1px solid #f1f5f9;
-    transition: background 0.12s;
-    font-size: 0.875rem;
+.cs-task-check-circle.checked {
+  background: #10b981;
+  border-color: #10b981;
 }
 
-.my-tasks-row:last-child {
-    border-bottom: none;
+.cs-task-title-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 420px;
 }
 
-.my-tasks-row:hover {
-    background: #f8fafc;
+.cs-task-name {
+  font-weight: 600;
+  color: var(--cs-text-main);
+  font-size: 13.5px;
 }
 
-.my-tasks-row.done {
-    opacity: 0.65;
+.cs-task-desc {
+  font-size: 11.5px;
+  color: var(--cs-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.my-tasks-status-btn {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 2px solid #cbd5e1;
-    background: transparent;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s;
-    padding: 0;
+.cs-task-proj-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: #f1f5f9;
+  border: 1px solid var(--cs-border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cs-text-sub);
+  text-decoration: none;
+  transition: all 0.12s ease;
 }
 
-.my-tasks-status-btn:hover {
-    border-color: #4f46e5;
-    background: #eeedff;
+.cs-task-proj-badge:hover {
+  background: #eeedff;
+  border-color: #c7d2fe;
+  color: var(--cs-accent);
 }
 
-.my-tasks-status-btn.done {
-    border-color: #10b981;
-    background: #10b981;
-    color: #ffffff;
+.cs-priority-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
-.my-tasks-title-col {
-    padding-right: 16px;
-    min-width: 0;
+.cs-priority-tag.high {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
-.my-tasks-task-title {
-    font-weight: 500;
-    color: #0f172a;
-    margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.cs-priority-tag.medium {
+  background: #fef3c7;
+  color: #b45309;
 }
 
-.my-tasks-row.done .my-tasks-task-title {
-    text-decoration: line-through;
-    color: #64748b;
+.cs-priority-tag.low {
+  background: #f1f5f9;
+  color: var(--cs-text-sub);
 }
 
-.my-tasks-desc-preview {
-    font-size: 0.75rem;
-    color: #64748b;
-    margin: 2px 0 0 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.cs-task-due-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--cs-text-sub);
 }
 
-.my-tasks-proj-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: #f1f5f9;
-    color: #334155;
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    text-decoration: none;
-    transition: background 0.12s, color 0.12s;
-    max-width: 160px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.cs-overdue-pill {
+  font-size: 10px;
+  font-weight: 700;
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 1px 5px;
+  border-radius: 4px;
 }
 
-.my-tasks-proj-tag:hover {
-    background: #e0e7ff;
-    color: #4338ca;
+.cs-task-status-dropdown {
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--cs-border);
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cs-text-main);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
 }
 
-.my-tasks-priority-pill {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: capitalize;
-    width: fit-content;
-}
-
-.my-tasks-priority-pill.high {
-    background: #fee2e2;
-    color: #dc2626;
-}
-
-.my-tasks-priority-pill.medium {
-    background: #fef3c7;
-    color: #d97706;
-}
-
-.my-tasks-priority-pill.low {
-    background: #e0e7ff;
-    color: #4f46e5;
-}
-
-.my-tasks-due-col {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: 0.8rem;
-    color: #475569;
-}
-
-.my-tasks-overdue-tag {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: #dc2626;
-}
-
-.my-tasks-status-select {
-    height: 28px;
-    padding: 0 6px;
-    border-radius: 4px;
-    border: 1px solid #cbd5e1;
-    background: #ffffff;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: #334155;
-    outline: none;
-    cursor: pointer;
-}
-
-.my-tasks-status-select:focus {
-    border-color: #6366f1;
-}
-
-/* EMPTY STATE */
-.my-tasks-empty {
-    text-align: center;
-    padding: 60px 20px;
-    color: #64748b;
-}
-
-.my-tasks-empty h3 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1e293b;
-    margin: 0 0 6px 0;
-}
-
-.my-tasks-empty p {
-    font-size: 0.875rem;
-    margin: 0;
+.cs-task-status-dropdown:focus {
+  border-color: var(--cs-accent);
 }

@@ -289,6 +289,7 @@ export const getWorkspaceOverview = async (req: Request, res: Response): Promise
                 tasks: {
                     include: {
                         assignee: { select: { id: true, firstName: true, lastName: true, email: true } },
+                        column: { select: { name: true } },
                     },
                     orderBy: { updatedAt: "desc" },
                 },
@@ -303,10 +304,13 @@ export const getWorkspaceOverview = async (req: Request, res: Response): Promise
         const allTasks: any[] = [];
         projects.forEach((p: any) => {
             p.tasks.forEach((t: any) => {
+                const colName = t.column?.name?.toLowerCase().trim() || "";
+                const isDone = ["done", "completed", "finished", "resolved"].includes(colName);
+                const status = isDone ? "DONE" : (colName.includes("progress") ? "IN_PROGRESS" : "TODO");
                 allTasks.push({
                     id: t.id,
                     title: t.title,
-                    status: t.status,
+                    status,
                     priority: t.priority,
                     dueDate: t.dueDate,
                     projectId: p.id,
@@ -342,8 +346,15 @@ export const getWorkspaceOverview = async (req: Request, res: Response): Promise
             where: { project: { workspaceId: id } },
             orderBy: { updatedAt: "desc" },
             take: 5,
-            select: { id: true, title: true, updatedAt: true, project: { select: { id: true, name: true } } }
+            select: { id: true, name: true, updatedAt: true, project: { select: { id: true, name: true } } }
         });
+
+        const formattedRecentDocuments = recentDocuments.map((doc: any) => ({
+            id: doc.id,
+            title: doc.name,
+            updatedAt: doc.updatedAt,
+            project: doc.project,
+        }));
 
         const recentActivity = await prisma.auditLog.findMany({
             where: { workspaceId: id },
@@ -361,7 +372,10 @@ export const getWorkspaceOverview = async (req: Request, res: Response): Promise
 
         const recentProjects = projects.slice(0, 6).map((p: any) => {
             const total = p.tasks.length;
-            const completed = p.tasks.filter((t: any) => t.status === "DONE").length;
+            const completed = p.tasks.filter((t: any) => {
+                const colName = t.column?.name?.toLowerCase().trim() || "";
+                return ["done", "completed", "finished", "resolved"].includes(colName);
+            }).length;
             const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
             return {
                 id: p.id,
@@ -403,7 +417,7 @@ export const getWorkspaceOverview = async (req: Request, res: Response): Promise
                 pendingTasks,
                 dueTodayTasks,
                 upcomingDeadlineTasks,
-                recentDocuments,
+                recentDocuments: formattedRecentDocuments,
                 recentActivity,
             },
         });
@@ -510,84 +524,75 @@ export const getWorkspaceMessages = async (req: Request, res: Response): Promise
             return;
         }
 
-        const isAdmin = workspaceRole === "WORKSPACE_ADMIN";
+        const isAdmin = workspaceRole === "WORKSPACE_ADMIN" || req.user?.role === "SUPER_ADMIN" || (req as any).orgRole === "ORG_ADMIN";
 
-        // Query messages
+        // Query messages associated with workspace channels or project channels in this workspace
         const messages = await prisma.chatMessage.findMany({
             where: {
-                project: {
-                    workspaceId: id,
-                    ...(isAdmin ? {} : {
-                        OR: [
-                            { ownerId: userId },
-                            { members: { some: { userId } } }
-                        ]
-                    })
+                channel: {
+                    OR: [
+                        { workspaceId: id },
+                        {
+                            project: {
+                                workspaceId: id,
+                                ...(isAdmin ? {} : {
+                                    OR: [
+                                        { ownerId: userId },
+                                        { members: { some: { userId } } }
+                                    ]
+                                })
+                            }
+                        }
+                    ]
                 }
             },
             include: {
-                project: {
-                    select: {
-                        id: true,
-                        name: true,
-                        code: true,
-                        status: true,
-                        owner: { select: { firstName: true, lastName: true, email: true } },
-                        members: {
-                            select: {
-                                user: { select: { firstName: true, lastName: true, email: true } }
-                            }
-                        }
-                    },
+                sender: {
+                    select: { id: true, firstName: true, lastName: true, email: true, avatar: true }
                 },
+                channel: {
+                    include: {
+                        project: {
+                            select: { id: true, name: true, code: true, status: true }
+                        }
+                    }
+                }
             },
             orderBy: { createdAt: "desc" },
         });
 
-        // Collect unique accessible project IDs for the frontend to join via socket
-        const accessibleProjectIds = Array.from(new Set(messages.map((m: any) => m.projectId)));
-
-        const getInitials = (fn?: string | null, ln?: string | null, email?: string) => {
-            const f = (fn || "").trim()[0] || "";
-            const l = (ln || "").trim()[0] || "";
-            if (f || l) return (f + l).toUpperCase();
-            return (email || "").slice(0, 2).toUpperCase();
-        };
+        // Collect unique accessible project IDs for real-time socket subscription
+        const accessibleProjectIds = Array.from(
+            new Set(messages.map((m: any) => m.channel?.projectId).filter(Boolean))
+        );
 
         const formatted = messages.map((msg: any) => {
-            let senderName: string | undefined = undefined;
-            if (msg.project) {
-                const owner = msg.project.owner;
-                if (owner && getInitials(owner.firstName, owner.lastName, owner.email) === msg.senderInitials) {
-                    senderName = `${owner.firstName || ""} ${owner.lastName || ""}`.trim() || owner.email;
-                } else if (Array.isArray(msg.project.members)) {
-                    const match = msg.project.members.find((m: any) => 
-                        m.user && getInitials(m.user.firstName, m.user.lastName, m.user.email) === msg.senderInitials
-                    );
-                    if (match?.user) {
-                        senderName = `${match.user.firstName || ""} ${match.user.lastName || ""}`.trim() || match.user.email;
-                    }
-                }
-            }
+            const sender = msg.sender || {};
+            const fn = sender.firstName || "";
+            const ln = sender.lastName || "";
+            const senderInitials = ((fn[0] || "") + (ln[0] || "")).toUpperCase() || (sender.email ? sender.email.slice(0, 2).toUpperCase() : "UN");
+            const senderName = `${fn} ${ln}`.trim() || sender.email || "Unknown User";
+
+            const proj = msg.channel?.project;
 
             return {
                 id: msg.id,
-                text: msg.text,
-                senderInitials: msg.senderInitials,
+                text: msg.text || "",
+                senderInitials,
                 senderName,
-                timestamp: msg.createdAt.toISOString(),
-                projectId: msg.projectId,
-                projectName: msg.project?.name || "",
-                projectCode: msg.project?.code || null,
-                projectStatus: msg.project?.status || "",
+                timestamp: msg.createdAt ? msg.createdAt.toISOString() : new Date().toISOString(),
+                projectId: msg.channel?.projectId || null,
+                projectName: proj?.name || "General",
+                projectCode: proj?.code || null,
+                projectStatus: proj?.status || "ACTIVE",
                 createdAt: msg.createdAt,
                 updatedAt: msg.updatedAt,
-                project: {
-                    id: msg.project?.id,
-                    name: msg.project?.name,
-                    code: msg.project?.code,
-                    status: msg.project?.status
-                },
+                project: proj ? {
+                    id: proj.id,
+                    name: proj.name,
+                    code: proj.code,
+                    status: proj.status
+                } : null,
             };
         });
 

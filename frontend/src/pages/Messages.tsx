@@ -1,16 +1,16 @@
 import { useEffect, useState, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchWorkspaceMessages, type WorkspaceMessage } from "../services/workspaceApi";
 import { socketService } from "../services/socket";
-import { WorkspaceSelector } from "../components/WorkspaceSelector";
+import { AppSidebar } from "../components/AppSidebar";
+import { AppTopbar } from "../components/AppTopbar";
 import "./Projects.css";
 import "./ProjectWorkspace.css";
 import "./Messages.css";
 
 export default function Messages() {
-    const navigate = useNavigate();
     const { userFullName, userInitials, logout } = useAuth();
     const { activeWorkspace } = useWorkspace();
 
@@ -177,79 +177,16 @@ export default function Messages() {
 
     return (
         <div className="projects-page">
-            {/* SIDEBAR */}
-            <aside className="projects-sidebar">
-                <div className="brand">
-                    <span>Collabsphere</span>
-                    <small>ENT</small>
-                </div>
-
-                <WorkspaceSelector />
-
-                <div className="nav-title">NAVIGATION</div>
-
-                <nav>
-                    <Link to="/overview">Overview</Link>
-                    <Link to="/projects">Projects</Link>
-                    <Link to="/my-tasks">My Tasks</Link>
-                    <Link to="/documents">Documents</Link>
-                    <Link to="/files">Files</Link>
-                    <Link to="/messages" className="selected">
-                        Messages
-                        {messages.length > 0 && <span>{messages.length}</span>}
-                    </Link>
-                    <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Analytics</a>
-                    <a href="#" onClick={(e) => { e.preventDefault(); navigate("/projects"); }}>Settings</a>
-                </nav>
-
-                <div className="profile">
-                    <div className="profile-avatar">{userInitials}</div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <strong style={{ display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{userFullName}</strong>
-                        <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Workspace Member</span>
-                    </div>
-
-                    <button
-                        onClick={logout}
-                        style={{
-                            background: "transparent",
-                            border: "none",
-                            color: "#ef4444",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                        }}
-                        title="Sign out"
-                    >
-                        Sign out
-                    </button>
-                </div>
-            </aside>
+            <AppSidebar activePage="messages" messagesCount={messages.length} />
 
             {/* MAIN CONTENT */}
             <main className="projects-main">
-                <header className="topbar">
-                    <div className="breadcrumb">
-                        Workspace / <strong>Messages</strong>
-                    </div>
-
-                    <div className="topbar-actions">
-                        <div className="search">
-                            <span>⌕</span>
-                            <input
-                                placeholder="Search anything..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                            <kbd>⌘ K</kbd>
-                        </div>
-                        <button className="notification">♢</button>
-                        <div className="profile-avatar">{userInitials}</div>
-                    </div>
-                </header>
+                <AppTopbar 
+                    pageTitle="Messages" 
+                    searchPlaceholder="Search messages..."
+                    searchValue={searchQuery}
+                    onSearchChange={setSearchQuery}
+                />
 
                 <section className="content">
                     <div className="page-heading">

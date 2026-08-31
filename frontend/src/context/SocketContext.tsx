@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
-import { API_BASE_URL } from "../services/api";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
 interface SocketContextType {
     socket: Socket | null;
@@ -22,7 +23,8 @@ export const useSocket = () => {
 const SOCKET_URL = API_BASE_URL.replace("/api", "");
 
 export const SocketProvider = ({ children }: { children: ReactNode }) => {
-    const { isAuthenticated } = useAuth();
+    const { user } = useAuth();
+    const isAuthenticated = Boolean(user);
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
 

@@ -23,15 +23,18 @@ const safeUserSelect = {
  * Helper to calculate derived task progress statistics.
  * Progress = Math.round((completedTasks / totalTasks) * 100) if totalTasks > 0, else 0.
  */
-function calculateTaskProgress(tasks: Array<{ status: string }> = []) {
+function calculateTaskProgress(tasks: Array<{ column?: { name: string } | null; status?: string }> = []) {
     const total = tasks.length;
-    const completed = tasks.filter((t) => t.status === "DONE").length;
-    const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
+    const completed = tasks.filter((t) => {
+        if (t.status) return t.status === "DONE";
+        const name = t.column?.name?.toLowerCase().trim() || "";
+        return ["done", "completed", "finished", "resolved"].includes(name);
+    }).length;
 
     return {
         tasksTotal: total,
         tasksCompleted: completed,
-        progress,
+        progress: total === 0 ? 0 : Math.round((completed / total) * 100),
     };
 }
 
@@ -50,6 +53,24 @@ function formatProject(project: any, includeTasks = false, userContext?: { userI
     const canDelete = !!(userContext?.isWsAdmin || isOwner || isProjAdmin);
     const currentUserRole = isOwner ? "OWNER" : (projectMember?.role || (userContext?.isWsAdmin ? "ADMIN" : "VIEWER"));
 
+    const rawMembers = (project.members || []).map((m: any) => ({
+        id: m.id,
+        userId: m.userId,
+        role: m.role,
+        joinedAt: m.joinedAt,
+        user: m.user,
+    }));
+
+    if (project.owner && !rawMembers.some((m: any) => m.userId === project.ownerId)) {
+        rawMembers.unshift({
+            id: `owner-${project.owner.id}`,
+            userId: project.owner.id,
+            role: "ADMIN",
+            joinedAt: project.createdAt,
+            user: project.owner,
+        });
+    }
+
     const formatted: any = {
         id: project.id,
         name: project.name,
@@ -61,13 +82,7 @@ function formatProject(project: any, includeTasks = false, userContext?: { userI
         completedDate: project.completedDate,
         ownerId: project.ownerId,
         owner: project.owner,
-        members: (project.members || []).map((m: any) => ({
-            id: m.id,
-            userId: m.userId,
-            role: m.role,
-            joinedAt: m.joinedAt,
-            user: m.user,
-        })),
+        members: rawMembers,
         tasksTotal,
         tasksCompleted,
         progress,
@@ -144,7 +159,11 @@ export const getProjects = async (req: Request, res: Response): Promise<void> =>
                 tasks: {
                     select: {
                         id: true,
-                        status: true,
+                        column: {
+                            select: {
+                                name: true,
+                            },
+                        },
                     },
                 },
             },
@@ -256,6 +275,12 @@ export const createProject = async (req: Request, res: Response): Promise<void> 
                 workspaceId,
                 ownerId: req.user!.id,
                 dueDate: dueDate ? new Date(dueDate) : null,
+                members: {
+                    create: {
+                        userId: req.user!.id,
+                        role: "ADMIN",
+                    },
+                },
                 boards: {
                     create: {
                         name: "Default Board",

@@ -1,228 +1,150 @@
-.cs-analytics-page {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-  background-color: var(--bg-primary);
-  overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+/* ─── COLLABSPHERE Analytics Component Additions ─── */
+
+.cs-spin {
+  animation: cs-spin-anim 1s linear infinite;
 }
 
-.cs-analytics-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
+@keyframes cs-spin-anim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-.cs-analytics-header {
-  padding: 40px 48px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.cs-analytics-headline {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.cs-analytics-subtext {
-  font-size: 15px;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.cs-analytics-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
-  padding: 40px 48px;
-}
-
-/* CARDS */
-.cs-metric-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 24px;
+/* Productivity Chart Container */
+.cs-analytics-chart-wrap {
+  background: #f8fafc;
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  padding: 20px 16px 14px;
+  height: 220px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
+  justify-content: flex-end;
 }
 
-.cs-metric-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-.cs-metric-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  color: var(--text-secondary);
-}
-
-.cs-metric-title {
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.cs-metric-icon {
-  width: 20px;
-  height: 20px;
-  opacity: 0.7;
-}
-
-.cs-metric-value {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.cs-metric-subtitle {
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-/* CHARTS & WIDE CARDS */
-.cs-wide-card {
-  grid-column: span 2;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-}
-
-.cs-chart-container {
-  flex: 1;
+.cs-analytics-bars {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
-  margin-top: 24px;
-  height: 180px;
+  gap: 6px;
+  height: 100%;
+  width: 100%;
 }
 
-.cs-chart-bar-wrap {
+.cs-analytics-col {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
   height: 100%;
+  justify-content: flex-end;
+  cursor: pointer;
 }
 
-.cs-chart-bar {
+.cs-analytics-bar-track {
   width: 100%;
-  max-width: 12px;
-  background: var(--accent-primary);
-  border-radius: 4px 4px 0 0;
-  min-height: 4px;
-  transition: height 0.5s ease-in-out;
-}
-
-.cs-chart-bar:hover {
-  background: var(--accent-hover);
-}
-
-.cs-chart-label {
-  font-size: 10px;
-  color: var(--text-tertiary);
-  margin-top: 8px;
-  transform: rotate(-45deg);
-}
-
-/* LISTS */
-.cs-team-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 16px;
-  overflow-y: auto;
-  max-height: 200px;
-}
-
-.cs-team-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  background: var(--bg-primary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-.cs-team-user {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.cs-team-avatar {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, var(--accent-primary), #6366f1);
-  color: #fff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.cs-team-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.cs-team-score {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--accent-primary);
-  background: rgba(79, 70, 229, 0.1);
-  padding: 4px 10px;
-  border-radius: 20px;
-}
-
-/* STORAGE PROGRESS */
-.cs-storage-bar-bg {
-  width: 100%;
-  height: 8px;
-  background: var(--border-color);
+  max-width: 14px;
+  height: 140px;
+  background: rgba(226, 232, 240, 0.5);
   border-radius: 4px;
-  margin-top: 16px;
+  display: flex;
+  align-items: flex-end;
   overflow: hidden;
 }
 
-.cs-storage-bar-fill {
-  height: 100%;
-  background: var(--accent-primary);
-  border-radius: 4px;
-  transition: width 0.5s ease;
+.cs-analytics-bar-fill {
+  width: 100%;
+  background: #cbd5e1;
+  border-radius: 4px 4px 0 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@media (max-width: 1200px) {
-  .cs-analytics-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.cs-analytics-bar-fill.has-data {
+  background: #4f46e5;
 }
 
-@media (max-width: 768px) {
-  .cs-analytics-grid {
-    grid-template-columns: 1fr;
-  }
-  .cs-wide-card {
-    grid-column: span 1;
-  }
+.cs-analytics-col:hover .cs-analytics-bar-fill.has-data {
+  background: #4338ca;
+  transform: scaleY(1.04);
+}
+
+.cs-analytics-bar-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--cs-text-muted);
+  margin-top: 8px;
+  white-space: nowrap;
+}
+
+/* Storage Body */
+.cs-analytics-storage-body {
+  background: #f8fafc;
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.cs-analytics-storage-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.cs-analytics-storage-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--cs-text-muted);
+}
+
+.cs-analytics-storage-big {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--cs-text-main);
+  margin-top: 4px;
+}
+
+.cs-analytics-storage-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--cs-text-muted);
+}
+
+/* Workspace Growth Grid */
+.cs-analytics-growth-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.cs-analytics-growth-item {
+  background: #f8fafc;
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  padding: 24px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.cs-analytics-growth-item:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+.cs-analytics-growth-num {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--cs-text-main);
+  line-height: 1;
+}
+
+.cs-analytics-growth-txt {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cs-text-muted);
+  margin-top: 8px;
 }

@@ -7,7 +7,11 @@ import { WebsocketProvider } from 'y-websocket'
 import { useEffect, useState, useMemo } from 'react'
 import { Button } from './ui/button'
 
-const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3000";
+const getWsUrl = () => {
+    if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}`;
+};
 
 interface RichTextEditorProps {
     documentId: string;
@@ -30,8 +34,9 @@ export const RichTextEditor = ({ documentId, currentUser, isReadonly, initialCon
     useEffect(() => {
         if (isReadonly) return; // Don't connect websocket for readonly view
 
+        const wsUrl = getWsUrl();
         const wsProvider = new WebsocketProvider(
-            `${WS_URL}/api/collaboration`,
+            `${wsUrl}/api/collaboration`,
             documentId,
             ydoc,
             { connect: true }
