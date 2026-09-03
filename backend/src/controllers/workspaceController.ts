@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import { logAuditAction } from "../services/auditService";
-import { AuditAction } from "../../generated/prisma/enums";
+import { AuditAction, NotificationType } from "../../generated/prisma/enums";
+import { createAndSendNotification } from "../services/notificationService";
 
 export const createWorkspace = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -335,6 +336,19 @@ export const addWorkspaceMember = async (req: Request, res: Response): Promise<v
             userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
 
+        // Trigger Notification: Workspace Member Added
+        if (targetUser.id !== userId) {
+            const wsName = (req.workspace as any)?.name || "a workspace";
+            createAndSendNotification({
+                userId: targetUser.id,
+                workspaceId: (Array.isArray(id) ? id[0] : id) as string,
+                type: NotificationType.WORKSPACE_INVITATION,
+                title: "Added to Workspace",
+                message: `You were added to workspace "${wsName}" as ${memberRole}`,
+                link: `/dashboard`,
+            }).catch((err) => console.error("Notification error:", err));
+        }
+
         res.status(200).json({ success: true, member });
     } catch (error: any) {
         // Safety net: if a race condition still triggers the unique constraint, surface a clean error.
@@ -371,6 +385,20 @@ export const removeWorkspaceMember = async (req: Request, res: Response): Promis
             ipAddress: req.ip,
             userAgent: req.headers["user-agent"] as string,
         }).catch((err: any) => console.error("Audit log error:", err));
+
+        // Trigger Notification: Workspace Member Removed
+        const actualTargetUserId = (Array.isArray(targetUserId) ? targetUserId[0] : targetUserId) as string;
+        if (actualTargetUserId !== userId) {
+            const wsName = (req.workspace as any)?.name || "a workspace";
+            createAndSendNotification({
+                userId: actualTargetUserId,
+                workspaceId: (Array.isArray(id) ? id[0] : id) as string,
+                type: NotificationType.WORKSPACE_INVITATION,
+                title: "Removed from Workspace",
+                message: `You were removed from workspace "${wsName}"`,
+                link: `/projects`,
+            }).catch((err: any) => console.error("Notification error:", err));
+        }
 
         res.status(200).json({ success: true, message: "Member removed" });
     } catch (error: any) {

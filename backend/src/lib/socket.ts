@@ -92,6 +92,20 @@ export const initSocket = (httpServer: HttpServer) => {
             }
         });
 
+        // Test/Direct Notification Broadcast
+        socket.on("broadcast_notification", (data) => {
+            if (!data) return;
+            const { userId, notification } = data;
+            if (userId) {
+                io.to(`user:${userId}`).emit("notification:new", notification);
+                io.to(`user:${userId}`).emit("notification", notification);
+            } else {
+                io.emit("notification:new", notification);
+                io.emit("notification", notification);
+            }
+        });
+
+
         socket.on("disconnect", () => {
             console.log("Client disconnected", socket.id);
         });

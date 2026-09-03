@@ -1953,7 +1953,7 @@ export default function GoogleDocPage() {
                                                             width: "26px",
                                                             height: "26px",
                                                             borderRadius: "50%",
-                                                            backgroundColor: getUserColor(m.user.name),
+                                                            backgroundColor: getUserColor(m.user?.name || m.user?.email || "User"),
                                                             color: "#ffffff",
                                                             fontSize: "11px",
                                                             fontWeight: 600,
@@ -1962,11 +1962,11 @@ export default function GoogleDocPage() {
                                                             justifyContent: "center",
                                                         }}
                                                     >
-                                                        {m.user.name.charAt(0).toUpperCase()}
+                                                        {(m.user?.name || m.user?.email || "U").charAt(0).toUpperCase()}
                                                     </div>
                                                     <div>
-                                                        <div style={{ fontSize: "13px", fontWeight: 500 }}>{m.user.name}</div>
-                                                        <div style={{ fontSize: "11px", color: "var(--gdoc-text-muted)" }}>{m.user.email}</div>
+                                                        <div style={{ fontSize: "13px", fontWeight: 500 }}>{m.user?.name || m.user?.email || "User"}</div>
+                                                        <div style={{ fontSize: "11px", color: "var(--gdoc-text-muted)" }}>{m.user?.email || ""}</div>
                                                     </div>
                                                 </div>
                                                 <span style={{ fontSize: "11.5px", color: "var(--gdoc-text-muted)", fontWeight: 500 }}>
