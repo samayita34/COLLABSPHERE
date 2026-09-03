@@ -1,0 +1,270 @@
+/* ==========================================================================
+   CollabSphere - Task Discussion / Comments Styles
+   ========================================================================== */
+
+.task-discussion-wrapper {
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid #e7e3d8;
+    display: flex;
+    flex-direction: column;
+}
+
+.task-discussion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.task-discussion-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #14161c;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.task-discussion-count {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    background: #f0ede4;
+    color: #737c8a;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.task-discussion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-bottom: 16px;
+    scrollbar-width: thin;
+    scrollbar-color: #e2e8f0 transparent;
+}
+
+.task-discussion-empty {
+    font-size: 12.5px;
+    color: #9a968a;
+    padding: 20px 0;
+    text-align: center;
+    background: #fcfbf8;
+    border: 1px dashed #e7e3d8;
+    border-radius: 8px;
+}
+
+.task-comment-item {
+    display: flex;
+    gap: 10px;
+    position: relative;
+}
+
+.task-comment-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #232a3d;
+    color: #f4f2ea;
+    font-size: 10.5px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.task-comment-body {
+    flex: 1;
+    min-width: 0;
+    background: #fcfbf8;
+    border: 1px solid #e7e3d8;
+    border-radius: 8px;
+    padding: 8px 12px;
+    transition: all 0.15s ease;
+}
+
+.task-comment-body:hover {
+    border-color: #c9c4b4;
+    background: #ffffff;
+}
+
+.task-comment-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.task-comment-author {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #14161c;
+}
+
+.task-comment-time {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    color: #9a968a;
+}
+
+.task-comment-text {
+    font-size: 12.5px;
+    color: #334155;
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.task-comment-text p {
+    margin: 0 0 4px 0;
+}
+.task-comment-text p:last-child {
+    margin-bottom: 0;
+}
+
+.task-comment-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+    padding-top: 4px;
+    border-top: 1px solid #f0ede4;
+}
+
+.task-comment-btn {
+    background: none;
+    border: none;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #737c8a;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    transition: color 0.15s ease;
+}
+
+.task-comment-btn:hover {
+    color: #14161c;
+}
+
+.task-comment-btn.delete {
+    color: #9a968a;
+}
+
+.task-comment-btn.delete:hover {
+    color: #dc2626;
+}
+
+.task-comment-replies {
+    margin-top: 10px;
+    padding-left: 12px;
+    border-left: 2px solid #e7e3d8;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* ----------------- Composer ----------------- */
+.task-comment-composer {
+    background: #ffffff;
+    border: 1px solid #e7e3d8;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.task-comment-composer:focus-within {
+    border-color: #232a3d;
+    box-shadow: 0 0 0 1px #232a3d;
+}
+
+.task-comment-reply-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f0ede4;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    color: #232a3d;
+}
+
+.task-comment-reply-banner strong {
+    font-weight: 600;
+}
+
+.task-comment-reply-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    color: #737c8a;
+    padding: 0 4px;
+}
+
+.task-comment-reply-close:hover {
+    color: #14161c;
+}
+
+.task-comment-input-area {
+    min-height: 52px;
+    max-height: 140px;
+    overflow-y: auto;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: #14161c;
+    outline: none;
+}
+
+.task-comment-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: #fcfbf8;
+    border-top: 1px solid #f0ede4;
+}
+
+.task-comment-hint {
+    font-size: 11px;
+    color: #9a968a;
+}
+
+.task-comment-hint kbd {
+    font-family: "IBM Plex Mono", monospace;
+    background: #e7e3d8;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 10px;
+}
+
+.task-comment-send-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #232a3d;
+    color: #f4f2ea;
+    border: none;
+    border-radius: 5px;
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 5px 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.task-comment-send-btn:hover:not(:disabled) {
+    background: #14161c;
+}
+
+.task-comment-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

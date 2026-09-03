@@ -3,6 +3,7 @@ import prisma from "../lib/prisma";
 import { createAndSendNotification } from "../services/notificationService";
 import { logAuditAction } from "../services/auditService";
 import { NotificationType } from "../../generated/prisma/enums";
+import { getIO } from "../lib/socket";
 import xss from "xss";
 
 const safeUserSelect = {
@@ -178,6 +179,16 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
             details: { taskId: task.id, hasMentions: mentions.length > 0 }
         }).catch((err) => console.error("Audit log error:", err));
 
+        // Emit real-time Socket event to project room
+        try {
+            getIO().to(task.projectId).emit("task_comment_created", {
+                taskId,
+                comment: formatted,
+            });
+        } catch (socketErr) {
+            console.error("Socket emit task_comment_created error:", socketErr);
+        }
+
         res.status(201).json({ success: true, data: formatted });
     } catch (error: any) {
         console.error("Error creating comment:", error);
@@ -219,9 +230,20 @@ export const deleteComment = async (req: Request, res: Response): Promise<void> 
             details: { taskId: comment.taskId }
         }).catch((err) => console.error("Audit log error:", err));
 
+        // Emit real-time Socket event
+        try {
+            getIO().to(comment.task.projectId).emit("task_comment_deleted", {
+                taskId: comment.taskId,
+                commentId,
+            });
+        } catch (socketErr) {
+            console.error("Socket emit task_comment_deleted error:", socketErr);
+        }
+
         res.status(200).json({ success: true, message: "Comment deleted" });
     } catch (error: any) {
         console.error("Error deleting comment:", error);
         res.status(500).json({ success: false, error: error.message || "Failed to delete comment" });
     }
 };
+
