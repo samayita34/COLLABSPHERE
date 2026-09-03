@@ -35,7 +35,7 @@ export function WorkspaceSelector() {
         );
     }
 
-    if (!activeWorkspace || !activeOrganization) {
+    if (!activeWorkspace) {
         return (
             <div className="workspace-selector-wrapper" ref={ref}>
                 <div className="workspace clickable" onClick={() => setIsOpen(!isOpen)}>
@@ -73,7 +73,7 @@ export function WorkspaceSelector() {
                 <div className="workspace-logo">{initials}</div>
                 <div>
                     <strong>{activeWorkspace.name}</strong>
-                    <span>{activeOrganization.name}</span>
+                    <span>{activeOrganization?.name || "Workspace"}</span>
                 </div>
                 <span className="chevron">⌄</span>
             </div>

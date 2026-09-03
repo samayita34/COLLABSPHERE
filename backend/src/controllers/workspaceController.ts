@@ -77,6 +77,7 @@ export const listWorkspacesForOrg = async (req: Request, res: Response): Promise
                 members: { some: { userId } },
             },
             include: {
+                organization: true,
                 members: {
                     where: { userId },
                     select: { role: true },
@@ -86,6 +87,62 @@ export const listWorkspacesForOrg = async (req: Request, res: Response): Promise
 
         res.status(200).json({ success: true, workspaces });
     } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message || "Failed to fetch workspaces" });
+    }
+};
+
+/**
+ * GET /api/workspaces
+ * Fetch all workspaces the authenticated user belongs to via WorkspaceMember.
+ */
+export const getUserWorkspaces = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ success: false, error: "Unauthorized" });
+            return;
+        }
+
+        const orgId = req.query.orgId as string | undefined;
+
+        const whereClause: any = {
+            userId,
+        };
+
+        if (orgId) {
+            whereClause.workspace = {
+                organizationId: orgId,
+            };
+        }
+
+        const memberships = await prisma.workspaceMember.findMany({
+            where: whereClause,
+            include: {
+                workspace: {
+                    include: {
+                        organization: true,
+                        members: {
+                            where: { userId },
+                            select: { role: true },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: "asc",
+            },
+        });
+
+        const workspaces = memberships
+            .filter((m: any) => m.workspace !== null)
+            .map((m: any) => ({
+                ...m.workspace,
+                role: m.role,
+            }));
+
+        res.status(200).json({ success: true, workspaces, memberships });
+    } catch (error: any) {
+        console.error("Error fetching user workspaces:", error);
         res.status(500).json({ success: false, error: error.message || "Failed to fetch workspaces" });
     }
 };
@@ -106,6 +163,7 @@ export const getWorkspace = async (req: Request, res: Response): Promise<void> =
                 members: { some: { userId } },
             },
             include: {
+                organization: true,
                 members: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } } },
                 teams: true,
             }
@@ -190,14 +248,30 @@ export const addWorkspaceMember = async (req: Request, res: Response): Promise<v
 
         if (!userId) return;
 
-
-
         const validRoles = ["WORKSPACE_ADMIN", "MEMBER"];
         const memberRole = validRoles.includes(role) ? role : "MEMBER";
 
-        const targetUser = await prisma.user.findUnique({ where: { email } });
+        const targetUser = await prisma.user.findUnique({
+            where: { email },
+            select: { id: true, firstName: true, lastName: true, email: true, avatar: true },
+        });
         if (!targetUser) {
             res.status(404).json({ success: false, error: "User not found" });
+            return;
+        }
+
+        // Check whether this user is already a workspace member.
+        // If so, return the existing record instead of attempting a duplicate insert.
+        const existingMember = await prisma.workspaceMember.findUnique({
+            where: { workspaceId_userId: { workspaceId: id, userId: targetUser.id } },
+            include: {
+                user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+            },
+        });
+
+        if (existingMember) {
+            // User is already a workspace member — return success without creating a duplicate.
+            res.status(200).json({ success: true, member: existingMember, alreadyMember: true });
             return;
         }
 
@@ -206,8 +280,37 @@ export const addWorkspaceMember = async (req: Request, res: Response): Promise<v
                 workspaceId: id,
                 userId: targetUser.id,
                 role: memberRole,
-            }
+            },
+            include: {
+                user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+            },
         });
+
+        // Safeguard: Ensure user is also an organization member if workspace belongs to an organization
+        try {
+            const ws = await prisma.workspace.findUnique({
+                where: { id },
+                select: { organizationId: true },
+            });
+            if (ws?.organizationId) {
+                await prisma.organizationMember.upsert({
+                    where: {
+                        organizationId_userId: {
+                            organizationId: ws.organizationId,
+                            userId: targetUser.id,
+                        },
+                    },
+                    update: {},
+                    create: {
+                        organizationId: ws.organizationId,
+                        userId: targetUser.id,
+                        role: "MEMBER",
+                    },
+                });
+            }
+        } catch (orgErr) {
+            console.error("Safeguard: Error ensuring organization membership:", orgErr);
+        }
 
         // Audit Log: WORKSPACE_MEMBER_ADDED & ROLE_UPDATED
         logAuditAction({
@@ -234,6 +337,14 @@ export const addWorkspaceMember = async (req: Request, res: Response): Promise<v
 
         res.status(200).json({ success: true, member });
     } catch (error: any) {
+        // Safety net: if a race condition still triggers the unique constraint, surface a clean error.
+        if (error?.code === "P2002") {
+            res.status(409).json({
+                success: false,
+                error: "This user is already a member of this workspace.",
+            });
+            return;
+        }
         res.status(500).json({ success: false, error: error.message || "Failed to add member" });
     }
 };

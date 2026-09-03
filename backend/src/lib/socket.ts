@@ -45,13 +45,51 @@ export const initSocket = (httpServer: HttpServer) => {
             console.log(`Socket ${socket.id} left channel channel_${channelId}`);
         });
 
+        // Typing Indicators
+        // Payload: { projectId, channelId (optional), userId, userName }
         socket.on("typing_start", (data) => {
-            // data: { channelId, userId, userName }
-            socket.to(`channel_${data.channelId}`).emit("user_typing", data);
+            if (!data) return;
+
+            const { projectId, channelId, userId, userName } = data;
+            const payload = { projectId, channelId, userId, userName };
+
+            // Broadcast to the project room (used by ProjectChat)
+            if (projectId) {
+                socket.to(projectId).emit("user_typing", payload);
+            }
+
+            // Also broadcast to the channel room if a real channelId was provided
+            if (channelId && channelId !== projectId) {
+                socket.to(`channel_${channelId}`).emit("user_typing", payload);
+            }
         });
 
         socket.on("typing_end", (data) => {
-            socket.to(`channel_${data.channelId}`).emit("user_stopped_typing", data);
+            if (!data) return;
+
+            const { projectId, channelId, userId, userName } = data;
+            const payload = { projectId, channelId, userId, userName };
+
+            if (projectId) {
+                socket.to(projectId).emit("user_stopped_typing", payload);
+            }
+
+            if (channelId && channelId !== projectId) {
+                socket.to(`channel_${channelId}`).emit("user_stopped_typing", payload);
+            }
+        });
+
+        // Read Receipts
+        socket.on("mark_read", (data) => {
+            if (!data) return;
+            const { channelId, userId, readAt } = data;
+            if (channelId) {
+                socket.to(`channel_${channelId}`).emit("channel_read", {
+                    channelId,
+                    userId,
+                    readAt: readAt || new Date().toISOString(),
+                });
+            }
         });
 
         socket.on("disconnect", () => {

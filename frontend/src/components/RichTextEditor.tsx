@@ -1,179 +1,382 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Collaboration from '@tiptap/extension-collaboration'
-import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from './ui/button'
 
-const getWsUrl = () => {
-    if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${window.location.host}`;
-};
-
 interface RichTextEditorProps {
-    documentId: string;
-    currentUser: { id: string; name: string; initials: string };
-    isReadonly?: boolean;
-    initialContent?: string;
+    documentId: string
+    currentUser: {
+        id: string
+        name: string
+        initials: string
+    }
+    isReadonly?: boolean
+    initialContent?: string
 }
 
-export const RichTextEditor = ({ documentId, currentUser, isReadonly, initialContent }: RichTextEditorProps) => {
-    // Generate a random color for the cursor
-    const cursorColor = useMemo(() => {
-        const colors = ['#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#ef4444'];
-        return colors[Math.floor(Math.random() * colors.length)];
-    }, []);
+/**
+ * Get the WebSocket base URL.
+ *
+ * Supported:
+ * VITE_WS_URL=ws://localhost:3000
+ * OR
+ * VITE_API_URL=http://localhost:3000/api
+ */
+const getWsBaseUrl = () => {
+    const configuredWsUrl = import.meta.env.VITE_WS_URL
 
-    const ydoc = useMemo(() => new Y.Doc(), []);
+    if (configuredWsUrl) {
+        return configuredWsUrl
+            .replace(/\/api\/collaboration\/?$/, '')
+            .replace(/\/api\/?$/, '')
+            .replace(/\/$/, '')
+    }
 
-    const [provider, setProvider] = useState<WebsocketProvider | null>(null);
+    const apiUrl =
+        import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
+    return apiUrl
+        .replace(/\/api\/collaboration\/?$/, '')
+        .replace(/\/api\/?$/, '')
+        .replace(/^http:/, 'ws:')
+        .replace(/^https:/, 'wss:')
+        .replace(/\/$/, '')
+}
+
+export const RichTextEditor = ({
+    documentId,
+    currentUser: _currentUser,
+    isReadonly = false,
+    initialContent,
+}: RichTextEditorProps) => {
+    /*
+     * One Y.Doc per document.
+     *
+     * IMPORTANT:
+     * The editor itself does NOT wait for the WebSocket provider.
+     * This prevents a failed WebSocket connection from crashing
+     * the editor UI.
+     */
+    const ydoc = useMemo(() => {
+        return new Y.Doc()
+    }, [documentId])
+
+    const [provider, setProvider] =
+        useState<WebsocketProvider | null>(null)
+
+    const [isConnected, setIsConnected] = useState(false)
+
+    /*
+     * Create the WebSocket provider separately from the editor.
+     */
     useEffect(() => {
-        if (isReadonly) return; // Don't connect websocket for readonly view
+        if (isReadonly) {
+            setProvider(null)
+            setIsConnected(false)
+            return
+        }
 
-        const wsUrl = getWsUrl();
-        const wsProvider = new WebsocketProvider(
-            `${wsUrl}/api/collaboration`,
-            documentId,
-            ydoc,
-            { connect: true }
-        );
+        let wsProvider: WebsocketProvider | null = null
 
-        setProvider(wsProvider);
+        try {
+            const wsBaseUrl = getWsBaseUrl()
 
+            const collaborationUrl =
+                `${wsBaseUrl}/api/collaboration`
+
+            console.log(
+                '[Collaboration] Connecting to:',
+                collaborationUrl,
+                'document:',
+                documentId
+            )
+
+            wsProvider = new WebsocketProvider(
+                collaborationUrl,
+                documentId,
+                ydoc,
+                {
+                    connect: true,
+                }
+            )
+
+            const handleStatus = (event: { status: string }) => {
+                console.log(
+                    '[Collaboration] WebSocket status:',
+                    event.status
+                )
+
+                setIsConnected(event.status === 'connected')
+            }
+
+            const handleSync = (synced: boolean) => {
+                console.log(
+                    '[Collaboration] Sync:',
+                    synced
+                )
+
+                if (synced) {
+                    setIsConnected(true)
+                }
+            }
+
+            wsProvider.on('status', handleStatus)
+            wsProvider.on('sync', handleSync)
+
+            setProvider(wsProvider)
+
+            return () => {
+                console.log(
+                    '[Collaboration] Cleaning up provider'
+                )
+
+                wsProvider?.off('status', handleStatus)
+                wsProvider?.off('sync', handleSync)
+                wsProvider?.destroy()
+
+                setProvider(null)
+                setIsConnected(false)
+            }
+        } catch (error) {
+            console.error(
+                '[Collaboration] Failed to initialize:',
+                error
+            )
+
+            setProvider(null)
+            setIsConnected(false)
+        }
+    }, [documentId, ydoc, isReadonly])
+
+    /*
+     * Destroy the Y.Doc when this document editor is removed.
+     */
+    useEffect(() => {
         return () => {
-            wsProvider.destroy();
-        };
-    }, [documentId, ydoc, isReadonly]);
+            ydoc.destroy()
+        }
+    }, [ydoc])
 
-    const editor = useEditor({
-        extensions: [
+    /*
+     * IMPORTANT:
+     *
+     * The editor only depends on Y.Doc.
+     * It does NOT depend on `provider`.
+     *
+     * This prevents the editor from being destroyed/recreated
+     * whenever the WebSocket connection changes.
+     *
+     * We are also intentionally NOT using yCursorPlugin here.
+     * That was the source of the:
+     *
+     * "Cannot read properties of undefined (reading 'doc')"
+     *
+     * crash.
+     */
+    const extensions = useMemo(() => {
+        return [
             StarterKit.configure({
-                // Collaboration extension comes with its own history handling
-                // @ts-ignore - StarterKit types might be missing history option in this version
-                history: false,
+                // Collaboration provides its own history handling.
+                undoRedo: false,
             }),
+
             Collaboration.configure({
                 document: ydoc,
             }),
-            CollaborationCursor.configure({
-                provider: provider,
-                user: {
-                    name: currentUser.name,
-                    color: cursorColor,
+        ]
+    }, [ydoc])
+
+    /*
+     * Create the editor immediately.
+     */
+    const editor = useEditor(
+        {
+            extensions,
+
+            editable: !isReadonly,
+
+            editorProps: {
+                attributes: {
+                    class:
+                        'prose prose-sm sm:prose-base dark:prose-invert ' +
+                        'focus:outline-none min-h-[150px] p-3 ' +
+                        'border border-zinc-200 dark:border-zinc-800 ' +
+                        'rounded-md',
                 },
-            }),
-        ],
-        editable: !isReadonly,
-        editorProps: {
-            attributes: {
-                class: 'prose prose-sm sm:prose-base dark:prose-invert focus:outline-none min-h-[150px] p-3 border border-zinc-200 dark:border-zinc-800 rounded-md',
             },
         },
-    });
+        [ydoc, isReadonly]
+    )
 
+    /*
+     * Used for readonly/version-history mode.
+     */
     useEffect(() => {
-        if (isReadonly && initialContent && editor && !editor.isDestroyed) {
-             // For readonly mode where we might just be showing a past version
-             editor.commands.setContent(initialContent);
+        if (
+            isReadonly &&
+            initialContent &&
+            editor &&
+            !editor.isDestroyed
+        ) {
+            editor.commands.setContent(initialContent)
         }
-    }, [isReadonly, initialContent, editor]);
+    }, [
+        isReadonly,
+        initialContent,
+        editor,
+    ])
 
+    /*
+     * Show a small loading state instead of returning a completely
+     * blank page while Tiptap initializes.
+     */
     if (!editor) {
-        return null;
+        return (
+            <div className="flex items-center justify-center min-h-[150px] border border-zinc-200 dark:border-zinc-800 rounded-md">
+                <span className="text-sm text-zinc-500">
+                    Loading editor...
+                </span>
+            </div>
+        )
     }
 
     return (
         <div className="flex flex-col gap-2">
+
+            {/* Toolbar */}
             {!isReadonly && (
                 <div className="flex flex-wrap gap-1 items-center p-1 border border-zinc-200 dark:border-zinc-800 rounded-md bg-zinc-50 dark:bg-zinc-950">
+
+                    {/* Bold */}
                     <Button
                         type="button"
-                        variant={editor.isActive('bold') ? 'secondary' : 'ghost'}
+                        variant={
+                            editor.isActive('bold')
+                                ? 'secondary'
+                                : 'ghost'
+                        }
                         size="sm"
-                        onClick={() => editor.chain().focus().toggleBold().run()}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleBold()
+                                .run()
+                        }
                         className="h-8 px-2"
                     >
                         Bold
                     </Button>
+
+                    {/* Italic */}
                     <Button
                         type="button"
-                        variant={editor.isActive('italic') ? 'secondary' : 'ghost'}
+                        variant={
+                            editor.isActive('italic')
+                                ? 'secondary'
+                                : 'ghost'
+                        }
                         size="sm"
-                        onClick={() => editor.chain().focus().toggleItalic().run()}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleItalic()
+                                .run()
+                        }
                         className="h-8 px-2"
                     >
                         Italic
                     </Button>
+
+                    {/* Strike */}
                     <Button
                         type="button"
-                        variant={editor.isActive('strike') ? 'secondary' : 'ghost'}
+                        variant={
+                            editor.isActive('strike')
+                                ? 'secondary'
+                                : 'ghost'
+                        }
                         size="sm"
-                        onClick={() => editor.chain().focus().toggleStrike().run()}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleStrike()
+                                .run()
+                        }
                         className="h-8 px-2"
                     >
                         Strike
                     </Button>
+
+                    {/* Bullet List */}
                     <Button
                         type="button"
-                        variant={editor.isActive('bulletList') ? 'secondary' : 'ghost'}
+                        variant={
+                            editor.isActive('bulletList')
+                                ? 'secondary'
+                                : 'ghost'
+                        }
                         size="sm"
-                        onClick={() => editor.chain().focus().toggleBulletList().run()}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleBulletList()
+                                .run()
+                        }
                         className="h-8 px-2"
                     >
                         Bullet List
                     </Button>
+
+                    {/* Ordered List */}
                     <Button
                         type="button"
-                        variant={editor.isActive('orderedList') ? 'secondary' : 'ghost'}
+                        variant={
+                            editor.isActive('orderedList')
+                                ? 'secondary'
+                                : 'ghost'
+                        }
                         size="sm"
-                        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleOrderedList()
+                                .run()
+                        }
                         className="h-8 px-2"
                     >
                         Ordered List
                     </Button>
                 </div>
             )}
-            
+
+            {/* Editor */}
             <div className="relative">
-               <EditorContent editor={editor} />
-               {!isReadonly && provider && (
-                   <div className="absolute top-2 right-2 text-xs text-zinc-400">
-                       {provider.wsconnected ? "🟢 Syncing" : "🔴 Offline"}
-                   </div>
-               )}
+                <EditorContent editor={editor} />
+
+                {/* Collaboration status */}
+                {!isReadonly && provider && (
+                    <div className="absolute top-2 right-2 text-xs text-zinc-400 bg-white/80 dark:bg-zinc-950/80 px-2 py-1 rounded">
+                        {isConnected
+                            ? '🟢 Syncing'
+                            : '🔴 Offline'}
+                    </div>
+                )}
+
+                {/* If provider hasn't initialized yet */}
+                {!isReadonly && !provider && (
+                    <div className="absolute top-2 right-2 text-xs text-zinc-400 bg-white/80 dark:bg-zinc-950/80 px-2 py-1 rounded">
+                        🔴 Offline
+                    </div>
+                )}
             </div>
-            
-            <style>{`
-                /* TipTap Collaboration Cursor Styles */
-                .collaboration-cursor__caret {
-                    border-left: 1px solid #0d0d0d;
-                    border-right: 1px solid #0d0d0d;
-                    margin-left: -1px;
-                    margin-right: -1px;
-                    pointer-events: none;
-                    position: relative;
-                    word-break: normal;
-                }
-                
-                .collaboration-cursor__label {
-                    border-radius: 3px 3px 3px 0;
-                    color: #fff;
-                    font-size: 12px;
-                    font-style: normal;
-                    font-weight: 600;
-                    left: -1px;
-                    line-height: normal;
-                    padding: 0.1rem 0.3rem;
-                    position: absolute;
-                    top: -1.4em;
-                    user-select: none;
-                    white-space: nowrap;
-                }
-            `}</style>
         </div>
-    );
+    )
 }

@@ -48,6 +48,7 @@ function useEscapeToClose(onClose: () => void) {
    storage to hook into yet, so it's a styled no-op for now.
 ========================= */
 
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchDocumentVersionsApi, createDocumentVersionApi, restoreDocumentVersionApi, type DocumentVersion } from "../services/projectApi";
 
@@ -59,9 +60,10 @@ interface DocumentDetailModalProps {
 
 export function DocumentDetailModal({ document: doc, onClose }: DocumentDetailModalProps) {
     useEscapeToClose(onClose);
+    const navigate = useNavigate();
     const { userFullName, userInitials, user } = useAuth();
-    const [isEditing, setIsEditing] = useState(false);
-    
+    const [isEditing, setIsEditing] = useState(true);
+
     // Versioning state
     const [showVersions, setShowVersions] = useState(false);
     const [versions, setVersions] = useState<DocumentVersion[]>([]);
@@ -204,7 +206,7 @@ export function DocumentDetailModal({ document: doc, onClose }: DocumentDetailMo
                         )}
 
                         {isEditing && !viewingVersion ? (
-                            <RichTextEditor 
+                            <RichTextEditor
                                 documentId={doc.id}
                                 currentUser={{ id: user?.id || "unknown", name: userFullName || "Guest", initials: userInitials || "G" }}
                                 isReadonly={false}
@@ -216,7 +218,7 @@ export function DocumentDetailModal({ document: doc, onClose }: DocumentDetailMo
                                     For simplicity, let's assume `doc.content` is somewhat synced, or we just render the live editor in readonly mode for now.
                                     Let's render the collaborative editor in readonly mode if they are just viewing, but if they view a past version, they won't see it unless the backend pushes it.
                                     Since we want true real-time, let's just make the document ALWAYS collaborative, and remove the "Edit" button entirely! */}
-                                <RichTextEditor 
+                                <RichTextEditor
                                     documentId={doc.id}
                                     currentUser={{ id: user?.id || "unknown", name: userFullName || "Guest", initials: userInitials || "G" }}
                                     isReadonly={!!viewingVersion}
@@ -237,13 +239,23 @@ export function DocumentDetailModal({ document: doc, onClose }: DocumentDetailMo
                         <button type="button" className="modal-cancel" onClick={onClose}>
                             Close
                         </button>
-                        {isEditing && (
-                            <button type="button" className="modal-save" onClick={() => {
-                                setIsEditing(false);
-                            }}>
-                                Stop Editing
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            className="modal-save"
+                            style={{
+                                background: "#1a73e8",
+                                color: "#ffffff",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                            }}
+                            onClick={() => {
+                                onClose();
+                                navigate(`/documents/${doc.id}`);
+                            }}
+                        >
+                            Open in Full Google Docs
+                        </button>
                     </div>
                 </div>
             </div>
@@ -313,7 +325,7 @@ export function AddDocumentModal({
     const [size, setSize] = useState(initialFile ? formatDocSize(initialFile.size) : "");
     const [content, setContent] = useState<string>("");
     const [isDragging, setIsDragging] = useState(false);
-    
+
     // Project selection
     const [projects, setProjects] = useState<MappedProject[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<string>(defaultProjectId || "");
@@ -651,4 +663,4 @@ export function AddDocumentModal({
             </div>
         </div>
     );
-}
+}

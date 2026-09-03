@@ -34,7 +34,21 @@ export const requireOrganizationAccess = async (req: Request, res: Response, nex
         });
 
         if (!member) {
-            res.status(403).json({ success: false, error: "Forbidden: You do not have access to this organization" });
+            const wsMember = await prisma.workspaceMember.findFirst({
+                where: {
+                    userId: req.user.id,
+                    workspace: { organizationId: orgId },
+                },
+            });
+
+            if (!wsMember) {
+                res.status(403).json({ success: false, error: "Forbidden: You do not have access to this organization" });
+                return;
+            }
+
+            req.organization = org;
+            req.orgRole = "MEMBER";
+            next();
             return;
         }
 
@@ -212,7 +226,7 @@ export const requireTaskAccess = async (req: Request, res: Response, next: NextF
  */
 export const requireDocumentAccess = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const id = req.params.id;
+        const id = req.params.id || req.params.documentId;
         const doc = await prisma.document.findUnique({ where: { id }, select: { projectId: true } });
         if (!doc) {
             res.status(404).json({ success: false, error: "Document not found" });
@@ -220,8 +234,9 @@ export const requireDocumentAccess = async (req: Request, res: Response, next: N
         }
         req.params.projectId = doc.projectId;
         return requireProjectAccess(req, res, next);
-    } catch (error) {
-        res.status(500).json({ success: false, error: "Authorization error" });
+    } catch (error: any) {
+        console.error("requireDocumentAccess error:", error?.message || error);
+        res.status(500).json({ success: false, error: error?.message || "Authorization error" });
     }
 };
 

@@ -15,6 +15,7 @@ import Projects from "./pages/Projects";
 import ProjectWorkspace from "./pages/ProjectWorkspace";
 import MyTasks from "./pages/MyTasks";
 import Documents from "./pages/Documents";
+import GoogleDocPage from "./pages/GoogleDocPage";
 import Files from "./pages/Files";
 import Messages from "./pages/Messages";
 import ActivityLog from "./pages/ActivityLog";
@@ -55,6 +56,8 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/projects/:id" element={<ProjectWorkspace />} />
             <Route path="/my-tasks" element={<MyTasks />} />
             <Route path="/documents" element={<Documents />} />
+            <Route path="/documents/:id" element={<GoogleDocPage />} />
+            <Route path="/projects/:projectId/documents/:id" element={<GoogleDocPage />} />
             <Route path="/files" element={<Files />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/activity-log" element={<ActivityLog />} />

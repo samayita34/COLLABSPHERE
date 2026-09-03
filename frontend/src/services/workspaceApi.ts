@@ -12,6 +12,13 @@ export interface Workspace {
     description: string;
     createdAt: string;
     updatedAt: string;
+    organization?: {
+        id: string;
+        name: string;
+        slug: string;
+        [key: string]: any;
+    };
+    role?: string;
 }
 
 export interface WorkspaceOverviewData {
@@ -144,11 +151,28 @@ export async function fetchWorkspaceOverviewApi(workspaceId: string): Promise<Wo
 }
 
 /**
- * GET /api/workspaces/org/:orgId
- * Fetch workspaces for a specific organization.
+ * GET /api/workspaces/org/:orgId or GET /api/workspaces
+ * Fetch workspaces for a specific organization or all accessible workspaces.
  */
-export async function fetchWorkspaces(orgId: string): Promise<Workspace[]> {
-    const res = await fetch(`${API_BASE_URL}/workspaces/org/${orgId}`, { credentials: "include" });
+export async function fetchWorkspaces(orgId?: string): Promise<Workspace[]> {
+    const url = orgId ? `${API_BASE_URL}/workspaces/org/${orgId}` : `${API_BASE_URL}/workspaces`;
+    const res = await fetch(url, { credentials: "include" });
+    if (!res.ok) {
+        throw new Error(`Failed to fetch workspaces (HTTP ${res.status})`);
+    }
+    const json = await res.json();
+    if (!json.success || !Array.isArray(json.workspaces)) {
+        throw new Error(json.error || "Invalid response format from workspaces API");
+    }
+    return json.workspaces;
+}
+
+/**
+ * GET /api/workspaces
+ * Fetch all workspaces the authenticated user belongs to via WorkspaceMember.
+ */
+export async function fetchUserWorkspaces(): Promise<Workspace[]> {
+    const res = await fetch(`${API_BASE_URL}/workspaces`, { credentials: "include" });
     if (!res.ok) {
         throw new Error(`Failed to fetch workspaces (HTTP ${res.status})`);
     }

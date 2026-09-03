@@ -25,10 +25,10 @@ import { csrfProtection } from "./middleware/csrf";
 import { requireProjectAccess, requireTaskAccess, requireDocumentAccess, requireFileAccess, requirePermission } from "./middleware/rbac";
 import { Permission } from "./lib/permissions";
 import { getMyTasks, updateTask, deleteTask } from "./controllers/taskController";
-import { getDocumentsByWorkspace, updateDocument, deleteDocument } from "./controllers/documentController";
+import { getDocumentsByWorkspace, getDocumentById, updateDocument, deleteDocument } from "./controllers/documentController";
 import { deleteFile } from "./controllers/fileController";
 import { connectRedis } from "./lib/redis";
-import { checkAndSendDueDateReminders } from "./services/notificationService";
+import { checkAndSendDueDateReminders, checkAndSendOverdueAlerts } from "./services/notificationService";
 import { initSocket } from "./lib/socket";
 import { initCollaborationServer } from "./collaborationServer";
 
@@ -126,6 +126,7 @@ app.patch("/api/tasks/:id", authenticate, requireTaskAccess, requirePermission(P
 app.delete("/api/tasks/:id", authenticate, requireTaskAccess, requirePermission(Permission.DELETE_TASK), deleteTask);
 
 app.get("/api/documents", authenticate, getDocumentsByWorkspace);
+app.get("/api/documents/:id", authenticate, requireDocumentAccess, getDocumentById);
 app.use("/api/documents/:documentId/versions", authenticate, requireDocumentAccess, documentVersionRoutes);
 app.patch("/api/documents/:id", authenticate, requireDocumentAccess, requirePermission(Permission.EDIT_DOCUMENT), updateDocument);
 app.delete("/api/documents/:id", authenticate, requireDocumentAccess, requirePermission(Permission.DELETE_DOCUMENT), deleteDocument);
@@ -139,10 +140,12 @@ initCollaborationServer(server);
 server.listen(PORT, () => {
     console.log(`COLLABSPHERE backend running on http://localhost:${PORT}`);
     
-    // Initial check and hourly due-date reminder interval
+    // Initial check and hourly due-date & overdue reminder interval
     checkAndSendDueDateReminders();
+    checkAndSendOverdueAlerts();
     setInterval(() => {
         checkAndSendDueDateReminders();
+        checkAndSendOverdueAlerts();
     }, 60 * 60 * 1000);
 });
 

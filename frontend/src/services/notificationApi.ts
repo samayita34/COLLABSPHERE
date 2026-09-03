@@ -1,10 +1,28 @@
 const API_BASE = "/api";
 
+export type NotificationType =
+    | "TASK_ASSIGNED"
+    | "TASK_UPDATED"
+    | "TASK_STATUS_CHANGED"
+    | "TASK_OVERDUE"
+    | "TASK_PRIORITY_CHANGED"
+    | "TASK_COMMENT"
+    | "TASK_MENTION"
+    | "MENTION"
+    | "DOCUMENT_EDITED"
+    | "FILE_UPLOADED"
+    | "CHAT_MESSAGE"
+    | "WORKSPACE_INVITATION"
+    | "PROJECT_MEMBER_ADDED"
+    | "PROJECT_MEMBER_REMOVED"
+    | "SUBTASK_COMPLETED"
+    | "DUE_DATE_REMINDER";
+
 export interface NotificationItem {
     id: string;
     userId: string;
     workspaceId?: string;
-    type: "TASK_ASSIGNED" | "TASK_UPDATED" | "MENTION" | "DOCUMENT_EDITED" | "FILE_UPLOADED" | "CHAT_MESSAGE" | "WORKSPACE_INVITATION" | "DUE_DATE_REMINDER";
+    type: NotificationType;
     title: string;
     message: string;
     link?: string;

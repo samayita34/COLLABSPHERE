@@ -316,3 +316,61 @@ export const getDocumentsByWorkspace = async (req: Request, res: Response): Prom
     }
 };
 
+/**
+ * GET /api/documents/:id
+ * Fetch a single document by ID with project and member details.
+ */
+export const getDocumentById = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const document = await prisma.document.findUnique({
+            where: { id },
+            include: {
+                project: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                        workspaceId: true,
+                        members: {
+                            select: {
+                                userId: true,
+                                role: true,
+                                user: {
+                                    select: {
+                                        id: true,
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                        avatar: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!document) {
+            res.status(404).json({ success: false, error: "Document not found" });
+            return;
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                ...formatDocument(document),
+                project: document.project,
+            },
+        });
+    } catch (error: any) {
+        console.error("Error fetching document by ID:", error?.message || error);
+        res.status(500).json({
+            success: false,
+            error: error?.message || "Failed to fetch document",
+        });
+    }
+};
+
+

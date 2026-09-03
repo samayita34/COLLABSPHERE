@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
+import { createAndSendNotification } from "../services/notificationService";
+import { NotificationType } from "../../generated/prisma/enums";
 
 export const addLabelToTask = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -112,6 +114,22 @@ export const updateChecklistItem = async (req: Request, res: Response): Promise<
             where: { id: itemId },
             data: { isCompleted }
         });
+
+        // Trigger Notification: Subtask Completed
+        if (isCompleted && !itemToUpdate.isCompleted) {
+            const task = itemToUpdate.checklist.task;
+            if (task.assigneeId && task.assigneeId !== req.user!.id) {
+                createAndSendNotification({
+                    userId: task.assigneeId,
+                    projectId,
+                    taskId: task.id,
+                    type: NotificationType.SUBTASK_COMPLETED,
+                    title: "Subtask Completed",
+                    message: `Checklist item "${itemToUpdate.content}" in task "${task.title}" was completed by ${req.user!.firstName || "a team member"}`,
+                    link: `/projects/${projectId}`,
+                }).catch((err) => console.error("Notification error:", err));
+            }
+        }
 
         res.status(200).json({ success: true, data: item });
     } catch (error: any) {

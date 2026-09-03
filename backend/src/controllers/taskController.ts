@@ -522,14 +522,35 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
         // Trigger Notifications
         if (updated.assigneeId && updated.assigneeId !== req.user?.id) {
             const isNewAssignee = existingTask && existingTask.assigneeId !== updated.assigneeId;
+            const statusChanged = columnId !== undefined && existingTask?.columnId !== updated.columnId;
+            const priorityChanged = priority !== undefined && existingTask?.priority !== updated.priority;
+
+            let notifType: NotificationType = NotificationType.TASK_UPDATED;
+            let notifTitle = "Task Updated";
+            let notifMessage = `Task "${updated.title}" was updated`;
+
+            if (isNewAssignee) {
+                notifType = NotificationType.TASK_ASSIGNED;
+                notifTitle = "Task Assigned";
+                notifMessage = `You were assigned to task "${updated.title}"`;
+            } else if (statusChanged) {
+                notifType = NotificationType.TASK_STATUS_CHANGED;
+                notifTitle = "Task Status Changed";
+                notifMessage = `Task "${updated.title}" moved to a new column`;
+            } else if (priorityChanged) {
+                notifType = NotificationType.TASK_PRIORITY_CHANGED;
+                notifTitle = "Task Priority Changed";
+                notifMessage = `Task "${updated.title}" priority updated to ${updated.priority}`;
+            }
+
             createAndSendNotification({
                 userId: updated.assigneeId,
                 workspaceId: req.workspace?.id,
-                type: isNewAssignee ? NotificationType.TASK_ASSIGNED : NotificationType.TASK_UPDATED,
-                title: isNewAssignee ? "Task Assigned" : "Task Updated",
-                message: isNewAssignee
-                    ? `You were assigned to task "${updated.title}"`
-                    : `Task "${updated.title}" was updated`,
+                projectId: updated.projectId,
+                taskId: updated.id,
+                type: notifType,
+                title: notifTitle,
+                message: notifMessage,
                 link: `/projects/${updated.projectId}`,
             }).catch((err) => console.error("Notification error:", err));
         }

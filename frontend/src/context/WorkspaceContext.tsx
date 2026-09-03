@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { fetchOrganizations, type Organization } from "../services/orgApi";
-import { fetchWorkspaces, type Workspace } from "../services/workspaceApi";
+import { fetchWorkspaces, fetchUserWorkspaces, type Workspace } from "../services/workspaceApi";
 import { useAuth } from "./AuthContext";
 
 interface WorkspaceContextValue {
@@ -37,61 +37,107 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     try {
       setLoading(true);
-      const orgs = await fetchOrganizations();
-      setOrganizations(orgs);
+      setError(null);
 
+      // 1. Fetch user's workspaces directly based on WorkspaceMember
+      const userWorkspaces = await fetchUserWorkspaces().catch((err) => {
+        console.error("Failed to fetch user workspaces", err);
+        return [] as Workspace[];
+      });
+
+      // 2. Also fetch organizations
+      let orgs: Organization[] = [];
+      try {
+        orgs = await fetchOrganizations();
+      } catch (err) {
+        console.error("Failed to fetch organizations", err);
+      }
+
+      // 3. Merge any organizations attached to user workspaces
+      const orgMap = new Map<string, Organization>();
+      for (const org of orgs) {
+        orgMap.set(org.id, org);
+      }
+      for (const ws of userWorkspaces) {
+        const wsOrg = ws.organization;
+        if (wsOrg && !orgMap.has(wsOrg.id)) {
+          orgMap.set(wsOrg.id, wsOrg as Organization);
+        } else if (ws.organizationId && !orgMap.has(ws.organizationId)) {
+          orgMap.set(ws.organizationId, {
+            id: ws.organizationId,
+            name: "Organization",
+            slug: "organization",
+            createdAt: ws.createdAt,
+            updatedAt: ws.updatedAt,
+          });
+        }
+      }
+
+      const combinedOrgs = Array.from(orgMap.values());
+      setOrganizations(combinedOrgs);
+
+      // 4. Map user workspaces by organizationId
       const workspacesMap: Record<string, Workspace[]> = {};
-      let firstWorkspace: Workspace | null = null;
-      let matchingOrg: Organization | null = null;
+      for (const org of combinedOrgs) {
+        workspacesMap[org.id] = userWorkspaces.filter((w) => w.organizationId === org.id);
+      }
 
-      // Fetch workspaces for all organizations
+      // If any organization had no userWorkspaces fetched yet, try fetchWorkspaces(org.id)
       await Promise.all(
-        orgs.map(async (org) => {
-          try {
-            const wsList = await fetchWorkspaces(org.id);
-            workspacesMap[org.id] = wsList;
-            if (!firstWorkspace && wsList.length > 0) {
-              firstWorkspace = wsList[0];
-              matchingOrg = org;
+        combinedOrgs.map(async (org) => {
+          if (!workspacesMap[org.id] || workspacesMap[org.id].length === 0) {
+            try {
+              const wsList = await fetchWorkspaces(org.id);
+              if (wsList && wsList.length > 0) {
+                workspacesMap[org.id] = wsList;
+              }
+            } catch {
+              // Ignore if no extra workspaces found
             }
-          } catch (err) {
-            console.error(`Failed to fetch workspaces for org ${org.id}`, err);
-            workspacesMap[org.id] = [];
           }
         })
       );
 
       setWorkspaces(workspacesMap);
 
-      // Restore from localStorage or pick the first available workspace
+      // 5. Flatten and deduplicate all accessible workspaces
+      const allAccessibleWorkspaces: Workspace[] = [];
+      for (const orgId in workspacesMap) {
+        allAccessibleWorkspaces.push(...workspacesMap[orgId]);
+      }
+      const uniqueWorkspaces = Array.from(
+        new Map(allAccessibleWorkspaces.map((w) => [w.id, w])).values()
+      );
+
+      // 6. Current workspace selection & localStorage resolution
       const savedWorkspaceId = localStorage.getItem("activeWorkspaceId");
       let restoredWorkspace: Workspace | null = null;
       let restoredOrg: Organization | null = null;
 
       if (savedWorkspaceId) {
-        for (const org of orgs) {
-          const orgWorkspaces = workspacesMap[org.id] as Workspace[] | undefined;
-          if (!orgWorkspaces) continue;
-          
-          const ws = orgWorkspaces.find((w: Workspace) => w.id === savedWorkspaceId);
-          if (ws) {
-            restoredWorkspace = ws;
-            restoredOrg = org;
-            break;
-          }
+        restoredWorkspace = uniqueWorkspaces.find((w) => w.id === savedWorkspaceId) || null;
+        if (restoredWorkspace) {
+          restoredOrg =
+            combinedOrgs.find((o) => o.id === restoredWorkspace!.organizationId) ||
+            (restoredWorkspace.organization ? (restoredWorkspace.organization as Organization) : null);
         }
       }
 
       if (restoredWorkspace && restoredOrg) {
         setActiveWorkspace(restoredWorkspace);
         setActiveOrganization(restoredOrg);
-      } else if (firstWorkspace && matchingOrg) {
+      } else if (uniqueWorkspaces.length > 0) {
+        const firstWorkspace = uniqueWorkspaces[0];
+        const matchingOrg =
+          combinedOrgs.find((o) => o.id === firstWorkspace.organizationId) ||
+          (firstWorkspace.organization ? (firstWorkspace.organization as Organization) : null);
         setActiveWorkspace(firstWorkspace);
         setActiveOrganization(matchingOrg);
-        localStorage.setItem("activeWorkspaceId", firstWorkspace!.id);
+        localStorage.setItem("activeWorkspaceId", firstWorkspace.id);
       } else {
         setActiveWorkspace(null);
         setActiveOrganization(null);
+        localStorage.removeItem("activeWorkspaceId");
       }
     } catch (err: any) {
       console.error("Failed to load workspace context", err);

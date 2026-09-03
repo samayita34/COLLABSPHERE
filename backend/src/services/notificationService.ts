@@ -144,3 +144,61 @@ export const checkAndSendDueDateReminders = async () => {
         console.error("[NotificationService] Error checking due date reminders:", error);
     }
 };
+
+/**
+ * Periodically checks overdue tasks and sends alert notifications.
+ */
+export const checkAndSendOverdueAlerts = async () => {
+    try {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        // Find overdue tasks that are not completed
+        const overdueTasks = await prisma.task.findMany({
+            where: {
+                dueDate: {
+                    lt: now,
+                },
+                assigneeId: { not: null },
+                OR: [
+                    { columnId: null },
+                    { column: { name: { notIn: ["Done", "Completed", "Finished", "Resolved", "done", "completed", "finished", "resolved"] } } }
+                ]
+            },
+            include: {
+                project: { select: { id: true, name: true, workspaceId: true } },
+            },
+        });
+
+        for (const task of overdueTasks) {
+            if (!task.assigneeId) continue;
+
+            // Check if overdue alert was already sent today for this task
+            const existing = await prisma.notification.findFirst({
+                where: {
+                    userId: task.assigneeId,
+                    taskId: task.id,
+                    type: NotificationType.TASK_OVERDUE,
+                    createdAt: { gte: startOfDay },
+                },
+            });
+
+            if (!existing) {
+                await createAndSendNotification({
+                    userId: task.assigneeId,
+                    workspaceId: task.project.workspaceId,
+                    projectId: task.projectId,
+                    taskId: task.id,
+                    type: NotificationType.TASK_OVERDUE,
+                    title: "Overdue Task Alert",
+                    message: `Task "${task.title}" in ${task.project.name} is overdue!`,
+                    link: `/projects/${task.projectId}`,
+                    sendEmailNotification: true,
+                });
+            }
+        }
+    } catch (error) {
+        console.error("[NotificationService] Error checking overdue task alerts:", error);
+    }
+};
+

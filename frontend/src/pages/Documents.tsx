@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchWorkspaceDocuments } from "../services/workspaceApi";
 import { updateDocumentApi, createDocumentApi, deleteDocumentApi, type WorkspaceDocument } from "../services/projectApi";
@@ -18,6 +19,7 @@ const DOC_TYPE_FILTERS: { key: "all" | "DOC" | "PDF" | "XLS" | "PPT"; label: str
 ];
 
 export default function Documents() {
+    const navigate = useNavigate();
     const { activeWorkspace } = useWorkspace();
     
     const [documents, setDocuments] = useState<WorkspaceDocument[]>([]);
@@ -285,7 +287,7 @@ export default function Documents() {
                                         <div
                                             className="doc-card"
                                             key={d.id}
-                                            onClick={() => setDetailDoc(d)}
+                                            onClick={() => navigate(`/documents/${d.id}`)}
                                             style={{ position: "relative", cursor: "pointer" }}
                                         >
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>

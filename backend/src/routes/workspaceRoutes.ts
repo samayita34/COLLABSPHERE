@@ -2,6 +2,7 @@ import { Router } from "express";
 import { 
     createWorkspace, 
     listWorkspacesForOrg, 
+    getUserWorkspaces,
     getWorkspace, 
     getWorkspaceOverview,
     updateWorkspace, 
@@ -26,6 +27,9 @@ router.use(authenticate);
 // Organization-level operations (workspace creation/listing)
 router.post("/", requireOrganizationAccess, requirePermission(Permission.MANAGE_WORKSPACE), createWorkspace);
 router.get("/org/:orgId", requireOrganizationAccess, listWorkspacesForOrg);
+
+// Current user's workspaces based on WorkspaceMember
+router.get("/", getUserWorkspaces);
 
 // Workspace-level operations
 router.get("/:id", requireWorkspaceAccess, getWorkspace);

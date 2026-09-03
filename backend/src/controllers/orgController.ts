@@ -51,9 +51,10 @@ export const listOrganizations = async (req: Request, res: Response): Promise<vo
 
         const orgs = await prisma.organization.findMany({
             where: {
-                members: {
-                    some: { userId },
-                },
+                OR: [
+                    { members: { some: { userId } } },
+                    { workspaces: { some: { members: { some: { userId } } } } },
+                ],
             },
             include: {
                 members: {
@@ -81,7 +82,10 @@ export const getOrganization = async (req: Request, res: Response): Promise<void
         const org = await prisma.organization.findFirst({
             where: {
                 id,
-                members: { some: { userId } },
+                OR: [
+                    { members: { some: { userId } } },
+                    { workspaces: { some: { members: { some: { userId } } } } },
+                ],
             },
             include: {
                 members: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } } },

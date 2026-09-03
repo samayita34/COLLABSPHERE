@@ -40,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (err) {
             console.error("Logout error:", err);
         } finally {
+            localStorage.removeItem("activeWorkspaceId");
             setUser(null);
             navigate("/", { replace: true });
         }

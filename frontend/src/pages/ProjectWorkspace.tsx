@@ -1220,7 +1220,7 @@ export default function ProjectWorkspace() {
                                         <div
                                             className="tw-doc-card"
                                             key={d.id}
-                                            onClick={() => setDetailDoc(d)}
+                                            onClick={() => navigate(`/documents/${d.id}`)}
                                         >
                                             <div className="tw-doc-icon">
                                                 <span>
@@ -1255,6 +1255,7 @@ export default function ProjectWorkspace() {
                     {activeTab === "Chat" && (
                         <div className="tab-pane">
                             <ProjectChat
+                                projectId={project.id}
                                 messages={messages}
                                 members={members}
                                 onSend={handleSendMessage}

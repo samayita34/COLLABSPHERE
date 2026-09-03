@@ -42,6 +42,43 @@ class SocketService {
       this.socket.emit("leaveProject", projectId);
     }
   }
+
+  joinChannel(channelId: string) {
+    if (this.socket) {
+      this.socket.emit("join_channel", channelId);
+    }
+  }
+
+  leaveChannel(channelId: string) {
+    if (this.socket) {
+      this.socket.emit("leave_channel", channelId);
+    }
+  }
+
+  joinUser(userId: string) {
+    if (this.socket) {
+      this.socket.emit("joinUser", userId);
+    }
+  }
+
+  leaveUser(userId: string) {
+    if (this.socket) {
+      this.socket.emit("leaveUser", userId);
+    }
+  }
+
+  emitTyping(channelId: string, userId: string, userName: string, isTyping: boolean) {
+    if (this.socket) {
+      const event = isTyping ? "typing_start" : "typing_end";
+      this.socket.emit(event, { channelId, userId, userName });
+    }
+  }
+
+  emitMarkRead(channelId: string, userId: string) {
+    if (this.socket) {
+      this.socket.emit("mark_read", { channelId, userId, readAt: new Date().toISOString() });
+    }
+  }
 }
 
 export const socketService = new SocketService();

@@ -132,12 +132,13 @@ export const addMember = async (req: Request, res: Response): Promise<void> => {
             include: { user: { select: safeUserSelect } },
         });
 
-        // Trigger Notification: Workspace / Project Invitation
+        // Trigger Notification: Project Member Added
         createAndSendNotification({
             userId: user.id,
             workspaceId: req.workspace?.id,
-            type: NotificationType.WORKSPACE_INVITATION,
-            title: "Project Invitation",
+            projectId: projectId as string,
+            type: NotificationType.PROJECT_MEMBER_ADDED,
+            title: "Added to Project",
             message: `You were added to project "${project.name}" as ${member.role}`,
             link: `/projects/${projectId}`,
         }).catch((err) => console.error("Notification error:", err));
@@ -203,6 +204,19 @@ export const removeMember = async (req: Request, res: Response): Promise<void> =
         }
 
         await prisma.projectMember.delete({ where: { id: memberId as string } });
+
+        // Trigger Notification: Project Member Removed
+        if (member.userId !== req.user?.id) {
+            createAndSendNotification({
+                userId: member.userId,
+                workspaceId: req.workspace?.id,
+                projectId: (Array.isArray(projectId) ? projectId[0] : projectId) as string,
+                type: NotificationType.PROJECT_MEMBER_REMOVED,
+                title: "Removed from Project",
+                message: `You were removed from project "${project.name}"`,
+                link: `/projects`,
+            }).catch((err) => console.error("Notification error:", err));
+        }
 
         // Audit Log: MEMBER_REMOVED
         logAuditAction({

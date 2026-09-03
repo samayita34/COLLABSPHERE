@@ -629,6 +629,54 @@ export async function fetchDocuments(projectId: string): Promise<ProjectDocument
     return json.data.map(mapApiDocumentToFrontend);
 }
 
+export interface DocumentWithProject extends ProjectDocument {
+    projectId?: string;
+    projectName?: string;
+    projectCode?: string;
+    project?: {
+        id: string;
+        name: string;
+        code?: string;
+        workspaceId?: string;
+        members?: Array<{
+            userId: string;
+            role: string;
+            user: {
+                id: string;
+                firstName?: string;
+                lastName?: string;
+                name?: string;
+                email: string;
+                avatar?: string | null;
+            };
+        }>;
+    };
+}
+
+/**
+ * GET /api/documents/:id
+ * Fetch a single document by ID with project and member details.
+ */
+export async function fetchDocumentByIdApi(documentId: string): Promise<DocumentWithProject> {
+    const res = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(documentId)}`, {
+        credentials: "include",
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Failed to fetch document (HTTP ${res.status})`);
+    }
+    const json = await res.json();
+    const mapped = mapApiDocumentToFrontend(json.data);
+    return {
+        ...mapped,
+        projectId: json.data.projectId,
+        projectName: json.data.project?.name,
+        projectCode: json.data.project?.code,
+        project: json.data.project,
+    };
+}
+
+
 /**
  * POST /api/projects/:projectId/documents
  * Create a new document in a project.

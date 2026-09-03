@@ -133,14 +133,30 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
             case "TASK_ASSIGNED":
             case "TASK_UPDATED":
                 return "📋";
+            case "TASK_STATUS_CHANGED":
+                return "🔄";
+            case "TASK_OVERDUE":
+                return "⚠️";
+            case "TASK_PRIORITY_CHANGED":
+                return "🔥";
+            case "SUBTASK_COMPLETED":
+                return "✅";
+            case "TASK_COMMENT":
+                return "💬";
+            case "TASK_MENTION":
+            case "MENTION":
+                return "@";
             case "DOCUMENT_EDITED":
                 return "📄";
             case "FILE_UPLOADED":
                 return "📁";
-            case "MENTION":
-                return "@";
             case "WORKSPACE_INVITATION":
+            case "PROJECT_MEMBER_ADDED":
                 return "👋";
+            case "PROJECT_MEMBER_REMOVED":
+                return "🚪";
+            case "DUE_DATE_REMINDER":
+                return "⏰";
             default:
                 return "🔔";
         }
