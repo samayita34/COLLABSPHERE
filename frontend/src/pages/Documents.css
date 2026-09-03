@@ -1,0 +1,267 @@
+/* ==========================================================================
+   CollabSphere - Documents Page Styles
+   Light theme matching CollabSphere design system & typography
+   ========================================================================== */
+
+/* ----------------- Documents Grid & Layout ----------------- */
+.documents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 18px;
+    margin-top: 16px;
+}
+
+/* ----------------- Document Card ----------------- */
+.doc-card {
+    background: #ffffff;
+    border: 1px solid #e7e3d8;
+    border-radius: 10px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.doc-card:hover {
+    border-color: #232a3d;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
+    transform: translateY(-2px);
+}
+
+.doc-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+/* ----------------- Doc Type Badges ----------------- */
+.doc-type-badge {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.04em;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.doc-type-badge.DOC,
+.doc-type-badge.doc {
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #e0e7ff;
+}
+
+.doc-type-badge.PDF,
+.doc-type-badge.pdf {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fee2e2;
+}
+
+.doc-type-badge.XLS,
+.doc-type-badge.xls,
+.doc-type-badge.CSV,
+.doc-type-badge.csv {
+    background: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #dcfce7;
+}
+
+.doc-type-badge.PPT,
+.doc-type-badge.ppt {
+    background: #fff7ed;
+    color: #ea580c;
+    border: 1px solid #ffedd5;
+}
+
+/* Delete button on card */
+.doc-delete-btn {
+    border: none;
+    background: transparent;
+    color: #9a968a;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    opacity: 0.7;
+}
+
+.doc-card:hover .doc-delete-btn {
+    opacity: 1;
+}
+
+.doc-delete-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* ----------------- Document Card Info ----------------- */
+.doc-card-content {
+    flex: 1;
+    margin-bottom: 14px;
+}
+
+.doc-card h3 {
+    margin: 0 0 6px 0;
+    font-family: "Fraunces", serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: #14161c;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.doc-desc {
+    margin: 0 0 10px 0;
+    font-size: 12.5px;
+    color: #64748b;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.doc-project-tag {
+    font-size: 11.5px;
+    color: #4f46e5;
+    background: #f0ede4;
+    padding: 2px 8px;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    border: 1px solid #e7e3d8;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ----------------- Document Metadata Footer ----------------- */
+.doc-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid #f4f2ea;
+    font-size: 11.5px;
+    color: #737c8a;
+    gap: 8px;
+}
+
+.doc-meta-owner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.doc-meta-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #232a3d;
+    color: #f4f2ea;
+    font-size: 9px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.doc-meta-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.doc-size-badge {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    background: #f0ede4;
+    color: #64748b;
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+.doc-time-badge {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    color: #9a968a;
+}
+
+/* ----------------- Filter Chips Bar ----------------- */
+.doc-filter-pills {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.doc-filter-pill {
+    background: #ffffff;
+    border: 1px solid #e7e3d8;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.doc-filter-pill:hover {
+    background: #fcfbf8;
+    color: #14161c;
+    border-color: #c9c4b4;
+}
+
+.doc-filter-pill.active {
+    background: #232a3d;
+    color: #f4f2ea;
+    border-color: #232a3d;
+}
+
+.doc-filter-pill-count {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 8px;
+    background: #f0ede4;
+    color: #737c8a;
+}
+
+.doc-filter-pill.active .doc-filter-pill-count {
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+
+/* ----------------- Responsive ----------------- */
+@media (max-width: 768px) {
+    .documents-grid {
+        grid-template-columns: 1fr;
+    }
+}

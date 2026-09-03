@@ -6,16 +6,17 @@ import { updateDocumentApi, createDocumentApi, deleteDocumentApi, type Workspace
 import { AppSidebar } from "../components/AppSidebar";
 import { AppTopbar } from "../components/AppTopbar";
 import { DocumentDetailModal, AddDocumentModal, type ProjectDocument } from "./DocumentModal";
-import { Plus, UploadCloud, Trash2, FileText } from "lucide-react";
+import { Plus, UploadCloud, Trash2, FileText, Folder } from "lucide-react";
 import "./Projects.css";
 import "./ProjectWorkspace.css";
+import "./Documents.css";
 
 const DOC_TYPE_FILTERS: { key: "all" | "DOC" | "PDF" | "XLS" | "PPT"; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "DOC", label: "Documents" },
+    { key: "all", label: "All Documents" },
+    { key: "DOC", label: "Docs" },
     { key: "PDF", label: "PDFs" },
-    { key: "XLS", label: "Spreadsheets" },
-    { key: "PPT", label: "Presentations" },
+    { key: "XLS", label: "Sheets" },
+    { key: "PPT", label: "Slides" },
 ];
 
 export default function Documents() {
@@ -140,17 +141,37 @@ export default function Documents() {
     };
 
     const filteredDocs = documents.filter((d) => {
-        const typeMatch = docFilter === "all" || d.type === docFilter;
+        const typeMatch = docFilter === "all" || d.type.toUpperCase() === docFilter.toUpperCase();
         const q = docSearch.trim().toLowerCase();
         const searchMatch =
             !q ||
             d.name.toLowerCase().includes(q) ||
-            d.description.toLowerCase().includes(q) ||
-            d.owner.toLowerCase().includes(q) ||
+            (d.description && d.description.toLowerCase().includes(q)) ||
+            (d.owner && d.owner.toLowerCase().includes(q)) ||
             (d.projectName && d.projectName.toLowerCase().includes(q)) ||
             (d.projectCode && d.projectCode.toLowerCase().includes(q));
         return typeMatch && searchMatch;
     });
+
+    const getOwnerInitials = (ownerName?: string) => {
+        if (!ownerName) return "MB";
+        const parts = ownerName.trim().split(" ");
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return ownerName.slice(0, 2).toUpperCase();
+    };
+
+    const formatRelativeDate = (dateStr?: string) => {
+        if (!dateStr) return "";
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
+            return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        } catch {
+            return dateStr;
+        }
+    };
 
     return (
         <div
@@ -187,16 +208,16 @@ export default function Documents() {
             <main className="projects-main">
                 <AppTopbar 
                     pageTitle="Documents" 
-                    searchPlaceholder="Search documents..."
+                    searchPlaceholder="Search documents by name, project, owner..."
                     searchValue={docSearch}
                     onSearchChange={setDocSearch}
                 />
 
                 <section className="content">
-                    <div className="page-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div className="page-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "20px" }}>
                         <div>
                             <h1>Documents</h1>
-                            <p>Global specifications, notes, PDFs, and requirements across all projects.</p>
+                            <p>Global specifications, briefs, PDFs, and requirements across all projects.</p>
                         </div>
 
                         <button
@@ -212,33 +233,35 @@ export default function Documents() {
                         </button>
                     </div>
 
-                    <div className="tab-pane" style={{ marginTop: "24px" }}>
-                        <div className="pane-toolbar">
-                            <div className="pane-title">
-                                <h2>All Documents ({filteredDocs.length})</h2>
+                    <div className="tab-pane" style={{ marginTop: "10px" }}>
+                        <div className="pane-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                            <div className="doc-filter-pills">
+                                {DOC_TYPE_FILTERS.map((f) => {
+                                    const count = f.key === "all" 
+                                        ? documents.length 
+                                        : documents.filter(d => d.type.toUpperCase() === f.key).length;
+                                    return (
+                                        <button
+                                            key={f.key}
+                                            className={`doc-filter-pill ${docFilter === f.key ? "active" : ""}`}
+                                            onClick={() => setDocFilter(f.key)}
+                                        >
+                                            {f.label}
+                                            <span className="doc-filter-pill-count">{count}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
 
-                            <div className="pane-actions">
-                                <div className="search">
+                            <div className="pane-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                <div className="search" style={{ width: "240px" }}>
                                     <span>⌕</span>
                                     <input
-                                        placeholder="Search documents..."
+                                        placeholder="Filter documents..."
                                         value={docSearch}
                                         onChange={(e) => setDocSearch(e.target.value)}
                                     />
                                 </div>
-
-                                <select
-                                    className="filter-select"
-                                    value={docFilter}
-                                    onChange={(e) => setDocFilter(e.target.value as any)}
-                                >
-                                    {DOC_TYPE_FILTERS.map((f) => (
-                                        <option key={f.key} value={f.key}>
-                                            {f.label}
-                                        </option>
-                                    ))}
-                                </select>
                             </div>
                         </div>
 
@@ -260,15 +283,17 @@ export default function Documents() {
                                             padding: "60px 20px",
                                             textAlign: "center",
                                             color: "#64748b",
-                                            background: "#f8fafc",
-                                            borderRadius: "12px",
-                                            border: "2px dashed #cbd5e1"
+                                            background: "#fcfbf8",
+                                            borderRadius: "10px",
+                                            border: "1px dashed #e7e3d8"
                                         }}
                                     >
-                                        <FileText size={48} color="#94a3b8" style={{ margin: "0 auto 12px" }} />
-                                        <h3 style={{ fontSize: "16px", color: "#1e293b", marginBottom: "4px" }}>No documents created yet</h3>
-                                        <p style={{ fontSize: "13px", color: "#64748b", marginBottom: "16px" }}>
-                                            Upload a local PDF, Word doc, Markdown, or spreadsheet, or start a new blank document.
+                                        <FileText size={44} color="#94a3b8" style={{ margin: "0 auto 12px" }} />
+                                        <h3 style={{ fontSize: "15px", color: "#14161c", marginBottom: "4px", fontWeight: 600 }}>No documents found</h3>
+                                        <p style={{ fontSize: "12.5px", color: "#64748b", marginBottom: "16px", maxWidth: "380px", margin: "0 auto 16px" }}>
+                                            {docSearch || docFilter !== "all" 
+                                                ? "Try adjusting your search query or document type filter." 
+                                                : "Upload a local PDF, Word doc, Markdown, or spreadsheet, or start a new document."}
                                         </p>
                                         <button
                                             className="new-project"
@@ -278,7 +303,7 @@ export default function Documents() {
                                             }}
                                             style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
                                         >
-                                            <UploadCloud size={16} />
+                                            <UploadCloud size={15} />
                                             <span>Upload Local Document</span>
                                         </button>
                                     </div>
@@ -288,42 +313,51 @@ export default function Documents() {
                                             className="doc-card"
                                             key={d.id}
                                             onClick={() => navigate(`/documents/${d.id}`)}
-                                            style={{ position: "relative", cursor: "pointer" }}
                                         >
-                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                                                <div className="doc-type-badge">{d.type}</div>
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => handleDeleteDocument(e, d)}
-                                                    style={{
-                                                        border: "none",
-                                                        background: "transparent",
-                                                        color: "#94a3b8",
-                                                        cursor: "pointer",
-                                                        padding: "4px",
-                                                        borderRadius: "4px",
-                                                        transition: "color 0.15s ease",
-                                                    }}
-                                                    title="Delete Document"
-                                                    onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
-                                                    onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
-                                                >
-                                                    <Trash2 size={15} />
-                                                </button>
+                                            <div>
+                                                <div className="doc-card-top">
+                                                    <span className={`doc-type-badge ${d.type}`}>
+                                                        {d.type.toUpperCase()}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        className="doc-delete-btn"
+                                                        onClick={(e) => handleDeleteDocument(e, d)}
+                                                        title="Delete Document"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+
+                                                <div className="doc-card-content">
+                                                    <h3>{d.name}</h3>
+                                                    <p className="doc-desc">{d.description || "No description provided."}</p>
+                                                    
+                                                    {d.projectName && (
+                                                        <div className="doc-project-tag" title={`Project: ${d.projectName}`}>
+                                                            <Folder size={12} />
+                                                            <span>{d.projectName} {d.projectCode ? `(${d.projectCode})` : ""}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
 
-                                            <h3>{d.name}</h3>
-                                            <p className="doc-desc">{d.description || "No description provided."}</p>
-                                            
-                                            {d.projectName && (
-                                                <div style={{ fontSize: "0.75rem", color: "#3b82f6", marginBottom: "8px", fontWeight: 500 }}>
-                                                    Project: {d.projectName} {d.projectCode && `(${d.projectCode})`}
-                                                </div>
-                                            )}
-
                                             <div className="doc-meta">
-                                                <span>Owner: {d.owner}</span>
-                                                <span>{d.size ? `Size: ${d.size}` : `Updated: ${d.updatedAt}`}</span>
+                                                <div className="doc-meta-owner">
+                                                    <div className="doc-meta-avatar">
+                                                        {getOwnerInitials(d.owner)}
+                                                    </div>
+                                                    <span>{d.owner || "Workspace Member"}</span>
+                                                </div>
+
+                                                <div className="doc-meta-right">
+                                                    {d.size && (
+                                                        <span className="doc-size-badge">{d.size}</span>
+                                                    )}
+                                                    <span className="doc-time-badge">
+                                                        {formatRelativeDate(d.updatedAt)}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     ))
@@ -358,4 +392,3 @@ export default function Documents() {
         </div>
     );
 }
-
