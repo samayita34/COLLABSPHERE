@@ -401,21 +401,115 @@ export async function fetchWorkspaceMessages(workspaceId: string): Promise<Fetch
 }
 
 export interface WorkspaceAnalyticsData {
+    period?: string;
+    days?: number;
     taskCompletionRate: number;
-    productivityTrends: Array<{ date: string; completed: number }>;
-    teamPerformance: Array<{ userId: string; name: string; completedTasks: number }>;
-    activeUsers: number;
-    documentActivity: number;
-    storageUsage: { used: number; quota: number };
-    chatStatistics: number;
-    workspaceGrowth: { totalUsers: number; totalProjects: number; totalTasks: number };
+    rateChange?: number;
+    taskMetrics?: {
+        totalTasks: number;
+        completedTasks: number;
+        inProgressTasks: number;
+        todoTasks: number;
+        overdueTasks: number;
+        byPriority: {
+            low: number;
+            medium: number;
+            high: number;
+        };
+    };
+    productivityTrends: Array<{
+        date: string;
+        completed: number;
+        created?: number;
+    }>;
+    velocitySummary?: {
+        totalCompletedInPeriod: number;
+        totalCreatedInPeriod: number;
+        avgCompletionVelocity: number;
+        peakDay: { date: string; count: number };
+    };
+    teamPerformance: Array<{
+        userId: string;
+        name: string;
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+        avatar?: string | null;
+        role?: string;
+        completedTasks: number;
+        assignedTasks?: number;
+        completionRate?: number;
+        commentsCount?: number;
+        productivityScore?: number;
+    }>;
+    activeUsers: number | {
+        count: number;
+        totalMembers: number;
+        activityRate: number;
+        recentActiveMembers: Array<{
+            id: string;
+            user: { id: string; name: string; avatar?: string | null } | null;
+            action: string;
+            entityType: string;
+            timestamp: string;
+        }>;
+    };
+    documentActivity: number | {
+        totalDocuments: number;
+        editsInPeriod: number;
+        versionsCreated: number;
+        commentsCount: number;
+        byType: Record<string, number>;
+        topActiveDocuments: Array<{
+            id: string;
+            name: string;
+            type: string;
+            projectName: string;
+            projectId: string;
+            updatedAt: string;
+            versionsCount: number;
+            commentsCount: number;
+        }>;
+    };
+    storageUsage: {
+        used: number;
+        quota: number;
+        percentage?: number;
+        totalFiles?: number;
+        byType?: Record<string, number>;
+    };
+    chatStatistics: number | {
+        totalMessages: number;
+        messagesInPeriod: number;
+        channelsCount: number;
+        reactionsCount: number;
+        topChannels: Array<{
+            id: string;
+            name: string;
+            type: string;
+            messageCount: number;
+        }>;
+    };
+    workspaceGrowth: {
+        totalUsers: number;
+        newUsersInPeriod?: number;
+        totalProjects: number;
+        newProjectsInPeriod?: number;
+        completedProjects?: number;
+        totalTasks: number;
+        newTasksInPeriod?: number;
+        healthScore?: number;
+    };
 }
 
 /**
- * GET /api/workspaces/:id/analytics
+ * GET /api/workspaces/:id/analytics?period=7d|30d|90d|1y
  */
-export async function fetchWorkspaceAnalyticsApi(workspaceId: string): Promise<WorkspaceAnalyticsData> {
-    const res = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/analytics`, { credentials: "include" });
+export async function fetchWorkspaceAnalyticsApi(workspaceId: string, period: string = "30d"): Promise<WorkspaceAnalyticsData> {
+    const url = new URL(`${API_BASE_URL}/workspaces/${workspaceId}/analytics`);
+    if (period) url.searchParams.append("period", period);
+
+    const res = await fetch(url.toString(), { credentials: "include" });
     if (!res.ok) {
         throw new Error(`Failed to fetch workspace analytics (HTTP ${res.status})`);
     }

@@ -129,6 +129,22 @@ export default function Dashboard() {
               >
                 ↻ Refresh
               </button>
+              <button
+                type="button"
+                onClick={() => navigate("/analytics")}
+                style={{
+                  border: "1px solid #3b82f6",
+                  background: "rgba(59, 130, 246, 0.08)",
+                  color: "#2563eb",
+                  padding: "8px 14px",
+                  borderRadius: "6px",
+                  fontSize: "12.5px",
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                📊 Analytics →
+              </button>
               <button className="new-project" onClick={() => setIsCreateModalOpen(true)}>
                 + New project
               </button>
