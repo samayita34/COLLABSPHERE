@@ -68,9 +68,11 @@ export const fetchAuditLogs = async (
         headers: { "Content-Type": "application/json" },
         credentials: "include",
     });
-    const json = await res.json();
+    const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.success) {
-        throw new Error(json.error || "Failed to fetch audit logs");
+        const err: any = new Error(json.error || `Failed to fetch audit logs (${res.status})`);
+        err.status = res.status;
+        throw err;
     }
     return json;
 };

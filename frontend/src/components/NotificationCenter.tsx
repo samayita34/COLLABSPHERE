@@ -543,7 +543,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
                             </div>
                         ) : (
                             filteredNotifications.map((notif) => {
-                                const { icon, tag, color } = getIconAndTag(notif.type);
+                                const { icon, tag } = getIconAndTag(notif.type);
 
                                 return (
                                     <div

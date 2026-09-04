@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Search, X, AlertCircle, ClipboardList } from "lucide-react";
+import { Search, X, AlertCircle, ClipboardList, Shield } from "lucide-react";
 import {
     fetchAuditLogs,
     type AuditLogItem,
@@ -54,6 +54,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
     const [logs, setLogs]           = useState<AuditLogItem[]>([]);
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState<string | null>(null);
+    const [isPermissionDenied, setIsPermissionDenied] = useState(false);
     const [total, setTotal]         = useState(0);
     const [page, setPage]           = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -78,6 +79,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
         if (!workspaceId) return;
         setLoading(true);
         setError(null);
+        setIsPermissionDenied(false);
         try {
             const res = await fetchAuditLogs({
                 workspaceId,
@@ -95,7 +97,18 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
             setTotalPages(res.pagination.totalPages);
             setPage(p);
         } catch (err: any) {
-            setError(err.message || "Failed to fetch activity logs");
+            const isForbidden = err?.status === 403 ||
+                (typeof err?.message === "string" && (
+                    err.message.includes("VIEW_AUDIT_LOGS") ||
+                    err.message.includes("Forbidden") ||
+                    err.message.toLowerCase().includes("permission")
+                ));
+            if (isForbidden) {
+                setIsPermissionDenied(true);
+                setError(null);
+            } else {
+                setError(err.message || "Failed to fetch activity logs");
+            }
         } finally {
             setLoading(false);
         }
@@ -116,6 +129,32 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
     const hasFilters = category !== "ALL" || debouncedSearch || startDate || endDate;
 
     // ── Render ────────────────────────────────────────────────────────────────
+
+    if (isPermissionDenied) {
+        return (
+            <div className={`atl-root${embedded ? " atl-embedded" : ""}`}>
+                {!embedded && (
+                    <div className="atl-header">
+                        <div>
+                            <h2 className="atl-title">Activity Timeline</h2>
+                            <p className="atl-subtitle">
+                                Complete audit trail — logins, task updates, file uploads, role changes &amp; more.
+                            </p>
+                        </div>
+                    </div>
+                )}
+                <div className="atl-restricted">
+                    <div className="atl-restricted-icon">
+                        <Shield size={20} />
+                    </div>
+                    <div className="atl-restricted-content">
+                        <h4>Audit logs restricted</h4>
+                        <p>Detailed activity history is only visible to project managers and workspace administrators.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={`atl-root${embedded ? " atl-embedded" : ""}`}>
