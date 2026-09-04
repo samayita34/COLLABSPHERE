@@ -2,6 +2,40 @@
   box-sizing: border-box;
 }
 
+/* Prevent the I-beam text cursor from appearing on non-editable UI elements */
+*:not(input):not(textarea):not([contenteditable]):not([contenteditable="true"]) {
+  user-select: none;
+  cursor: default;
+}
+
+/* Restore proper cursor and selection for interactive elements */
+input,
+textarea,
+[contenteditable],
+[contenteditable="true"] {
+  user-select: text;
+  cursor: text;
+}
+
+a,
+button,
+[role="button"],
+[tabindex],
+label[for],
+select {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Allow text selection and proper cursor inside document/prose content areas */
+.gdoc-editor,
+.gdoc-editor *,
+.ProseMirror,
+.ProseMirror * {
+  user-select: text;
+  cursor: text;
+}
+
 body {
   margin: 0;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
