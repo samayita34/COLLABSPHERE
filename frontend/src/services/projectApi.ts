@@ -1651,4 +1651,93 @@ export async function toggleFileLockApi(projectId: string, fileId: string): Prom
     return json.data;
 }
 
+// Document Comments API
+export interface DocumentCommentReply {
+    id: string;
+    commentId: string;
+    authorId: string;
+    author: { id: string; name: string; email: string; avatar?: string | null };
+    content: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface DocumentComment {
+    id: string;
+    documentId: string;
+    authorId: string;
+    author: { id: string; name: string; email: string; avatar?: string | null };
+    content: string;
+    highlightedText?: string | null;
+    fromPos?: number | null;
+    toPos?: number | null;
+    isResolved: boolean;
+    replies: DocumentCommentReply[];
+    createdAt: string;
+    updatedAt: string;
+}
+
+export async function fetchDocumentCommentsApi(documentId: string): Promise<DocumentComment[]> {
+    const res = await fetch(`${API_BASE_URL}/documents/${documentId}/comments`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch document comments");
+    return await res.json();
+}
+
+export async function createDocumentCommentApi(
+    documentId: string,
+    payload: { content: string; highlightedText?: string; fromPos?: number; toPos?: number }
+): Promise<DocumentComment> {
+    const res = await fetch(`${API_BASE_URL}/documents/${documentId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create comment");
+    return json;
+}
+
+export async function replyToDocumentCommentApi(
+    documentId: string,
+    commentId: string,
+    content: string
+): Promise<DocumentCommentReply> {
+    const res = await fetch(`${API_BASE_URL}/documents/${documentId}/comments/${commentId}/replies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ content }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to reply to comment");
+    return json;
+}
+
+export async function toggleResolveCommentApi(
+    documentId: string,
+    commentId: string,
+    isResolved: boolean
+): Promise<DocumentComment> {
+    const res = await fetch(`${API_BASE_URL}/documents/${documentId}/comments/${commentId}/resolve`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ isResolved }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to update comment status");
+    return json;
+}
+
+export async function deleteDocumentCommentApi(documentId: string, commentId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/documents/${documentId}/comments/${commentId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to delete comment");
+}
+
+
 

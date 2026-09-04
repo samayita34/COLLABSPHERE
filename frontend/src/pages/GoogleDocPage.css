@@ -1051,3 +1051,99 @@
         padding: 0 !important;
     }
 }
+
+/* ==========================================================================
+   TIPTAP COLLABORATION CURSORS & AWARENESS
+   ========================================================================== */
+.collaboration-cursor__caret {
+    border-left: 2px solid #0d0d0d;
+    border-right: 2px solid #0d0d0d;
+    margin-left: -1px;
+    margin-right: -1px;
+    position: relative;
+    word-break: normal;
+    pointer-events: none;
+}
+
+.collaboration-cursor__label {
+    border-radius: 3px 3px 3px 0;
+    color: #ffffff;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 600;
+    left: -1px;
+    line-height: normal;
+    padding: 1px 5px;
+    position: absolute;
+    top: -1.4em;
+    user-select: none;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    z-index: 10;
+}
+
+/* Typing Indicator Badge */
+.gdoc-typing-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    background-color: #22c55e;
+    border: 2px solid var(--gdoc-bg);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    animation: gdocPulse 1.2s infinite;
+}
+
+@keyframes gdocPulse {
+    0% { transform: scale(0.9); opacity: 0.7; }
+    50% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+.gdoc-typing-text {
+    font-size: 11px;
+    color: var(--gdoc-blue);
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 8px;
+}
+
+/* Mention extension styling */
+.gdoc-mention {
+    background-color: var(--gdoc-blue-light);
+    color: var(--gdoc-blue);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* Suggestions & Track Changes */
+.gdoc-suggestion-insert {
+    background-color: #dcfce7 !important;
+    color: #15803d !important;
+    border-bottom: 2px solid #22c55e;
+    padding: 1px 2px;
+    border-radius: 2px;
+}
+
+.gdoc-suggestion-delete {
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
+    text-decoration: line-through;
+    padding: 1px 2px;
+    border-radius: 2px;
+}
+
+.gdoc-comment-highlight {
+    background-color: #fef08a !important;
+    border-bottom: 2px solid #eab308;
+}
+

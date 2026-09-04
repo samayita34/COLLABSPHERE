@@ -19,6 +19,8 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Image from "@tiptap/extension-image";
 import LinkExtension from "@tiptap/extension-link";
+import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
+import Mention from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { Extension } from "@tiptap/core";
@@ -32,8 +34,14 @@ import {
     fetchDocumentVersionsApi,
     createDocumentVersionApi,
     restoreDocumentVersionApi,
+    fetchDocumentCommentsApi,
+    createDocumentCommentApi,
+    replyToDocumentCommentApi,
+    toggleResolveCommentApi,
+    deleteDocumentCommentApi,
     type DocumentWithProject,
     type DocumentVersion,
+    type DocumentComment,
 } from "../services/projectApi";
 
 import {
@@ -227,6 +235,7 @@ interface CollaboratorInfo {
     email?: string;
     initials: string;
     color: string;
+    isTyping?: boolean;
 }
 
 interface DocComment {
@@ -391,7 +400,10 @@ export default function GoogleDocPage() {
             const handleAwarenessChange = () => {
                 const states = Array.from(awareness.getStates().values());
                 const active = states
-                    .map((s: any) => s.user)
+                    .map((s: any) => ({
+                        ...(s.user || {}),
+                        isTyping: Boolean(s.isTyping),
+                    }))
                     .filter((u): u is CollaboratorInfo => Boolean(u && u.name));
                 setCollaborators(active);
             };
@@ -423,12 +435,18 @@ export default function GoogleDocPage() {
         }
     }, [documentId, ydoc, user?.id, userFullName, userInitials, localColor]);
 
-    // Track unsaved typing status
+    // Track unsaved typing status & broadcast active typing state
     useEffect(() => {
         const handleUpdate = () => {
             setSaveStatus("syncing");
+            if (_provider?.awareness) {
+                _provider.awareness.setLocalStateField("isTyping", true);
+            }
             const timer = setTimeout(() => {
                 setSaveStatus("synced");
+                if (_provider?.awareness) {
+                    _provider.awareness.setLocalStateField("isTyping", false);
+                }
             }, 1200);
             return () => clearTimeout(timer);
         };
@@ -436,16 +454,44 @@ export default function GoogleDocPage() {
         return () => {
             ydoc.off("update", handleUpdate);
         };
-    }, [ydoc]);
+    }, [ydoc, _provider]);
 
     // 3. TipTap Editor Initialization
     const extensions = useMemo(() => {
-        return [
+        const base = [
             StarterKit.configure({
                 undoRedo: false, // Yjs handles undo/redo
             }),
             Collaboration.configure({
                 document: ydoc,
+            }),
+            _provider
+                ? CollaborationCursor.configure({
+                      provider: _provider,
+                      user: {
+                          name: userFullName || "Guest User",
+                          color: localColor,
+                      },
+                  })
+                : null,
+            Mention.configure({
+                HTMLAttributes: {
+                    class: "gdoc-mention",
+                },
+                suggestion: {
+                    items: ({ query }) => {
+                        const members =
+                            docData?.project?.members?.map(
+                                (m: any) =>
+                                    m.user?.firstName
+                                        ? `${m.user.firstName} ${m.user.lastName || ""}`.trim()
+                                        : m.user?.email || "Member"
+                            ) || ["Team Member", "Workspace Admin"];
+                        return members
+                            .filter((item: string) => item.toLowerCase().includes(query.toLowerCase()))
+                            .slice(0, 5);
+                    },
+                },
             }),
             Underline,
             TextAlign.configure({
@@ -483,11 +529,12 @@ export default function GoogleDocPage() {
                 },
             }),
             Placeholder.configure({
-                placeholder: "Type '@' to insert, or start writing your thoughts...",
+                placeholder: "Type '@' to insert mention, or start writing your document...",
             }),
             CharacterCount,
         ];
-    }, [ydoc]);
+        return base.filter(Boolean) as any[];
+    }, [ydoc, _provider, userFullName, localColor, docData]);
 
     const editor = useEditor(
         {
@@ -596,7 +643,35 @@ export default function GoogleDocPage() {
     };
 
     // Comments Handlers
-    const handleAddComment = () => {
+    useEffect(() => {
+        if (!documentId) return;
+        fetchDocumentCommentsApi(documentId)
+            .then((list) => {
+                if (list && list.length > 0) {
+                    const formatted: DocComment[] = list.map((c) => ({
+                        id: c.id,
+                        author: c.author?.name || "Member",
+                        initials: c.author?.name ? c.author.name.charAt(0).toUpperCase() : "M",
+                        color: getUserColor(c.authorId || c.author?.name || "User"),
+                        text: c.content,
+                        quote: c.highlightedText ? `"${c.highlightedText}"` : undefined,
+                        timestamp: new Date(c.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                        resolved: c.isResolved,
+                        replies: (c.replies || []).map((r) => ({
+                            id: r.id,
+                            author: r.author?.name || "Member",
+                            initials: r.author?.name ? r.author.name.charAt(0).toUpperCase() : "M",
+                            text: r.content,
+                            timestamp: new Date(r.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                        })),
+                    }));
+                    setComments(formatted);
+                }
+            })
+            .catch((err) => console.error("Failed to load comments:", err));
+    }, [documentId]);
+
+    const handleAddComment = async () => {
         if (!newCommentText.trim() || !editor) return;
         const selectedText = editor.state.doc.textBetween(
             editor.state.selection.from,
@@ -604,8 +679,22 @@ export default function GoogleDocPage() {
             " "
         );
 
+        let created: DocumentComment | null = null;
+        if (documentId) {
+            try {
+                created = await createDocumentCommentApi(documentId, {
+                    content: newCommentText.trim(),
+                    highlightedText: selectedText || undefined,
+                    fromPos: editor.state.selection.from,
+                    toPos: editor.state.selection.to,
+                });
+            } catch (err) {
+                console.error("Backend comment error:", err);
+            }
+        }
+
         const newComment: DocComment = {
-            id: `c_${Date.now()}`,
+            id: created?.id || `c_${Date.now()}`,
             author: userFullName || "Guest",
             initials: userInitials || "G",
             color: localColor,
@@ -620,9 +709,17 @@ export default function GoogleDocPage() {
         setNewCommentText("");
     };
 
-    const handleAddReply = (commentId: string) => {
+    const handleAddReply = async (commentId: string) => {
         const text = replyTextMap[commentId];
         if (!text || !text.trim()) return;
+
+        if (documentId && !commentId.startsWith("c_")) {
+            try {
+                await replyToDocumentCommentApi(documentId, commentId, text.trim());
+            } catch (err) {
+                console.error("Failed to post reply:", err);
+            }
+        }
 
         const updated = comments.map((c) => {
             if (c.id === commentId) {
@@ -647,15 +744,31 @@ export default function GoogleDocPage() {
         setReplyTextMap((prev) => ({ ...prev, [commentId]: "" }));
     };
 
-    const toggleResolveComment = (commentId: string) => {
+    const toggleResolveComment = async (commentId: string) => {
+        const target = comments.find((c) => c.id === commentId);
+        if (target && documentId && !commentId.startsWith("c_")) {
+            try {
+                await toggleResolveCommentApi(documentId, commentId, !target.resolved);
+            } catch (err) {
+                console.error("Failed to resolve comment:", err);
+            }
+        }
         const updated = comments.map((c) =>
             c.id === commentId ? { ...c, resolved: !c.resolved } : c
         );
         saveComments(updated);
     };
 
-    const deleteComment = (commentId: string) => {
-        saveComments(comments.filter((c) => c.id !== commentId));
+    const deleteComment = async (commentId: string) => {
+        if (documentId && !commentId.startsWith("c_")) {
+            try {
+                await deleteDocumentCommentApi(documentId, commentId);
+            } catch (err) {
+                console.error("Failed to delete comment:", err);
+            }
+        }
+        const updated = comments.filter((c) => c.id !== commentId);
+        saveComments(updated);
     };
 
     // Insert Image Handler
@@ -1052,9 +1165,10 @@ export default function GoogleDocPage() {
                                 key={c.id || i}
                                 className="gdoc-collaborator-avatar"
                                 style={{ backgroundColor: c.color }}
-                                title={`${c.name} (${c.email || "Active"})`}
+                                title={`${c.name} (${c.isTyping ? "Typing..." : c.email || "Active"})`}
                             >
                                 {c.initials}
+                                {c.isTyping && <div className="gdoc-typing-badge" title="Typing..." />}
                             </div>
                         ))}
                     </div>

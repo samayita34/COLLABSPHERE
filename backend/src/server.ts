@@ -12,6 +12,7 @@ import fileRoutes, { globalRouter as globalFileRouter } from "./routes/fileRoute
 import folderRoutes from "./routes/folderRoutes";
 import chatRoutes from "./routes/chatRoutes";
 import documentVersionRoutes from "./routes/documentVersionRoutes";
+import documentCommentRoutes from "./routes/documentCommentRoutes";
 import authRoutes from "./routes/authRoutes";
 import orgRoutes from "./routes/orgRoutes";
 import workspaceRoutes from "./routes/workspaceRoutes";

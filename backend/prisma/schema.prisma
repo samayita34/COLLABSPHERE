@@ -78,6 +78,8 @@ model User {
   chatMessages         ChatMessage[]
   messageReactions     MessageReaction[]
   messageMentions      MessageMention[]
+  documentComments       DocumentComment[]
+  documentCommentReplies DocumentCommentReply[]
 }
 
 enum NotificationType {
@@ -564,6 +566,7 @@ model Document {
   ydocState   Bytes? // Binary representation of the Yjs document state
 
   versions DocumentVersion[]
+  docComments DocumentComment[]
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -782,3 +785,34 @@ model TaskMention {
 
   createdAt DateTime @default(now())
 }
+
+model DocumentComment {
+  id              String   @id @default(cuid())
+  documentId      String
+  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  authorId        String
+  author          User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content         String
+  highlightedText String?
+  fromPos         Int?
+  toPos           Int?
+  isResolved      Boolean  @default(false)
+
+  replies DocumentCommentReply[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DocumentCommentReply {
+  id        String          @id @default(cuid())
+  commentId String
+  comment   DocumentComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
