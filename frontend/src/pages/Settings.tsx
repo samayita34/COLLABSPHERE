@@ -430,6 +430,15 @@ export default function Settings() {
                   />
                 </label>
 
+                <div style={{ marginTop: "10px" }}>
+                  <button type="submit" className="new-project">
+                    Save Preferences
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
           {/* TAB 4: SECURITY & SESSIONS */}
           {activeTab === "security" && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: "28px", maxWidth: "1080px" }}>
