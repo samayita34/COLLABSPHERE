@@ -22,12 +22,15 @@ import Messages from "./pages/Messages";
 import ActivityLog from "./pages/ActivityLog";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import SearchPage from "./pages/SearchPage";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import { WorkspaceProvider } from "./context/WorkspaceContext";
 import { SocketProvider } from "./context/SocketContext";
 import { SidebarProvider } from "./context/SidebarContext";
+import { SearchProvider } from "./context/SearchContext";
+import GlobalSearchModal from "./components/GlobalSearchModal";
 import "./services/apiUtils";
 import "./index.css";
 
@@ -42,6 +45,8 @@ createRoot(document.getElementById("root")!).render(
         <WorkspaceProvider>
         <SocketProvider>
         <SidebarProvider>
+        <SearchProvider>
+        <GlobalSearchModal />
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/signup" element={<SignUp />} />
@@ -65,8 +70,10 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/activity-log" element={<ActivityLog />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/search" element={<SearchPage />} />
           </Route>
         </Routes>
+        </SearchProvider>
         </SidebarProvider>
         </SocketProvider>
         </WorkspaceProvider>

@@ -21,6 +21,7 @@ import boardRoutes from "./routes/boardRoutes";
 import taskDetailsRoutes from "./routes/taskDetailsRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
 import auditRoutes from "./routes/auditRoutes";
+import searchRoutes from "./routes/searchRoutes";
 import { authenticate } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { requireProjectAccess, requireTaskAccess, requireDocumentAccess, requireFileAccess, requirePermission } from "./middleware/rbac";
@@ -105,9 +106,10 @@ app.use("/api/organizations", orgRoutes);
 app.use("/api/workspaces", workspaceRoutes);
 app.use("/api/teams", teamRoutes);
 
-// Protected Notifications & Audit Logs
+// Protected Notifications, Audit Logs & Global Search
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/audit-logs", auditRoutes);
+app.use("/api/search", searchRoutes);
 
 // Nested project sub-resource routes (must be mounted before base /api/projects route)
 app.use("/api/projects/:projectId/boards", authenticate, requireProjectAccess, boardRoutes);

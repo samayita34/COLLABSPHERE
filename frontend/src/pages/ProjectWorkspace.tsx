@@ -15,6 +15,7 @@ import type { TaskPriority, Task, Member, MappedProject as Project, Board } from
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useSidebar } from "../context/SidebarContext";
+import { useSearch } from "../context/SearchContext";
 import { AppSidebar } from "../components/AppSidebar";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import { socketService } from "../services/socket";
@@ -74,6 +75,7 @@ export default function ProjectWorkspace() {
     const { userFullName, userInitials } = useAuth();
     const { activeWorkspace } = useWorkspace();
     const { toggleSidebar, isOpen } = useSidebar();
+    const { openSearch } = useSearch();
     const routeParam = id || slug || "";
 
     const [project, setProject] = useState<Project | null>(null);
@@ -482,10 +484,18 @@ export default function ProjectWorkspace() {
                     </div>
 
                     <div className="topbar-actions">
-                        <div className="search">
+                        <div
+                            className="search"
+                            onClick={() => openSearch({ projectId: project?.id })}
+                            style={{ cursor: "pointer" }}
+                        >
                             <span>⌕</span>
-                            <input placeholder="Search anything..." />
-                            <kbd>⌘ K</kbd>
+                            <input
+                                placeholder="Search anything... (⌘K)"
+                                onFocus={() => openSearch({ projectId: project?.id })}
+                                readOnly
+                            />
+                            <kbd onClick={(e) => { e.stopPropagation(); openSearch({ projectId: project?.id }); }}>⌘ K</kbd>
                         </div>
 
                         <NotificationCenter workspaceId={project?.workspaceId || activeWorkspace?.id} />

@@ -2,6 +2,7 @@ import React from "react";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useSidebar } from "../context/SidebarContext";
+import { useSearch } from "../context/SearchContext";
 import NotificationCenter from "./NotificationCenter";
 
 interface AppTopbarProps {
@@ -14,7 +15,7 @@ interface AppTopbarProps {
 
 export const AppTopbar: React.FC<AppTopbarProps> = ({
   pageTitle,
-  searchPlaceholder = "Search anything...",
+  searchPlaceholder = "Search anything... (⌘K)",
   searchValue,
   onSearchChange,
   children,
@@ -22,6 +23,7 @@ export const AppTopbar: React.FC<AppTopbarProps> = ({
   const { userInitials } = useAuth();
   const { activeWorkspace } = useWorkspace();
   const { toggleSidebar, isOpen } = useSidebar();
+  const { openSearch } = useSearch();
 
   return (
     <header className="topbar">
@@ -57,14 +59,23 @@ export const AppTopbar: React.FC<AppTopbarProps> = ({
       <div className="topbar-actions">
         {children}
 
-        <div className="search">
+        <div
+          className="search"
+          onClick={() => openSearch({ query: searchValue })}
+          style={{ cursor: "pointer" }}
+        >
           <span>⌕</span>
           <input
             placeholder={searchPlaceholder}
             value={searchValue ?? ""}
             onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
+            onFocus={() => {
+              if (!onSearchChange) {
+                openSearch({ query: searchValue });
+              }
+            }}
           />
-          <kbd>⌘ K</kbd>
+          <kbd onClick={(e) => { e.stopPropagation(); openSearch({ query: searchValue }); }}>⌘ K</kbd>
         </div>
 
         <NotificationCenter workspaceId={activeWorkspace?.id} />

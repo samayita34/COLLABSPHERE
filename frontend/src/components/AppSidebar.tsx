@@ -6,7 +6,7 @@ import { useSidebar } from "../context/SidebarContext";
 import { usePermissions } from "../hooks/usePermissions";
 
 interface AppSidebarProps {
-  activePage: "overview" | "projects" | "tasks" | "documents" | "files" | "messages" | "activity-log" | "analytics" | "settings";
+  activePage: "overview" | "projects" | "tasks" | "documents" | "files" | "messages" | "activity-log" | "analytics" | "settings" | "search";
   projectsCount?: number;
   tasksCount?: number;
   documentsCount?: number;
