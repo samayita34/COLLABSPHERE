@@ -469,9 +469,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
                         </div>
 
                         {statusBanner && (
-                            <div style={{ background: "#f0fdf4", color: "#166534", padding: "6px 12px", fontSize: "12px", borderBottom: "1px solid #bbf7d0" }}>
-                                {statusBanner}
-                            </div>
+                            <div className="notif-status-banner">{statusBanner}</div>
                         )}
 
                         {/* Category Filter Pills */}
@@ -560,21 +558,17 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
                                             }
                                         }}
                                     >
-                                        <div className="notif-icon-box" style={{ backgroundColor: `${color}18`, color }}>
+                                        <div className="notif-icon-box">
                                             {icon}
                                         </div>
 
                                         <div className="notif-content">
                                             <div className="notif-content-top">
-                                                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                                    <span className="notif-title">{notif.title}</span>
-                                                    <span className="notif-type-tag" style={{ color, borderColor: `${color}40` }}>
-                                                        {tag}
-                                                    </span>
-                                                </div>
+                                                <span className="notif-title">{notif.title}</span>
                                                 <span className="notif-time">{formatTime(notif.createdAt)}</span>
                                             </div>
                                             <div className="notif-message">{notif.message}</div>
+                                            <span className="notif-type-tag">{tag}</span>
                                         </div>
 
                                         <div className="notif-actions" onClick={(e) => e.stopPropagation()}>
