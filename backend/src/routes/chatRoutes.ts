@@ -9,7 +9,8 @@ import {
     markChannelAsRead,
     uploadChatFile,
     searchMessages,
-    getWorkspaceChatUsers
+    getWorkspaceChatUsers,
+    getThreadMessages
 } from "../controllers/chatController";
 import { authenticate } from "../middleware/auth";
 import { upload } from "../middleware/upload";
@@ -29,6 +30,9 @@ router.get("/channels/:channelId/messages", getMessages);
 router.post("/channels/:channelId/messages", sendMessage);
 router.post("/channels/:channelId/read", markChannelAsRead);
 router.get("/channels/:channelId/search", searchMessages);
+
+// Thread replies
+router.get("/messages/:messageId/replies", getThreadMessages);
 
 // Emoji Reactions
 router.post("/messages/:messageId/reactions", toggleReaction);

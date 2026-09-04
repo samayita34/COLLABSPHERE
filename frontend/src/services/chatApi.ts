@@ -58,6 +58,7 @@ export interface ChannelMessage {
     isDelivered?: boolean;
     isRead?: boolean;
     readCount?: number;
+    replyCount?: number;
     attachment?: ChatAttachment | null;
 }
 
@@ -295,3 +296,30 @@ export async function fetchWorkspaceChatUsers(workspaceId?: string): Promise<Cha
     const json = await res.json();
     return json.users || [];
 }
+
+/**
+ * GET /api/chat/messages/:messageId/replies
+ */
+export async function fetchThreadMessagesApi(messageId: string): Promise<{ parentMessage: ChannelMessage; replies: ChannelMessage[] }> {
+    const res = await fetch(`${API_BASE_URL}/chat/messages/${messageId}/replies`, { credentials: "include" });
+    if (!res.ok) {
+        throw new Error(`Failed to fetch thread replies (HTTP ${res.status})`);
+    }
+    const json = await res.json();
+    const parentParsed = parseMessageAttachment(json.parentMessage.text);
+    const parentMessage: ChannelMessage = {
+        ...json.parentMessage,
+        text: parentParsed.cleanText,
+        attachment: parentParsed.attachment,
+    };
+    const replies: ChannelMessage[] = (json.replies || []).map((r: any) => {
+        const { cleanText, attachment } = parseMessageAttachment(r.text);
+        return {
+            ...r,
+            text: cleanText,
+            attachment,
+        };
+    });
+    return { parentMessage, replies };
+}
+

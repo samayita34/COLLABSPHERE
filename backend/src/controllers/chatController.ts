@@ -12,6 +12,27 @@ import xss from "xss";
  */
 async function ensureProjectChannelsForWorkspace(userId: string, workspaceId: string) {
     try {
+        // Ensure Global Workspace Chat exists
+        let globalChannel = await prisma.channel.findFirst({
+            where: { workspaceId, type: "WORKSPACE_GLOBAL" }
+        });
+
+        if (!globalChannel) {
+            globalChannel = await prisma.channel.create({
+                data: {
+                    workspaceId,
+                    type: "WORKSPACE_GLOBAL",
+                    name: "Global Chat"
+                }
+            });
+        }
+
+        await prisma.channelMember.upsert({
+            where: { channelId_userId: { channelId: globalChannel.id, userId } },
+            update: {},
+            create: { channelId: globalChannel.id, userId }
+        });
+
         const accessibleProjects = await prisma.project.findMany({
             where: {
                 workspaceId,
@@ -47,7 +68,7 @@ async function ensureProjectChannelsForWorkspace(userId: string, workspaceId: st
             });
         }
     } catch (err) {
-        console.error("Error ensuring project channels:", err);
+        console.error("Error ensuring workspace/project channels:", err);
     }
 }
 
@@ -405,7 +426,8 @@ export const getMessages = async (req: Request, res: Response): Promise<void> =>
                 isOwn,
                 isDelivered: true,
                 isRead: isReadByAll,
-                readCount: readByCount
+                readCount: readByCount,
+                replyCount: m.replies ? m.replies.length : 0,
             };
         });
 
@@ -892,3 +914,63 @@ export const sendProjectMessage = async (req: Request, res: Response): Promise<v
         res.status(500).json({ success: false, error: error.message });
     }
 };
+
+/**
+ * GET /api/chat/messages/:messageId/replies
+ * Returns threaded replies for a parent chat message.
+ */
+export const getThreadMessages = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { messageId } = req.params;
+        const userId = req.user?.id;
+
+        if (!userId) {
+            res.status(401).json({ success: false, error: "Unauthorized" });
+            return;
+        }
+
+        const parentMessage = await prisma.chatMessage.findUnique({
+            where: { id: messageId },
+            include: {
+                sender: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+                file: true,
+                reactions: {
+                    include: { user: { select: { id: true, firstName: true, lastName: true } } }
+                }
+            }
+        });
+
+        if (!parentMessage) {
+            res.status(404).json({ success: false, error: "Message not found" });
+            return;
+        }
+
+        const replies = await prisma.chatMessage.findMany({
+            where: { parentId: messageId },
+            include: {
+                sender: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+                file: true,
+                reactions: {
+                    include: { user: { select: { id: true, firstName: true, lastName: true } } }
+                }
+            },
+            orderBy: { createdAt: "asc" }
+        });
+
+        res.status(200).json({
+            success: true,
+            parentMessage: {
+                ...parentMessage,
+                isOwn: parentMessage.senderId === userId,
+            },
+            replies: replies.map((r: any) => ({
+                ...r,
+                isOwn: r.senderId === userId,
+            }))
+        });
+    } catch (error: any) {
+        console.error("getThreadMessages error:", error);
+        res.status(500).json({ success: false, error: error.message || "Failed to fetch thread messages" });
+    }
+};
+

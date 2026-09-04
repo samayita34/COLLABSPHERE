@@ -8,6 +8,7 @@ import {
     toggleReactionApi,
     markChannelAsReadApi,
     uploadChatFileApi,
+    fetchThreadMessagesApi,
     type Channel,
     type ChannelMessage,
     type ChannelMember,
@@ -34,8 +35,14 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
     const [loadingChannels, setLoadingChannels] = useState(true);
     const [loadingMessages, setLoadingMessages] = useState(false);
 
+    // Thread replies side drawer state
+    const [activeThreadMessage, setActiveThreadMessage] = useState<ChannelMessage | null>(null);
+    const [threadReplies, setThreadReplies] = useState<ChannelMessage[]>([]);
+    const [threadDraftText, setThreadDraftText] = useState("");
+    const [loadingThread, setLoadingThread] = useState(false);
+
     // Filter and search in conversation list
-    const [channelFilter, setChannelFilter] = useState<"ALL" | "DIRECT" | "GROUP" | "PROJECT" | "UNREAD">("ALL");
+    const [channelFilter, setChannelFilter] = useState<"ALL" | "GLOBAL" | "DIRECT" | "GROUP" | "PROJECT" | "UNREAD">("ALL");
     const [channelSearch, setChannelSearch] = useState("");
 
     // In-chat message search
@@ -332,8 +339,46 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
         }
     };
 
+    // ── Thread Replies Handlers ──────────────────────────────
+    const openThreadDrawer = async (msg: ChannelMessage) => {
+        setActiveThreadMessage(msg);
+        setLoadingThread(true);
+        try {
+            const data = await fetchThreadMessagesApi(msg.id);
+            setThreadReplies(data.replies);
+        } catch (err) {
+            console.error("Failed to fetch thread replies:", err);
+        } finally {
+            setLoadingThread(false);
+        }
+    };
+
+    const handleSendThreadReply = async () => {
+        if (!activeThreadMessage || !threadDraftText.trim() || !activeChannel) return;
+
+        const textToSend = threadDraftText.trim();
+        setThreadDraftText("");
+
+        try {
+            const reply = await sendChannelMessage(activeChannel.id, {
+                text: textToSend,
+                parentId: activeThreadMessage.id,
+            });
+
+            setThreadReplies((prev) => [...prev, reply]);
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.id === activeThreadMessage.id ? { ...m, replyCount: (m.replyCount || 0) + 1 } : m
+                )
+            );
+        } catch (err) {
+            console.error("Failed to send thread reply:", err);
+        }
+    };
+
     // ── Channel Filtering ─────────────────────────────────────
     const filteredChannels = channels.filter((c) => {
+        if (channelFilter === "GLOBAL" && c.type !== "WORKSPACE_GLOBAL") return false;
         if (channelFilter === "DIRECT" && c.type !== "DIRECT_MESSAGE") return false;
         if (channelFilter === "GROUP" && c.type !== "GROUP") return false;
         if (channelFilter === "PROJECT" && c.type !== "PROJECT") return false;
@@ -349,6 +394,9 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
 
     // ── Helpers ───────────────────────────────────────────────
     function getChannelTitle(ch: Channel, currentUserId?: string) {
+        if (ch.type === "WORKSPACE_GLOBAL") {
+            return `# ${ch.name || "Global Chat"}`;
+        }
         if (ch.type === "DIRECT_MESSAGE") {
             const partner = ch.members.find((m) => m.userId !== currentUserId)?.user;
             if (partner) return `${partner.firstName} ${partner.lastName}`;
@@ -361,6 +409,9 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
     }
 
     function getChannelAvatar(ch: Channel, currentUserId?: string) {
+        if (ch.type === "WORKSPACE_GLOBAL") {
+            return <div className="wa-avatar global">🌐</div>;
+        }
         if (ch.type === "DIRECT_MESSAGE") {
             const partner = ch.members.find((m) => m.userId !== currentUserId)?.user;
             const initials = `${partner?.firstName?.[0] || ""}${partner?.lastName?.[0] || ""}`.toUpperCase() || "DM";
@@ -456,6 +507,12 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
                         onClick={() => setChannelFilter("ALL")}
                     >
                         All
+                    </div>
+                    <div
+                        className={`wa-filter-pill ${channelFilter === "GLOBAL" ? "active" : ""}`}
+                        onClick={() => setChannelFilter("GLOBAL")}
+                    >
+                        Global
                     </div>
                     <div
                         className={`wa-filter-pill ${channelFilter === "DIRECT" ? "active" : ""}`}
@@ -698,6 +755,19 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
 
                                                 {/* Footer: Time + WhatsApp Read Receipt Ticks */}
                                                 <div className="wa-bubble-footer">
+                                                    {/* Thread Reply counter button */}
+                                                    {(msg.replyCount || 0) > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            className="wa-thread-reply-btn"
+                                                            onClick={() => openThreadDrawer(msg)}
+                                                            title="View thread replies"
+                                                        >
+                                                            <span>💬</span>
+                                                            <span>{msg.replyCount} {msg.replyCount === 1 ? "reply" : "replies"}</span>
+                                                        </button>
+                                                    )}
+
                                                     <span className="wa-message-time">{formatTime(msg.createdAt)}</span>
                                                     {isOutgoing && (
                                                         <span
@@ -739,8 +809,15 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
                                                     </div>
                                                 )}
 
-                                                {/* Hover Quick Emoji Reaction Menu */}
+                                                {/* Hover Quick Emoji Reaction & Thread Reply Menu */}
                                                 <div className="wa-quick-reactions">
+                                                    <button
+                                                        className="wa-emoji-quick-btn"
+                                                        title="Reply in thread"
+                                                        onClick={() => openThreadDrawer(msg)}
+                                                    >
+                                                        💬
+                                                    </button>
                                                     {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
                                                         <button
                                                             key={emoji}
@@ -894,8 +971,92 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
                     <div className="wa-welcome-icon">💬</div>
                     <h3>Collabsphere Chat</h3>
                     <p>
-                        Send and receive messages with your team across Direct Messages, Groups, and Project Channels with real-time read receipts, emoji reactions, and file sharing.
+                        Send and receive messages with your team across Direct Messages, Groups, Project Channels, and Global Workspace Chat with real-time read receipts, emoji reactions, and file sharing.
                     </p>
+                </div>
+            )}
+
+            {/* ===================================================
+                RIGHT THREAD REPLIES DRAWER
+            =================================================== */}
+            {activeThreadMessage && (
+                <div className="wa-thread-pane">
+                    <div className="wa-thread-header">
+                        <h4>Thread Replies</h4>
+                        <button className="wa-icon-btn" onClick={() => setActiveThreadMessage(null)}>
+                            ✕
+                        </button>
+                    </div>
+                    <div className="wa-thread-body">
+                        {/* Parent Message Card */}
+                        <div className="wa-thread-parent-box">
+                            <div style={{ fontWeight: 600, fontSize: "0.825rem", color: "#0f172a", marginBottom: "4px" }}>
+                                {activeThreadMessage.sender?.firstName} {activeThreadMessage.sender?.lastName}
+                            </div>
+                            <div style={{ fontSize: "0.875rem", color: "#334155" }}>
+                                {activeThreadMessage.text}
+                            </div>
+                            <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "4px" }}>
+                                {formatTime(activeThreadMessage.createdAt)}
+                            </div>
+                        </div>
+
+                        {/* Replies List */}
+                        {loadingThread ? (
+                            <div style={{ textAlign: "center", color: "#64748b", fontSize: "0.825rem", padding: "20px" }}>
+                                Loading thread replies...
+                            </div>
+                        ) : threadReplies.length === 0 ? (
+                            <div style={{ textAlign: "center", color: "#64748b", fontSize: "0.825rem", padding: "20px" }}>
+                                No replies yet. Start the thread conversation below!
+                            </div>
+                        ) : (
+                            threadReplies.map((reply) => (
+                                <div
+                                    key={reply.id}
+                                    className={`wa-bubble ${reply.isOwn ? "outgoing" : "incoming"}`}
+                                    style={{ alignSelf: reply.isOwn ? "flex-end" : "flex-start", maxWidth: "90%" }}
+                                >
+                                    {!reply.isOwn && (
+                                        <div className="wa-sender-name">
+                                            {reply.sender?.firstName} {reply.sender?.lastName}
+                                        </div>
+                                    )}
+                                    <div className="wa-message-content">{reply.text}</div>
+                                    <div className="wa-bubble-footer">
+                                        <span className="wa-message-time">{formatTime(reply.createdAt)}</span>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Thread Reply Input */}
+                    <div className="wa-thread-footer">
+                        <input
+                            type="text"
+                            className="wa-search-input"
+                            placeholder="Reply to thread..."
+                            value={threadDraftText}
+                            onChange={(e) => setThreadDraftText(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSendThreadReply();
+                                }
+                            }}
+                        />
+                        <button
+                            className="wa-send-btn"
+                            disabled={!threadDraftText.trim()}
+                            onClick={handleSendThreadReply}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             )}
 
