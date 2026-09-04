@@ -1,4 +1,5 @@
 import { useState, type FormEvent, useEffect } from "react";
+import { X } from "lucide-react";
 import { createProjectApi } from "../services/projectApi";
 import type { MappedProject } from "../services/projectApi";
 
@@ -76,8 +77,8 @@ export function CreateProjectModal({ isOpen, onClose, onProjectCreated, workspac
             >
                 <div className="task-modal-header">
                     <h3>Create New Project</h3>
-                    <button className="modal-close" onClick={onClose} aria-label="Close">
-                        ✕
+                    <button className="modal-close" onClick={onClose} aria-label="Close" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                        <X size={18} />
                     </button>
                 </div>
 

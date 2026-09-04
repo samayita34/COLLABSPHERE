@@ -167,8 +167,8 @@ export function UploadFileModal({
                         <UploadCloud size={20} color="#2563eb" />
                         <h3>Upload File</h3>
                     </div>
-                    <button className="modal-close" onClick={handleClose} disabled={uploading} aria-label="Close">
-                        ✕
+                    <button className="modal-close" onClick={handleClose} disabled={uploading} aria-label="Close" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                        <X size={18} />
                     </button>
                 </div>
 

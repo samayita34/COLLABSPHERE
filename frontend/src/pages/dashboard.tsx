@@ -6,6 +6,7 @@ import { fetchNotifications, markNotificationAsRead, type NotificationItem } fro
 import { CreateProjectModal } from "./CreateProjectModal";
 import { AppSidebar } from "../components/AppSidebar";
 import { AppTopbar } from "../components/AppTopbar";
+import { Check } from "lucide-react";
 import "./Projects.css";
 
 export default function Dashboard() {
@@ -143,7 +144,7 @@ export default function Dashboard() {
                   cursor: "pointer"
                 }}
               >
-                📊 Analytics →
+                Analytics →
               </button>
               <button className="new-project" onClick={() => setIsCreateModalOpen(true)}>
                 + New project
@@ -380,7 +381,7 @@ export default function Dashboard() {
                             </span>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", marginTop: "6px", fontSize: "11.5px", color: "#9a968a" }}>
-                            <span>📁 {t.projectName}</span>
+                            <span>{t.projectName}</span>
                             <span>{t.dueDate ? `Due ${new Date(t.dueDate).toLocaleDateString()}` : "No due date"}</span>
                           </div>
                         </div>
@@ -393,7 +394,7 @@ export default function Dashboard() {
                 {taskTab === "today" && (
                   dueTodayTasksList.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "30px 20px", color: "#16a34a", fontSize: "13px", fontWeight: 500 }}>
-                      ✓ High five! No tasks are due today.
+                      No tasks are due today.
                     </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -410,13 +411,13 @@ export default function Dashboard() {
                           }}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <strong style={{ fontSize: "13px", fontWeight: 600, color: "#991b1b" }}>🔥 {t.title}</strong>
+                            <strong style={{ fontSize: "13px", fontWeight: 600, color: "#991b1b" }}>{t.title}</strong>
                             <span style={{ fontSize: "10.5px", fontWeight: 600, color: "#dc2626", background: "#fee2e2", padding: "2px 8px", borderRadius: "4px" }}>
                               DUE TODAY
                             </span>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", marginTop: "6px", fontSize: "11.5px", color: "#991b1b" }}>
-                            <span>📁 {t.projectName}</span>
+                            <span>{t.projectName}</span>
                             <span>Priority: {t.priority}</span>
                           </div>
                         </div>
@@ -446,13 +447,13 @@ export default function Dashboard() {
                           }}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <strong style={{ fontSize: "13px", fontWeight: 500, color: "#1e40af" }}>📅 {t.title}</strong>
+                            <strong style={{ fontSize: "13px", fontWeight: 500, color: "#1e40af" }}>{t.title}</strong>
                             <span style={{ fontSize: "10.5px", fontWeight: 600, color: "#2563eb", background: "#dbeafe", padding: "2px 8px", borderRadius: "4px" }}>
                               {new Date(t.dueDate!).toLocaleDateString()}
                             </span>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", marginTop: "6px", fontSize: "11.5px", color: "#1e40af" }}>
-                            <span>📁 {t.projectName}</span>
+                            <span>{t.projectName}</span>
                             <span>Status: {t.status}</span>
                           </div>
                         </div>
@@ -527,13 +528,13 @@ export default function Dashboard() {
                               border: "none",
                               background: "none",
                               color: "#6366f1",
-                              fontSize: "11px",
                               cursor: "pointer",
-                              fontWeight: 500
+                              display: "inline-flex",
+                              alignItems: "center"
                             }}
                             title="Mark as read"
                           >
-                            ✓
+                            <Check size={12} />
                           </button>
                         )}
                       </div>
@@ -576,7 +577,7 @@ export default function Dashboard() {
                         onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
                       >
                         <div>
-                          <strong style={{ fontSize: "12.5px", fontWeight: 500, color: "#14161c", display: "block" }}>📄 {doc.title}</strong>
+                          <strong style={{ fontSize: "12.5px", fontWeight: 500, color: "#14161c", display: "block" }}>{doc.title}</strong>
                           <span style={{ fontSize: "11px", color: "#9a968a" }}>{doc.project.name}</span>
                         </div>
                         <span style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: "10.5px", color: "#9a968a" }}>

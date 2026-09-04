@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Laptop, Check, AlertCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { updateWorkspaceApi } from "../services/workspaceApi";
@@ -163,14 +164,14 @@ export default function Settings() {
 
           {/* FEEDBACK MESSAGES */}
           {successMsg && (
-            <div style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "12px 18px", borderRadius: "8px", marginBottom: "20px", fontSize: "13.5px" }}>
-              ✓ {successMsg}
+            <div style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "12px 18px", borderRadius: "8px", marginBottom: "20px", fontSize: "13.5px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <Check size={16} /> {successMsg}
             </div>
           )}
 
           {errorMsg && (
-            <div style={{ background: "#fdf2f2", color: "#991b1b", border: "1px solid #f8d7da", padding: "12px 18px", borderRadius: "8px", marginBottom: "20px", fontSize: "13.5px" }}>
-              ✕ {errorMsg}
+            <div style={{ background: "#fdf2f2", color: "#991b1b", border: "1px solid #f8d7da", padding: "12px 18px", borderRadius: "8px", marginBottom: "20px", fontSize: "13.5px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <AlertCircle size={16} /> {errorMsg}
             </div>
           )}
 
@@ -322,8 +323,8 @@ export default function Settings() {
                   <div style={{ width: `${storagePercent}%`, height: "100%", background: "#232a3d" }} />
                 </div>
 
-                <div style={{ fontSize: "12px", color: "#5a594f", lineHeight: "1.5" }}>
-                  ✓ Standard S3 Storage Bucket connected and active across all workspace projects.
+                <div style={{ fontSize: "12px", color: "#5a594f", lineHeight: "1.5", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Check size={14} color="#16a34a" /> Standard S3 Storage Bucket connected and active across all workspace projects.
                 </div>
               </div>
 
@@ -587,7 +588,7 @@ export default function Settings() {
                             justifyContent: "center",
                             fontSize: "16px"
                           }}>
-                            💻
+                            <Laptop size={18} />
                           </div>
                           <div>
                             <div style={{ fontSize: "13px", fontWeight: 600, color: "#14161c", maxWidth: "240px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

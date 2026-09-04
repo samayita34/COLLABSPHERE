@@ -363,17 +363,17 @@ export const RichTextEditor = ({
 
                 {/* Collaboration status */}
                 {!isReadonly && provider && (
-                    <div className="absolute top-2 right-2 text-xs text-zinc-400 bg-white/80 dark:bg-zinc-950/80 px-2 py-1 rounded">
-                        {isConnected
-                            ? '🟢 Syncing'
-                            : '🔴 Offline'}
+                    <div className="absolute top-2 right-2 text-xs text-zinc-500 bg-white/90 dark:bg-zinc-950/90 px-2.5 py-1 rounded shadow-sm border border-zinc-200 dark:border-zinc-800 flex items-center gap-1.5">
+                        <span className={`inline-block w-2 h-2 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                        <span>{isConnected ? "Syncing" : "Offline"}</span>
                     </div>
                 )}
 
                 {/* If provider hasn't initialized yet */}
                 {!isReadonly && !provider && (
-                    <div className="absolute top-2 right-2 text-xs text-zinc-400 bg-white/80 dark:bg-zinc-950/80 px-2 py-1 rounded">
-                        🔴 Offline
+                    <div className="absolute top-2 right-2 text-xs text-zinc-500 bg-white/90 dark:bg-zinc-950/90 px-2.5 py-1 rounded shadow-sm border border-zinc-200 dark:border-zinc-800 flex items-center gap-1.5">
+                        <span className="inline-block w-2 h-2 rounded-full bg-rose-500" />
+                        <span>Offline</span>
                     </div>
                 )}
             </div>

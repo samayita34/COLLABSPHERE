@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { FileText, UploadCloud, X } from "lucide-react";
 
 /* =========================
    TYPES
@@ -288,7 +289,7 @@ export function AddFileModal({ onClose, onSave, uploaderName, isLoading = false 
 
                         {selectedFile ? (
                             <div className="file-drop-selected">
-                                <div className="file-drop-icon">📄</div>
+                                <div className="file-drop-icon"><FileText size={24} color="#64748b" /></div>
                                 <div className="file-drop-info">
                                     <strong>{selectedFile.name}</strong>
                                     <span>{formatBytes(selectedFile.size)} · {extToFileType(selectedFile.name)}</span>
@@ -299,12 +300,12 @@ export function AddFileModal({ onClose, onSave, uploaderName, isLoading = false 
                                     onClick={(e) => { e.stopPropagation(); setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
                                     aria-label="Remove selected file"
                                 >
-                                    ✕
+                                    <X size={14} />
                                 </button>
                             </div>
                         ) : (
                             <div className="file-drop-placeholder">
-                                <div className="file-drop-icon">📁</div>
+                                <div className="file-drop-icon"><UploadCloud size={28} color="#64748b" /></div>
                                 <p><strong>Click to choose a file</strong> or drag &amp; drop here</p>
                                 <span>PDF, PNG, JPG, DOC, XLS, PPT, ZIP, MP4, FIG</span>
                             </div>

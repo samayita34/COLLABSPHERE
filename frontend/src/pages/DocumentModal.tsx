@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { X } from "lucide-react";
 import { RichTextEditor } from "../components/RichTextEditor";
 
 /* =========================
@@ -115,8 +116,8 @@ export function DocumentDetailModal({ document: doc, onClose }: DocumentDetailMo
             >
                 <div className="task-modal-header">
                     <h3>Document</h3>
-                    <button className="modal-close" onClick={onClose} aria-label="Close">
-                        ✕
+                    <button className="modal-close" onClick={onClose} aria-label="Close" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                        <X size={18} />
                     </button>
                 </div>
 
@@ -422,8 +423,8 @@ export function AddDocumentModal({
                         <FileText size={20} color="#2563eb" />
                         <h3>New Document</h3>
                     </div>
-                    <button className="modal-close" onClick={onClose} aria-label="Close">
-                        ✕
+                    <button className="modal-close" onClick={onClose} aria-label="Close" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                        <X size={18} />
                     </button>
                 </div>
 

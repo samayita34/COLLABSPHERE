@@ -20,7 +20,7 @@ import { AppSidebar } from "../components/AppSidebar";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import { socketService } from "../services/socket";
 import NotificationCenter from "../components/NotificationCenter";
-import { CheckSquare2, Users, FileText, Activity, Plus, Search, Calendar, User, ChevronRight, AlertCircle } from "lucide-react";
+import { CheckSquare2, Users, FileText, Activity, Plus, Search, Calendar, User, ChevronRight, AlertCircle, Settings as SettingsIcon, Clock, Check } from "lucide-react";
 
 /* =========================
    TYPES
@@ -569,7 +569,7 @@ export default function ProjectWorkspace() {
                                         }}
                                         title="Project Settings & Lifecycle"
                                     >
-                                        <span>⚙️</span> Settings
+                                        <SettingsIcon size={14} /> Settings
                                     </button>
                                 </div>
 
@@ -594,8 +594,8 @@ export default function ProjectWorkspace() {
                                 </div>
 
                                 <div className="progress-meta">
-                                    <span>✓ {tasksDone} of {tasksTotal} tasks complete</span>
-                                    {project.date && <span>🕒 {project.date}</span>}
+                                    <span>{tasksDone} of {tasksTotal} tasks complete</span>
+                                    {project.date && <span><Clock size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />{project.date}</span>}
                                 </div>
                             </div>
 
@@ -645,7 +645,7 @@ export default function ProjectWorkspace() {
                                     }
                                 }}
                             >
-                                {tab === "Settings" && <span style={{ marginRight: "4px" }}>⚙️</span>}
+                                {tab === "Settings" && <SettingsIcon size={13} style={{ marginRight: "4px", display: "inline-block", verticalAlign: "middle" }} />}
                                 {tab}
                                 {tab === "Tasks" && <span className="tab-count">{tasksTotal}</span>}
                                 {tab === "Board" && <span className="tab-count">{tasksTotal}</span>}
@@ -727,7 +727,7 @@ export default function ProjectWorkspace() {
                                                     onClick={() => openEditModal(t)}
                                                 >
                                                     <div className={`task-check ${t.columnId === doneColumnId ? "checked" : ""}`}>
-                                                        {t.columnId === doneColumnId ? "✓" : ""}
+                                                        {t.columnId === doneColumnId ? <Check size={11} /> : ""}
                                                     </div>
 
                                                     <div className="task-body">
@@ -890,7 +890,7 @@ export default function ProjectWorkspace() {
                                                     onClick={() => openEditModal(t)}
                                                 >
                                                     <div className={`tw-task-check ${isDone ? "checked" : ""}`}>
-                                                        {isDone ? "✓" : ""}
+                                                        {isDone ? <Check size={11} /> : ""}
                                                     </div>
 
                                                     <div className="tw-task-main">

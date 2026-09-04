@@ -14,6 +14,7 @@ import {
     type ChannelMember,
     type ChatAttachment
 } from "../../services/chatApi";
+import { Globe, FileText, MessageSquare, Paperclip, X } from "lucide-react";
 import { NewDirectMessageModal } from "./NewDirectMessageModal";
 import { CreateGroupModal } from "./CreateGroupModal";
 import "./WhatsAppChat.css";
@@ -410,7 +411,7 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
 
     function getChannelAvatar(ch: Channel, currentUserId?: string) {
         if (ch.type === "WORKSPACE_GLOBAL") {
-            return <div className="wa-avatar global">🌐</div>;
+            return <div className="wa-avatar global"><Globe size={18} /></div>;
         }
         if (ch.type === "DIRECT_MESSAGE") {
             const partner = ch.members.find((m) => m.userId !== currentUserId)?.user;
@@ -577,7 +578,7 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
                                             {lastMsg ? (
                                                 <>
                                                     {lastMsg.sender.id === user?.id && <span className="wa-tick">✓✓ </span>}
-                                                    {lastMsg.hasAttachment ? "📷 File attached" : lastMsg.text || "Message"}
+                                                    {lastMsg.hasAttachment ? "File attached" : lastMsg.text || "Message"}
                                                 </>
                                             ) : (
                                                 "Tap to start chatting"
@@ -657,7 +658,7 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
                                     setHighlightedMsgId(null);
                                 }}
                             >
-                                ✕
+                                <X size={16} />
                             </button>
                         </div>
                     )}
@@ -672,7 +673,7 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
 
                         {!loadingMessages && messages.length === 0 && (
                             <div style={{ textAlign: "center", padding: "60px 20px", color: "#64748b" }}>
-                                👋 No messages yet. Say hello to get the conversation started!
+                                No messages yet. Say hello to get the conversation started!
                             </div>
                         )}
 
@@ -725,7 +726,7 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
                                                                 rel="noopener noreferrer"
                                                                 className="wa-file-card"
                                                             >
-                                                                <div className="wa-file-icon">📄</div>
+                                                                <div className="wa-file-icon"><FileText size={20} /></div>
                                                                 <div className="wa-file-details">
                                                                     <div className="wa-file-name">{msg.attachment.name}</div>
                                                                     <div className="wa-file-size">
@@ -763,7 +764,7 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
                                                             onClick={() => openThreadDrawer(msg)}
                                                             title="View thread replies"
                                                         >
-                                                            <span>💬</span>
+                                                            <MessageSquare size={13} />
                                                             <span>{msg.replyCount} {msg.replyCount === 1 ? "reply" : "replies"}</span>
                                                         </button>
                                                     )}
@@ -816,7 +817,7 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
                                                         title="Reply in thread"
                                                         onClick={() => openThreadDrawer(msg)}
                                                     >
-                                                        💬
+                                                        <MessageSquare size={13} />
                                                     </button>
                                                     {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
                                                         <button
@@ -897,12 +898,12 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
                         {/* Pending Attachment Preview Banner */}
                         {pendingAttachment && (
                             <div className="wa-pending-attachment">
-                                <span>📎 {pendingAttachment.name} ({(pendingAttachment.size / 1024).toFixed(1)} KB)</span>
+                                <span style={{ display: "flex", alignItems: "center", gap: "6px" }}><Paperclip size={13} /> {pendingAttachment.name} ({(pendingAttachment.size / 1024).toFixed(1)} KB)</span>
                                 <button
                                     className="wa-remove-attachment"
                                     onClick={() => setPendingAttachment(null)}
                                 >
-                                    ✕
+                                    <X size={14} />
                                 </button>
                             </div>
                         )}
@@ -968,7 +969,7 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
             ) : (
                 /* Welcome Screen when no chat is open */
                 <div className="wa-welcome-pane">
-                    <div className="wa-welcome-icon">💬</div>
+                    <div className="wa-welcome-icon"><MessageSquare size={38} color="#6366f1" /></div>
                     <h3>Collabsphere Chat</h3>
                     <p>
                         Send and receive messages with your team across Direct Messages, Groups, Project Channels, and Global Workspace Chat with real-time read receipts, emoji reactions, and file sharing.
@@ -983,8 +984,8 @@ export const WhatsAppChat: React.FC<Props> = ({ workspaceId, initialChannelId })
                 <div className="wa-thread-pane">
                     <div className="wa-thread-header">
                         <h4>Thread Replies</h4>
-                        <button className="wa-icon-btn" onClick={() => setActiveThreadMessage(null)}>
-                            ✕
+                        <button className="wa-icon-btn" onClick={() => setActiveThreadMessage(null)} aria-label="Close thread" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                            <X size={16} />
                         </button>
                     </div>
                     <div className="wa-thread-body">

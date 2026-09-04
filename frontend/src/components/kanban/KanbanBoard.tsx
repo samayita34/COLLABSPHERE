@@ -618,7 +618,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                         >
                             {boards.map((b) => (
                                 <option key={b.id} value={b.id}>
-                                    📋 {b.name}
+                                    {b.name}
                                 </option>
                             ))}
                         </select>
@@ -775,7 +775,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     <option value="all">All Labels</option>
                     {labels.map((l) => (
                         <option key={l.id} value={l.id}>
-                            🏷️ {l.name}
+                            {l.name}
                         </option>
                     ))}
                 </select>
@@ -786,9 +786,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     onChange={(e) => setFilterDueDate(e.target.value)}
                 >
                     <option value="all">All Dates</option>
-                    <option value="overdue">⚠️ Overdue</option>
-                    <option value="today">📅 Due Today</option>
-                    <option value="week">🗓️ Due This Week</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="today">Due Today</option>
+                    <option value="week">Due This Week</option>
                 </select>
 
                 {activeFilterCount > 0 && (

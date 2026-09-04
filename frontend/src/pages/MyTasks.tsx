@@ -4,6 +4,7 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchMyTasksApi, updateTaskSemanticStatusApi, type MyTaskItem } from "../services/projectApi";
 import { AppSidebar } from "../components/AppSidebar";
 import { AppTopbar } from "../components/AppTopbar";
+import { Check } from "lucide-react";
 import "./Projects.css";
 
 const STATUS_TABS = [
@@ -300,7 +301,7 @@ export default function MyTasks() {
                               fontWeight: 700,
                             }}
                           >
-                            {isDone && "✓"}
+                            {isDone && <Check size={11} />}
                           </button>
                         </td>
 
@@ -328,7 +329,7 @@ export default function MyTasks() {
                               background: "#fcfbf8"
                             }}
                           >
-                            📁 {t.projectName}
+                            {t.projectName}
                           </Link>
                         </td>
 

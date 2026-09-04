@@ -6,6 +6,7 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { CreateProjectModal } from "./CreateProjectModal";
 import { AppSidebar } from "../components/AppSidebar";
 import { AppTopbar } from "../components/AppTopbar";
+import { CheckSquare, Clock } from "lucide-react";
 import "./Projects.css";
 
 export default function Projects() {
@@ -185,8 +186,8 @@ export default function Projects() {
                   <div className="card-footer">
 
                     <div className="meta">
-                      <span>✓ {project.tasksFormatted}</span>
-                      <span>◷ {project.date}</span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><CheckSquare size={13} /> {project.tasksFormatted}</span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><Clock size={13} /> {project.date}</span>
                     </div>
 
                     <div className="members">

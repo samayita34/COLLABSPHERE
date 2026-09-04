@@ -326,7 +326,7 @@ export function FileBrowser({ projectId }: FileBrowserProps) {
                         type="button"
                         onClick={() => setCurrentFolderId(null)}
                         style={{
-                            background: "none",
+                            background: "transparent",
                             border: "none",
                             color: currentFolderId ? "#5a594f" : "#14161c",
                             fontWeight: currentFolderId ? 500 : 700,
@@ -335,7 +335,7 @@ export function FileBrowser({ projectId }: FileBrowserProps) {
                             fontSize: "14px",
                         }}
                     >
-                        📁 Files
+                        Files
                     </button>
                     {breadcrumbs.map((f) => (
                         <React.Fragment key={f.id}>
@@ -610,7 +610,9 @@ export function FileBrowser({ projectId }: FileBrowserProps) {
                                                             <span>•</span>
                                                             <span>{latestVersion ? formatBytes(latestVersion.sizeBytes) : "0 B"}</span>
                                                             <span>•</span>
-                                                            <span title={`${file.downloadCount || 0} downloads`}>⬇️ {file.downloadCount || 0}</span>
+                                                            <span title={`${file.downloadCount || 0} downloads`} style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                                                                <FiDownload size={11} /> {file.downloadCount || 0}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -820,10 +822,10 @@ export function FileBrowser({ projectId }: FileBrowserProps) {
                                 marginBottom: "20px",
                             }}
                         >
-                            <option value="">📁 Root (Files)</option>
+                            <option value="">Root (Files)</option>
                             {folders.map((f) => (
                                 <option key={f.id} value={f.id}>
-                                    📁 {f.name}
+                                    {f.name}
                                 </option>
                             ))}
                         </select>

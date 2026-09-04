@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 
 /* =========================
    TYPES
@@ -55,8 +56,8 @@ export function MemberDetailModal({ member, stats, onClose, onOpenTask }: Member
             >
                 <div className="task-modal-header">
                     <h3>Team member</h3>
-                    <button className="modal-close" onClick={onClose} aria-label="Close">
-                        ✕
+                    <button className="modal-close" onClick={onClose} aria-label="Close" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                        <X size={18} />
                     </button>
                 </div>
 
@@ -165,8 +166,8 @@ export function AddMemberModal({ onClose, onSave, error }: AddMemberModalProps) 
             >
                 <div className="task-modal-header">
                     <h3>Add member</h3>
-                    <button className="modal-close" onClick={onClose} aria-label="Close">
-                        ✕
+                    <button className="modal-close" onClick={onClose} aria-label="Close" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                        <X size={18} />
                     </button>
                 </div>
 

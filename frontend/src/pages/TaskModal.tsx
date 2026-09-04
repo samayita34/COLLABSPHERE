@@ -45,6 +45,7 @@ import {
     Trash2,
     Download,
     FileText,
+    Check,
 } from "lucide-react";
 
 interface TaskModalProps {
@@ -623,7 +624,7 @@ export default function TaskModal({
                                                 transition: "all 0.15s ease",
                                             }}
                                         >
-                                            {label.name} {isSelected && "✓"}
+                                            {label.name} {isSelected && <Check size={12} style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 4 }} />}
                                         </div>
                                     );
                                 })}
@@ -667,8 +668,8 @@ export default function TaskModal({
                                     }}
                                 >
                                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                                        <h4 style={{ margin: 0, fontSize: "14px", color: "#0f172a" }}>
-                                            ☑️ {checklist.title}
+                                        <h4 style={{ margin: 0, fontSize: "14px", color: "#0f172a", display: "flex", alignItems: "center", gap: "6px" }}>
+                                            <CheckSquare size={14} /> {checklist.title}
                                         </h4>
                                         <button
                                             type="button"
@@ -919,8 +920,8 @@ export default function TaskModal({
 
                         {/* Manual Log Form */}
                         <form onSubmit={handleAddManualTime} style={{ marginTop: "16px", background: "#fcfbf9", padding: "14px", borderRadius: "10px", border: "1px solid #e7e3d8" }}>
-                            <div style={{ fontSize: "13px", fontWeight: 600, color: "#1e293b", marginBottom: 10 }}>
-                                ⏱️ Log Time Manually
+                            <div style={{ fontSize: "13px", fontWeight: 600, color: "#1e293b", marginBottom: 10, display: "flex", alignItems: "center", gap: "6px" }}>
+                                <Clock size={14} /> Log Time Manually
                             </div>
                             <div style={{ display: "flex", gap: "10px" }}>
                                 <input

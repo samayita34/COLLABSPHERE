@@ -7,6 +7,7 @@ import { MentionList } from './MentionList';
 import { fetchTaskCommentsApi, createTaskCommentApi, deleteTaskCommentApi, uploadTaskAttachmentApi } from '../services/projectApi';
 import type { TaskComment, Member } from '../services/projectApi';
 import { socketService } from '../services/socket';
+import { Paperclip } from 'lucide-react';
 import './TaskCommentSection.css';
 
 interface TaskCommentSectionProps {
@@ -182,7 +183,7 @@ function CommentItem({
                                 rel="noreferrer"
                                 style={{ fontSize: "11px", color: "#0284c7", background: "#e0f2fe", padding: "2px 8px", borderRadius: "4px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}
                             >
-                                📎 {att.fileName}
+                                <Paperclip size={11} /> {att.fileName}
                             </a>
                         ))}
                     </div>
@@ -363,7 +364,7 @@ function CommentInput({
                 <div style={{ padding: "6px 12px", background: "#f8fafc", borderTop: "1px solid #e2e8f0", display: "flex", gap: "6px", flexWrap: "wrap" }}>
                     {stagedAttachments.map((att) => (
                         <span key={att.id} style={{ fontSize: "11px", background: "#e2e8f0", color: "#334155", padding: "2px 8px", borderRadius: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                            📎 {att.fileName}
+                            <Paperclip size={11} /> {att.fileName}
                             <button
                                 type="button"
                                 onClick={() => removeStagedAttachment(att.id)}

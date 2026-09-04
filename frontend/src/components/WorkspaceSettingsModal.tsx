@@ -328,7 +328,7 @@ export function WorkspaceSettingsModal({ isOpen, onClose, workspace }: Props) {
                                             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" }}>
                                                 {t.members?.map((tm) => (
                                                     <span key={tm.id} style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#f1f5f9", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem", color: "#334155" }}>
-                                                        👤 {tm.user?.firstName || "User"} {tm.user?.lastName || ""}
+                                                        {tm.user?.firstName || "User"} {tm.user?.lastName || ""}
                                                         <button
                                                             onClick={() => handleRemoveTeamMember(t.id, tm.userId)}
                                                             style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "0.85rem", lineHeight: 1 }}

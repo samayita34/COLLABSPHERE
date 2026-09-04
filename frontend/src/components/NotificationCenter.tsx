@@ -26,6 +26,15 @@ import {
     Play,
     Clock,
     X,
+    CheckSquare,
+    FileText,
+    Folder,
+    MessageSquare,
+    UserCheck,
+    AlertTriangle,
+    Flame,
+    RefreshCw,
+    LogOut,
 } from "lucide-react";
 import "./NotificationCenter.css";
 
@@ -35,15 +44,15 @@ interface NotificationCenterProps {
 
 type CategoryFilter = "ALL" | "UNREAD" | "TASKS" | "MENTIONS" | "DOCUMENTS" | "FILES" | "CHAT" | "INVITATIONS";
 
-const TEST_NOTIFICATION_TYPES: { type: NotificationType; label: string; icon: string }[] = [
-    { type: "TASK_ASSIGNED", label: "Task Assigned", icon: "📋" },
-    { type: "TASK_UPDATED", label: "Task Updated", icon: "✏️" },
-    { type: "MENTION", label: "Mention", icon: "@" },
-    { type: "DOCUMENT_EDITED", label: "Document Edited", icon: "📄" },
-    { type: "FILE_UPLOADED", label: "File Uploaded", icon: "📁" },
-    { type: "CHAT_MESSAGE", label: "Chat Message", icon: "💬" },
-    { type: "WORKSPACE_INVITATION", label: "Workspace Invitation", icon: "👋" },
-    { type: "DUE_DATE_REMINDER", label: "Due Date Reminder", icon: "⏰" },
+const TEST_NOTIFICATION_TYPES: { type: NotificationType; label: string }[] = [
+    { type: "TASK_ASSIGNED", label: "Task Assigned" },
+    { type: "TASK_UPDATED", label: "Task Updated" },
+    { type: "MENTION", label: "Mention" },
+    { type: "DOCUMENT_EDITED", label: "Document Edited" },
+    { type: "FILE_UPLOADED", label: "File Uploaded" },
+    { type: "CHAT_MESSAGE", label: "Chat Message" },
+    { type: "WORKSPACE_INVITATION", label: "Workspace Invitation" },
+    { type: "DUE_DATE_REMINDER", label: "Due Date Reminder" },
 ];
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspaceId }) => {
@@ -55,7 +64,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
     const [unreadCount, setUnreadCount] = useState<number>(0);
     const [loading, setLoading] = useState(false);
     const [activeCategory, setActiveCategory] = useState<CategoryFilter>("ALL");
-    const [filterByWorkspace, setFilterByWorkspace] = useState(false);
+    const [filterByWorkspace] = useState(false);
     const [toastNotification, setToastNotification] = useState<NotificationItem | null>(null);
     const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
         const saved = localStorage.getItem("collabsphere_notif_sound");
@@ -209,7 +218,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
         };
     }, [isOpen]);
 
-    const toggleOpen = () => {
+    const handleToggleOpen = () => {
         if (!isOpen) {
             loadNotifications();
         }
@@ -330,37 +339,37 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
     const getIconAndTag = (type: NotificationType) => {
         switch (type) {
             case "TASK_ASSIGNED":
-                return { icon: "📋", tag: "Task Assigned", color: "#3b82f6" };
+                return { icon: <CheckSquare size={15} />, tag: "Task Assigned", color: "#3b82f6" };
             case "TASK_UPDATED":
-                return { icon: "✏️", tag: "Task Updated", color: "#6366f1" };
+                return { icon: <CheckSquare size={15} />, tag: "Task Updated", color: "#6366f1" };
             case "TASK_STATUS_CHANGED":
-                return { icon: "🔄", tag: "Status Changed", color: "#06b6d4" };
+                return { icon: <RefreshCw size={15} />, tag: "Status Changed", color: "#06b6d4" };
             case "TASK_OVERDUE":
-                return { icon: "⚠️", tag: "Task Overdue", color: "#ef4444" };
+                return { icon: <AlertTriangle size={15} />, tag: "Task Overdue", color: "#ef4444" };
             case "TASK_PRIORITY_CHANGED":
-                return { icon: "🔥", tag: "Priority Changed", color: "#f97316" };
+                return { icon: <Flame size={15} />, tag: "Priority Changed", color: "#f97316" };
             case "DUE_DATE_REMINDER":
-                return { icon: "⏰", tag: "Due Soon", color: "#eab308" };
+                return { icon: <Clock size={15} />, tag: "Due Soon", color: "#eab308" };
             case "SUBTASK_COMPLETED":
-                return { icon: "✅", tag: "Checklist", color: "#10b981" };
+                return { icon: <Check size={15} />, tag: "Checklist", color: "#10b981" };
             case "TASK_COMMENT":
-                return { icon: "💬", tag: "Task Comment", color: "#8b5cf6" };
+                return { icon: <MessageSquare size={15} />, tag: "Task Comment", color: "#8b5cf6" };
             case "TASK_MENTION":
             case "MENTION":
-                return { icon: "@", tag: "Mention", color: "#ec4899" };
+                return { icon: <span style={{ fontWeight: 700, fontSize: "14px" }}>@</span>, tag: "Mention", color: "#ec4899" };
             case "DOCUMENT_EDITED":
-                return { icon: "📄", tag: "Doc Edited", color: "#0ea5e9" };
+                return { icon: <FileText size={15} />, tag: "Doc Edited", color: "#0ea5e9" };
             case "FILE_UPLOADED":
-                return { icon: "📁", tag: "File Uploaded", color: "#14b8a6" };
+                return { icon: <Folder size={15} />, tag: "File Uploaded", color: "#14b8a6" };
             case "CHAT_MESSAGE":
-                return { icon: "💬", tag: "Chat Message", color: "#10b981" };
+                return { icon: <MessageSquare size={15} />, tag: "Chat Message", color: "#10b981" };
             case "WORKSPACE_INVITATION":
             case "PROJECT_MEMBER_ADDED":
-                return { icon: "👋", tag: "Invitation", color: "#a855f7" };
+                return { icon: <UserCheck size={15} />, tag: "Invitation", color: "#a855f7" };
             case "PROJECT_MEMBER_REMOVED":
-                return { icon: "🚪", tag: "Removed", color: "#64748b" };
+                return { icon: <LogOut size={15} />, tag: "Removed", color: "#64748b" };
             default:
-                return { icon: "🔔", tag: "Notification", color: "#64748b" };
+                return { icon: <Bell size={15} />, tag: "Notification", color: "#64748b" };
         }
     };
 
@@ -369,11 +378,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
         const date = new Date(isoString);
         const now = new Date();
         const diffMs = now.getTime() - date.getTime();
-        const diffMins = Math.floor(diffMs / (1000 * 60));
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        const diffSecs = Math.floor(diffMs / 1000);
+        const diffMins = Math.floor(diffSecs / 60);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
 
-        if (diffMins < 1) return "Just now";
+        if (diffSecs < 60) return "Just now";
         if (diffMins < 60) return `${diffMins}m ago`;
         if (diffHours < 24) return `${diffHours}h ago`;
         if (diffDays === 1) return "Yesterday";
@@ -381,19 +391,29 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
         return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
     };
 
-    const hasReadNotifications = notifications.some((n) => n.isRead);
+    const filteredNotifications = notifications.filter((n) => {
+        if (activeCategory === "ALL") return true;
+        if (activeCategory === "UNREAD") return !n.isRead;
+        if (activeCategory === "TASKS") return n.type.startsWith("TASK") || n.type === "DUE_DATE_REMINDER" || n.type === "SUBTASK_COMPLETED";
+        if (activeCategory === "MENTIONS") return n.type === "MENTION" || n.type === "TASK_MENTION";
+        if (activeCategory === "DOCUMENTS") return n.type.startsWith("DOCUMENT");
+        if (activeCategory === "FILES") return n.type.startsWith("FILE");
+        if (activeCategory === "CHAT") return n.type === "CHAT_MESSAGE";
+        if (activeCategory === "INVITATIONS") return n.type === "WORKSPACE_INVITATION" || n.type.startsWith("PROJECT_MEMBER");
+        return true;
+    });
 
     return (
         <div className="notif-center-wrapper" ref={dropdownRef}>
-            {/* Bell Button */}
+            {/* Bell Trigger Button */}
             <button
+                type="button"
                 className={`notif-bell-btn ${isOpen ? "active" : ""}`}
-                onClick={toggleOpen}
+                onClick={handleToggleOpen}
+                aria-label="Open notifications"
                 title="Notifications"
-                aria-label="View notifications"
-                aria-expanded={isOpen}
             >
-                <Bell size={19} />
+                <Bell size={18} />
                 {unreadCount > 0 && (
                     <span className="notif-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>
                 )}
@@ -404,59 +424,58 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
                 <div className="notif-dropdown">
                     {/* Header */}
                     <div className="notif-header">
-                        <div className="notif-header-title">
-                            <h3>Smart Notifications</h3>
-                            {unreadCount > 0 && (
-                                <span className="notif-unread-count-pill">{unreadCount} new</span>
-                            )}
-                        </div>
+                        <div className="notif-header-title-row">
+                            <div className="notif-header-title">
+                                <h3>Notifications</h3>
+                                {unreadCount > 0 && (
+                                    <span className="notif-unread-count-pill">{unreadCount} unread</span>
+                                )}
+                            </div>
 
-                        <div className="notif-header-actions">
-                            {workspaceId && (
+                            <div className="notif-header-actions">
                                 <button
-                                    type="button"
-                                    className={`notif-header-btn ${filterByWorkspace ? "sound-on" : ""}`}
-                                    onClick={() => setFilterByWorkspace((prev) => !prev)}
-                                    title={filterByWorkspace ? "Showing current workspace only (Click to show all)" : "Showing all workspaces (Click to filter to current)"}
-                                    style={{ fontSize: "11px" }}
+                                    className="notif-icon-btn"
+                                    title={soundEnabled ? "Mute notification sound" : "Unmute notification sound"}
+                                    onClick={toggleSound}
                                 >
-                                    {filterByWorkspace ? "This WS" : "All WS"}
+                                    {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
                                 </button>
-                            )}
-
-                            <button
-                                className={`notif-header-btn ${soundEnabled ? "sound-on" : ""}`}
-                                onClick={toggleSound}
-                                title={soundEnabled ? "Mute notification sounds" : "Unmute notification sounds"}
-                            >
-                                {soundEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
-                            </button>
-
-                            {unreadCount > 0 && (
-                                <button className="notif-header-btn" onClick={handleMarkAllRead} title="Mark all as read">
-                                    <CheckCheck size={13} />
-                                    <span>Read all</span>
+                                {unreadCount > 0 && (
+                                    <button
+                                        className="notif-icon-btn"
+                                        title="Mark all as read"
+                                        onClick={handleMarkAllRead}
+                                    >
+                                        <CheckCheck size={16} />
+                                    </button>
+                                )}
+                                {notifications.some((n) => n.isRead) && (
+                                    <button
+                                        className="notif-icon-btn"
+                                        title="Clear all read notifications"
+                                        onClick={handleClearRead}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
+                                <button
+                                    className="notif-icon-btn"
+                                    title="Close"
+                                    onClick={() => setIsOpen(false)}
+                                >
+                                    <X size={16} />
                                 </button>
-                            )}
-
-                            {hasReadNotifications && (
-                                <button className="notif-header-btn clear-btn" onClick={handleClearRead} title="Clear all read">
-                                    Clear
-                                </button>
-                            )}
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Status Banner */}
-                    {statusBanner && (
-                        <div className="notif-status-banner">
-                            <span>{statusBanner}</span>
-                        </div>
-                    )}
+                        {statusBanner && (
+                            <div style={{ background: "#f0fdf4", color: "#166534", padding: "6px 12px", fontSize: "12px", borderBottom: "1px solid #bbf7d0" }}>
+                                {statusBanner}
+                            </div>
+                        )}
 
-                    {/* Category Filter Tabs Bar */}
-                    <div className="notif-category-bar">
-                        <div className="notif-category-scroll">
+                        {/* Category Filter Pills */}
+                        <div className="notif-categories">
                             <button
                                 className={`notif-cat-pill ${activeCategory === "ALL" ? "active" : ""}`}
                                 onClick={() => setActiveCategory("ALL")}
@@ -464,46 +483,40 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
                                 All
                             </button>
                             <button
-                                className={`notif-cat-pill ${activeCategory === "UNREAD" ? "active" : ""}`}
-                                onClick={() => setActiveCategory("UNREAD")}
-                            >
-                                Unread {unreadCount > 0 && `(${unreadCount})`}
-                            </button>
-                            <button
                                 className={`notif-cat-pill ${activeCategory === "TASKS" ? "active" : ""}`}
                                 onClick={() => setActiveCategory("TASKS")}
                             >
-                                📋 Tasks
+                                Tasks
                             </button>
                             <button
                                 className={`notif-cat-pill ${activeCategory === "MENTIONS" ? "active" : ""}`}
                                 onClick={() => setActiveCategory("MENTIONS")}
                             >
-                                @ Mentions
+                                Mentions
                             </button>
                             <button
                                 className={`notif-cat-pill ${activeCategory === "DOCUMENTS" ? "active" : ""}`}
                                 onClick={() => setActiveCategory("DOCUMENTS")}
                             >
-                                📄 Docs
+                                Docs
                             </button>
                             <button
                                 className={`notif-cat-pill ${activeCategory === "FILES" ? "active" : ""}`}
                                 onClick={() => setActiveCategory("FILES")}
                             >
-                                📁 Files
+                                Files
                             </button>
                             <button
                                 className={`notif-cat-pill ${activeCategory === "CHAT" ? "active" : ""}`}
                                 onClick={() => setActiveCategory("CHAT")}
                             >
-                                💬 Chat
+                                Chat
                             </button>
                             <button
                                 className={`notif-cat-pill ${activeCategory === "INVITATIONS" ? "active" : ""}`}
                                 onClick={() => setActiveCategory("INVITATIONS")}
                             >
-                                👋 Invites
+                                Invites
                             </button>
                         </div>
                     </div>
@@ -516,10 +529,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
                                 <div className="notif-skeleton-item" />
                                 <div className="notif-skeleton-item" />
                             </div>
-                        ) : notifications.length === 0 ? (
+                        ) : filteredNotifications.length === 0 ? (
                             <div className="notif-empty">
                                 <div className="notif-empty-icon">
-                                    {activeCategory === "UNREAD" ? "🎉" : "🔔"}
+                                    <Bell size={28} color="#94a3b8" />
                                 </div>
                                 <div className="notif-empty-title">
                                     {activeCategory === "UNREAD" ? "You're all caught up!" : "No notifications"}
@@ -531,7 +544,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
                                 </div>
                             </div>
                         ) : (
-                            notifications.map((notif) => {
+                            filteredNotifications.map((notif) => {
                                 const { icon, tag, color } = getIconAndTag(notif.type);
 
                                 return (
@@ -599,7 +612,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
                             >
                                 {TEST_NOTIFICATION_TYPES.map((t) => (
                                     <option key={t.type} value={t.type}>
-                                        {t.icon} {t.label}
+                                        {t.label}
                                     </option>
                                 ))}
                             </select>

@@ -38,13 +38,13 @@ export interface FetchAuditLogsParams {
 }
 
 export const AUDIT_CATEGORIES = [
-    { key: "LOGINS",    label: "Logins",     emoji: "🔐" },
-    { key: "TASKS",     label: "Tasks",      emoji: "✅" },
-    { key: "DOCUMENTS", label: "Documents",  emoji: "📄" },
-    { key: "FILES",     label: "Files",      emoji: "📁" },
-    { key: "WORKSPACE", label: "Workspace",  emoji: "🏠" },
-    { key: "ROLES",     label: "Roles",      emoji: "🛡️" },
-    { key: "MEMBERS",   label: "Members",    emoji: "👥" },
+    { key: "LOGINS",    label: "Logins" },
+    { key: "TASKS",     label: "Tasks" },
+    { key: "DOCUMENTS", label: "Documents" },
+    { key: "FILES",     label: "Files" },
+    { key: "WORKSPACE", label: "Workspace" },
+    { key: "ROLES",     label: "Roles" },
+    { key: "MEMBERS",   label: "Members" },
 ] as const;
 
 export type AuditCategory = typeof AUDIT_CATEGORIES[number]["key"] | "ALL";

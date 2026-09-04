@@ -1,4 +1,5 @@
 import React from "react";
+import { Building } from "lucide-react";
 import { useWorkspace } from "../context/WorkspaceContext";
 import ActivityTimeline from "../components/ActivityTimeline";
 import { AppSidebar } from "../components/AppSidebar";
@@ -40,7 +41,7 @@ const ActivityLog: React.FC = () => {
                         </div>
                     ) : (
                         <div className="activity-log-no-workspace">
-                            <span>🏠</span>
+                            <Building size={32} color="#94a3b8" />
                             <p>Select a workspace from the sidebar to view its activity log.</p>
                         </div>
                     )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { X } from "lucide-react";
 import { fetchWorkspaceChatUsers, createDirectMessageApi, type ChatUser, type Channel } from "../../services/chatApi";
 import { useAuth } from "../../context/AuthContext";
 
@@ -62,7 +63,7 @@ export const NewDirectMessageModal: React.FC<Props> = ({ isOpen, onClose, worksp
             }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                     <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 600 }}>New Direct Message</h3>
-                    <button onClick={onClose} style={{ background: "transparent", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "#64748b" }}>✕</button>
+                    <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#64748b", display: "inline-flex", alignItems: "center" }} aria-label="Close"><X size={18} /></button>
                 </div>
 
                 <input

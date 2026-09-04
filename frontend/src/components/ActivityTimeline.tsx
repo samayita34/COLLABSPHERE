@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Search, X, AlertCircle, ClipboardList } from "lucide-react";
 import {
     fetchAuditLogs,
     type AuditLogItem,
@@ -150,7 +151,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                     onClick={() => setCategory("ALL")}
                     data-category="ALL"
                 >
-                    🌐 All
+                    All
                 </button>
                 {AUDIT_CATEGORIES.map(cat => (
                     <button
@@ -164,7 +165,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                         onClick={() => setCategory(category === cat.key ? "ALL" : cat.key as AuditCategory)}
                         data-category={cat.key}
                     >
-                        {cat.emoji} {cat.label}
+                        {cat.label}
                     </button>
                 ))}
             </div>
@@ -172,7 +173,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
             {/* ── Search & Date Range ─────────────────────────────────── */}
             <div className="atl-filters">
                 <div className="atl-search-wrap">
-                    <span className="atl-search-icon">🔍</span>
+                    <span className="atl-search-icon"><Search size={14} /></span>
                     <input
                         type="text"
                         className="atl-search"
@@ -182,7 +183,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                         id="atl-search-input"
                     />
                     {search && (
-                        <button className="atl-search-clear" onClick={() => setSearch("")} title="Clear search">✕</button>
+                        <button className="atl-search-clear" onClick={() => setSearch("")} title="Clear search"><X size={12} /></button>
                     )}
                 </div>
 
@@ -209,7 +210,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
 
                 {hasFilters && (
                     <button className="atl-clear-btn" onClick={clearFilters} title="Clear all filters">
-                        ✕ Clear filters
+                        Clear filters
                     </button>
                 )}
 
@@ -229,13 +230,13 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                     </div>
                 ) : error ? (
                     <div className="atl-error">
-                        <span>⚠️</span>
+                        <AlertCircle size={20} color="#dc2626" />
                         <p>{error}</p>
                         <button className="atl-retry" onClick={() => load(1)}>Retry</button>
                     </div>
                 ) : logs.length === 0 ? (
                     <div className="atl-empty">
-                        <div className="atl-empty-icon">📋</div>
+                        <div className="atl-empty-icon"><ClipboardList size={36} color="#94a3b8" /></div>
                         <h3>No activity found</h3>
                         <p>{hasFilters ? "Try adjusting your filters." : "Actions like task creation, logins, and file uploads will appear here."}</p>
                         {hasFilters && (

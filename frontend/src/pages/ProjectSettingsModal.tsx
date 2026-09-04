@@ -1,4 +1,5 @@
 import { useState, type FormEvent, useEffect } from "react";
+import { Lock, X, AlertTriangle } from "lucide-react";
 import { updateProjectApi, deleteProjectApi, type MappedProject } from "../services/projectApi";
 import { useAuth } from "../context/AuthContext";
 
@@ -171,14 +172,13 @@ export function ProjectSettingsModal({
                                     padding: "2px 8px",
                                     borderRadius: "12px",
                                     fontWeight: 600,
-                                    letterSpacing: "0.04em",
                                     textTransform: "uppercase",
                                     background: canEdit ? "#e0f2fe" : "#f1f5f9",
                                     color: canEdit ? "#0369a1" : "#64748b",
                                     border: `1px solid ${canEdit ? "#bae6fd" : "#cbd5e1"}`,
                                 }}
                             >
-                                {isOwner ? "👑 Owner" : isProjectAdmin ? "👑 Admin" : isGlobalOrWsAdmin ? "⚡ Workspace Admin" : "👁️ Member (Read-Only)"}
+                                {isOwner ? "Owner" : isProjectAdmin ? "Admin" : isGlobalOrWsAdmin ? "Workspace Admin" : "Member (Read-Only)"}
                             </span>
                         </div>
                         <p style={{ margin: "3px 0 0", fontSize: "0.82rem", color: "#64748b" }}>
@@ -186,7 +186,7 @@ export function ProjectSettingsModal({
                         </p>
                     </div>
                     <button className="modal-close" onClick={onClose} aria-label="Close">
-                        ✕
+                        <X size={16} />
                     </button>
                 </div>
 
@@ -209,7 +209,7 @@ export function ProjectSettingsModal({
                                 marginBottom: "4px",
                             }}
                         >
-                            <span style={{ fontSize: "1.2rem" }}>🔒</span>
+                            <Lock size={16} color="#64748b" />
                             <div>
                                 <strong>Read-Only Mode:</strong> You are viewing this project with member permissions. Only Project Administrators or Workspace Owners can edit settings, change status, or delete this project.
                             </div>
@@ -224,7 +224,7 @@ export function ProjectSettingsModal({
 
                     {successMsg && (
                         <div style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0", padding: "10px 14px", borderRadius: "8px", fontSize: "0.85rem" }}>
-                            ✓ {successMsg}
+                            {successMsg}
                         </div>
                     )}
 
@@ -445,7 +445,7 @@ export function ProjectSettingsModal({
                         }}
                     >
                         <span>Project ID: <code style={{ color: "#334155", background: "#e2e8f0", padding: "1px 5px", borderRadius: "4px" }}>{project.id.slice(0, 10)}...</code></span>
-                        <span>👥 {project.members?.length || 0} team members</span>
+                        <span>{project.members?.length || 0} team members</span>
                     </div>
 
                     {/* Inline Archive Confirmation */}
@@ -534,7 +534,7 @@ export function ProjectSettingsModal({
                                     transition: "all 0.15s ease",
                                 }}
                             >
-                                {archiving ? "Updating..." : status === "ARCHIVED" ? "📂 Reactivate Project" : "📦 Archive Project"}
+                                {archiving ? "Updating..." : status === "ARCHIVED" ? "Reactivate Project" : "Archive Project"}
                             </button>
                         ) : (
                             <div />
@@ -597,7 +597,9 @@ export function ProjectSettingsModal({
                                     }}
                                 >
                                     <div>
-                                        <strong style={{ color: "#991b1b", fontSize: "0.88rem", display: "block" }}>⚠️ Permanent Deletion</strong>
+                                        <strong style={{ color: "#991b1b", fontSize: "0.88rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                                            <AlertTriangle size={15} color="#991b1b" /> Permanent Deletion
+                                        </strong>
                                         <span style={{ color: "#b91c1c", fontSize: "0.8rem" }}>
                                             Are you absolutely sure you want to delete "{project.name}"? All associated tasks, files, and documents will be permanently destroyed.
                                         </span>

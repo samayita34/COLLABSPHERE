@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Check } from "lucide-react";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { CreateWorkspaceModal } from "./CreateWorkspaceModal";
 import { WorkspaceSettingsModal } from "./WorkspaceSettingsModal";
@@ -96,7 +97,7 @@ export function WorkspaceSelector() {
                                     >
                                         <div className="ws-icon">{ws.name.substring(0, 2).toUpperCase()}</div>
                                         <div className="ws-name">{ws.name}</div>
-                                        {ws.id === activeWorkspace.id && <span className="ws-check">✓</span>}
+                                        {ws.id === activeWorkspace.id && <span className="ws-check"><Check size={14} /></span>}
                                     </div>
                                 ))}
                                 {(!workspaces[org.id] || workspaces[org.id].length === 0) && (
@@ -108,7 +109,7 @@ export function WorkspaceSelector() {
 
                     <div className="dropdown-actions">
                         <button onClick={() => { setIsSettingsModalOpen(true); setIsOpen(false); }}>
-                            ⚙️ Workspace Settings
+                            Workspace Settings
                         </button>
                         <button onClick={() => { setIsCreateModalOpen(true); setIsOpen(false); }}>
                             + Create Workspace

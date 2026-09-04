@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { X } from "lucide-react";
 import { fetchWorkspaceChatUsers, createGroupApi, type ChatUser, type Channel } from "../../services/chatApi";
 import { useAuth } from "../../context/AuthContext";
 
@@ -79,7 +80,7 @@ export const CreateGroupModal: React.FC<Props> = ({ isOpen, onClose, workspaceId
             }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                     <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 600 }}>Create New Group</h3>
-                    <button onClick={onClose} style={{ background: "transparent", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "#64748b" }}>✕</button>
+                    <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#64748b", display: "inline-flex", alignItems: "center" }} aria-label="Close"><X size={18} /></button>
                 </div>
 
                 <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
