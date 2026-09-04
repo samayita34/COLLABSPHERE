@@ -19,7 +19,7 @@ import { AppSidebar } from "../components/AppSidebar";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import { socketService } from "../services/socket";
 import NotificationCenter from "../components/NotificationCenter";
-import { CheckSquare2, Users, FileText, Activity, Plus, Search, Calendar, User, ChevronRight, Loader2, AlertCircle } from "lucide-react";
+import { CheckSquare2, Users, FileText, Activity, Plus, Search, Calendar, User, ChevronRight, AlertCircle } from "lucide-react";
 
 /* =========================
    TYPES
@@ -787,35 +787,17 @@ export default function ProjectWorkspace() {
                                         </div>
                                     </div>
 
-                                    <div className="activity-list">
-                                        {auditLogs.length === 0 ? (
-                                            <div style={{ color: "#64748b", fontSize: "13px", padding: "8px 0" }}>
-                                                No activity yet.
-                                            </div>
-                                        ) : (
-                                            auditLogs.slice(0, 5).map((log, i) => {
-                                                const actor = log.user ? `${log.user.firstName} ${log.user.lastName}` : "System";
-                                                const label = log.action
-                                                    .replace(/_/g, " ")
-                                                    .toLowerCase()
-                                                    .replace(/\b\w/g, (c) => c.toUpperCase());
-                                                const when = new Date(log.createdAt);
-                                                const timeStr = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                                                return (
-                                                    <div className="activity-row" key={log.id || i}>
-                                                        <div className="activity-bullet" />
-                                                        <div className="activity-body">
-                                                            <p>
-                                                                <strong>{actor}</strong> {label.toLowerCase()}{" "}
-                                                                {log.details?.name || log.details?.title || log.entityType?.toLowerCase()}
-                                                            </p>
-                                                            <span>{timeStr}</span>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })
-                                        )}
-                                    </div>
+                                    {activeWorkspace?.id ? (
+                                        <ActivityTimeline
+                                            workspaceId={activeWorkspace.id}
+                                            projectId={project?.id}
+                                            embedded
+                                        />
+                                    ) : (
+                                        <div style={{ color: "#64748b", fontSize: "13px", padding: "8px 0" }}>
+                                            No workspace context available.
+                                        </div>
+                                    )}
                                 </div>
 
                             </div>

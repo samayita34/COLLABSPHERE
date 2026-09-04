@@ -209,7 +209,8 @@
 
 /* ── Body / Timeline ──────────────────────────────────────── */
 .atl-body {
-    /* Contains either the timeline list or empty/loading states */
+    display: flex;
+    flex-direction: column;
 }
 
 .atl-timeline {
