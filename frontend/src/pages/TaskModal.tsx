@@ -1012,36 +1012,101 @@ export default function TaskModal({
                 {/* Tab: Activity History */}
                 {activeTab === "activity" && (
                     <div className="task-modal-body" style={{ maxHeight: "68vh", overflowY: "auto" }}>
-                        <h4 style={{ margin: "0 0 12px 0", fontSize: "14px" }}>Activity Trail</h4>
+                        <h4 style={{ margin: "0 0 14px 0", fontSize: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <Activity size={16} color="#4f46e5" /> Activity & Audit Timeline
+                        </h4>
                         {loadingActivity ? (
                             <div style={{ padding: "20px", textAlign: "center", color: "#64748b" }}>
                                 Loading task audit history...
                             </div>
                         ) : activityLogs.length === 0 ? (
-                            <div style={{ color: "#94a3b8", fontSize: "12.5px", fontStyle: "italic" }}>
+                            <div style={{ color: "#94a3b8", fontSize: "12.5px", fontStyle: "italic", padding: "16px 0" }}>
                                 No activity recorded for this task yet.
                             </div>
                         ) : (
                             <div className="kb-activity-timeline">
                                 {activityLogs.map((log) => {
-                                    const actor = log.user ? `${log.user.firstName} ${log.user.lastName}` : "User";
-                                    const when = new Date(log.createdAt).toLocaleString();
-                                    const actionText = log.action
+                                    const fn = log.user?.firstName || "";
+                                    const ln = log.user?.lastName || "";
+                                    const initials = ((fn[0] || "") + (ln[0] || "")).toUpperCase() || "US";
+                                    const actorName = log.user ? `${fn} ${ln}`.trim() || log.user.email : "System";
+                                    const when = new Date(log.createdAt).toLocaleString(undefined, {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit"
+                                    });
+
+                                    let actionBadgeColor = "#e2e8f0";
+                                    let actionTextColor = "#334155";
+                                    if (log.action.includes("CREATE")) {
+                                        actionBadgeColor = "#dcfce7";
+                                        actionTextColor = "#166534";
+                                    } else if (log.action.includes("STATUS") || log.action.includes("MOVE")) {
+                                        actionBadgeColor = "#e0f2fe";
+                                        actionTextColor = "#0369a1";
+                                    } else if (log.action.includes("DELETE") || log.action.includes("REMOVE")) {
+                                        actionBadgeColor = "#fee2e2";
+                                        actionTextColor = "#991b1b";
+                                    } else if (log.action.includes("COMMENT")) {
+                                        actionBadgeColor = "#f3e8ff";
+                                        actionTextColor = "#6b21a8";
+                                    }
+
+                                    const formattedAction = log.action
                                         .replace(/_/g, " ")
                                         .toLowerCase()
                                         .replace(/\b\w/g, (c) => c.toUpperCase());
 
                                     return (
-                                        <div key={log.id} className="kb-activity-item">
-                                            <div className="kb-activity-dot" />
-                                            <div className="kb-activity-content">
-                                                <div>
-                                                    <strong>{actor}</strong> {actionText.toLowerCase()}{" "}
-                                                    {log.details?.title ? `"${log.details.title}"` : ""}
-                                                    {log.details?.status ? `(${log.details.status})` : ""}
-                                                    {log.details?.duration ? `(${log.details.duration} mins)` : ""}
+                                        <div key={log.id} className="kb-activity-item" style={{ marginBottom: "14px" }}>
+                                            <div style={{
+                                                width: "28px",
+                                                height: "28px",
+                                                borderRadius: "50%",
+                                                background: "#4f46e5",
+                                                color: "#ffffff",
+                                                fontSize: "10px",
+                                                fontWeight: 700,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                flexShrink: 0,
+                                            }}>
+                                                {initials}
+                                            </div>
+                                            <div className="kb-activity-content" style={{ flex: 1 }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", fontSize: "13px" }}>
+                                                    <strong style={{ color: "#0f172a" }}>{actorName}</strong>
+                                                    <span style={{
+                                                        fontSize: "11px",
+                                                        fontWeight: 600,
+                                                        padding: "1px 8px",
+                                                        borderRadius: "10px",
+                                                        backgroundColor: actionBadgeColor,
+                                                        color: actionTextColor,
+                                                    }}>
+                                                        {formattedAction}
+                                                    </span>
+                                                    {log.details?.fromColumn && log.details?.toColumn && (
+                                                        <span style={{ fontSize: "12px", color: "#475569", fontWeight: 500 }}>
+                                                            ({log.details.fromColumn} &rarr; {log.details.toColumn})
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <span className="kb-activity-time">{when}</span>
+                                                {log.details?.title && (
+                                                    <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+                                                        Title: "{log.details.title}"
+                                                    </div>
+                                                )}
+                                                {log.details?.duration && (
+                                                    <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+                                                        Logged {log.details.duration} mins {log.details.description ? `- ${log.details.description}` : ""}
+                                                    </div>
+                                                )}
+                                                <span className="kb-activity-time" style={{ fontSize: "11px", color: "#94a3b8", display: "block", marginTop: "3px" }}>
+                                                    {when}
+                                                </span>
                                             </div>
                                         </div>
                                     );

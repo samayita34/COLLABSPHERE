@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Mention from '@tiptap/extension-mention';
 import tippy from 'tippy.js';
 import { MentionList } from './MentionList';
-import { fetchTaskCommentsApi, createTaskCommentApi, deleteTaskCommentApi } from '../services/projectApi';
+import { fetchTaskCommentsApi, createTaskCommentApi, deleteTaskCommentApi, uploadTaskAttachmentApi } from '../services/projectApi';
 import type { TaskComment, Member } from '../services/projectApi';
 import { socketService } from '../services/socket';
 import './TaskCommentSection.css';
@@ -172,6 +172,22 @@ function CommentItem({
                     dangerouslySetInnerHTML={{ __html: comment.text }}
                 />
 
+                {comment.attachments && comment.attachments.length > 0 && (
+                    <div style={{ marginTop: "6px", display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                        {comment.attachments.map((att: any) => (
+                            <a
+                                key={att.id}
+                                href={att.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ fontSize: "11px", color: "#0284c7", background: "#e0f2fe", padding: "2px 8px", borderRadius: "4px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                            >
+                                📎 {att.fileName}
+                            </a>
+                        ))}
+                    </div>
+                )}
+
                 <div className="task-comment-actions">
                     <button type="button" onClick={onReply} className="task-comment-btn">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -220,6 +236,9 @@ function CommentInput({
     onCommentAdded: () => void;
 }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [stagedAttachments, setStagedAttachments] = useState<{ id: string; fileName: string }[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const editor = useEditor({
         extensions: [
@@ -290,8 +309,28 @@ function CommentInput({
         },
     });
 
+    const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setIsUploading(true);
+        try {
+            const att = await uploadTaskAttachmentApi(taskId, file);
+            setStagedAttachments((prev) => [...prev, { id: att.id, fileName: att.fileName }]);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        } catch (error) {
+            console.error("Failed to attach file to comment:", error);
+            alert("Failed to upload attachment");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const removeStagedAttachment = (id: string) => {
+        setStagedAttachments((prev) => prev.filter((a) => a.id !== id));
+    };
+
     const submitComment = async () => {
-        if (!editor || editor.isEmpty || isSubmitting) return;
+        if (!editor || (editor.isEmpty && stagedAttachments.length === 0) || isSubmitting) return;
 
         setIsSubmitting(true);
         const html = editor.getHTML();
@@ -301,11 +340,13 @@ function CommentInput({
 
         try {
             await createTaskCommentApi(projectId, taskId, {
-                text: html,
+                text: html.trim() ? html : "<p>Attached files</p>",
                 parentId,
                 mentions,
+                attachments: stagedAttachments.map((a) => a.id),
             });
             editor.commands.clearContent();
+            setStagedAttachments([]);
             onCommentAdded();
         } catch (error) {
             console.error("Failed to post comment", error);
@@ -317,13 +358,50 @@ function CommentInput({
     return (
         <div>
             <EditorContent editor={editor} />
+
+            {stagedAttachments.length > 0 && (
+                <div style={{ padding: "6px 12px", background: "#f8fafc", borderTop: "1px solid #e2e8f0", display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    {stagedAttachments.map((att) => (
+                        <span key={att.id} style={{ fontSize: "11px", background: "#e2e8f0", color: "#334155", padding: "2px 8px", borderRadius: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            📎 {att.fileName}
+                            <button
+                                type="button"
+                                onClick={() => removeStagedAttachment(att.id)}
+                                style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", color: "#64748b", padding: 0, marginLeft: "2px" }}
+                            >
+                                &times;
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            )}
+
             <div className="task-comment-footer">
-                <span className="task-comment-hint">
-                    Type <kbd>@</kbd> to mention team members
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span className="task-comment-hint">
+                        Type <kbd>@</kbd> to mention
+                    </span>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        style={{ display: "none" }}
+                        onChange={handleFileSelected}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        style={{ background: "none", border: "none", color: "#64748b", fontSize: "12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                    >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                        </svg>
+                        {isUploading ? "Uploading..." : "Attach"}
+                    </button>
+                </div>
                 <button
                     type="button"
-                    disabled={isSubmitting || !editor || editor.isEmpty}
+                    disabled={isSubmitting || !editor || (editor.isEmpty && stagedAttachments.length === 0)}
                     onClick={submitComment}
                     className="task-comment-send-btn"
                 >
