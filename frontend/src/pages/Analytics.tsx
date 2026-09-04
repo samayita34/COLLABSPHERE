@@ -117,19 +117,19 @@ export const Analytics: React.FC = () => {
     };
 
     return (
-        <div className="analytics-page">
-            <div className="analytics-layout">
-                <AppSidebar activePage="analytics" />
+        <div className="projects-page">
+            <AppSidebar activePage="analytics" />
 
-                <main className="analytics-main">
-                    <AppTopbar pageTitle="Analytics" />
+            <div className="projects-content">
+                <AppTopbar pageTitle="Analytics" />
 
+                <div className="analytics-main">
                     <div className="analytics-content">
                         {/* Header & Period Switcher */}
                         <div className="analytics-header-row">
                             <div className="analytics-title-group">
                                 <h1>
-                                    <BarChart3 size={24} color="#3b82f6" />
+                                    <BarChart3 size={24} color="#14161c" />
                                     <span>Analytics & Telemetry</span>
                                 </h1>
                                 <p>
@@ -197,11 +197,11 @@ export const Analytics: React.FC = () => {
                         {error && (
                             <div
                                 style={{
-                                    background: "rgba(239, 68, 68, 0.12)",
-                                    border: "1px solid rgba(239, 68, 68, 0.3)",
-                                    color: "#fca5a5",
+                                    background: "#fef2f2",
+                                    border: "1px solid #fecaca",
+                                    color: "#991b1b",
                                     padding: "12px 18px",
-                                    borderRadius: "10px",
+                                    borderRadius: "8px",
                                     marginBottom: "24px",
                                     fontSize: "0.875rem",
                                     display: "flex",
@@ -209,7 +209,7 @@ export const Analytics: React.FC = () => {
                                     gap: "10px"
                                 }}
                             >
-                                <AlertTriangle size={18} color="#ef4444" />
+                                <AlertTriangle size={18} color="#dc2626" />
                                 <span>{error}</span>
                             </div>
                         )}
@@ -330,7 +330,7 @@ export const Analytics: React.FC = () => {
                                         <div style={{ textAlign: "right", fontSize: "0.775rem", color: "#8b949e" }}>
                                             <div>
                                                 Velocity:{" "}
-                                                <strong style={{ color: "#ffffff" }}>
+                                                <strong style={{ color: "#14161c" }}>
                                                     {data.velocitySummary.avgCompletionVelocity} tasks/day
                                                 </strong>
                                             </div>
@@ -638,7 +638,7 @@ export const Analytics: React.FC = () => {
                                     </div>
 
                                     <div>
-                                        <div style={{ fontWeight: 600, color: "#ffffff", fontSize: "0.9375rem" }}>
+                                        <div style={{ fontWeight: 600, color: "#14161c", fontSize: "0.9375rem" }}>
                                             {healthScore >= 80
                                                 ? "Optimal Health"
                                                 : healthScore >= 60
@@ -676,7 +676,7 @@ export const Analytics: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                </main>
+                </div>
             </div>
         </div>
     );
