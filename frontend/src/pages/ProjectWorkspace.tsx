@@ -1,14 +1,15 @@
-import { useEffect, useState, type DragEvent } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import "./Projects.css";
 import "./ProjectWorkspace.css";
 import TaskModal from "./TaskModal";
+import { KanbanBoard } from "../components/kanban/KanbanBoard";
 import { MemberDetailModal, AddMemberModal } from "./MemberModal";
 import { DocumentDetailModal, AddDocumentModal } from "./DocumentModal";
 import { FileBrowser } from "../components/FileBrowser";
 import { ProjectSettingsModal } from "./ProjectSettingsModal";
 import ProjectChat, { type ChatMessage } from "./ProjectChat";
-import { fetchProjectById, createTaskApi, updateTaskApi, updateTaskColumnApi, deleteTaskApi, addMemberApi, fetchDocuments, createDocumentApi, fetchChatMessages, sendChatMessageApi, updateDocumentApi, mapApiTaskToFrontend, mapApiChatMessageToFrontend, fetchBoards } from "../services/projectApi";
+import { fetchProjectById, createTaskApi, updateTaskApi, deleteTaskApi, addMemberApi, fetchDocuments, createDocumentApi, fetchChatMessages, sendChatMessageApi, updateDocumentApi, mapApiTaskToFrontend, mapApiChatMessageToFrontend, fetchBoards } from "../services/projectApi";
 import type { TaskPriority, Task, Member, MappedProject as Project, Board } from "../services/projectApi";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
@@ -17,7 +18,7 @@ import { AppSidebar } from "../components/AppSidebar";
 import { WorkspaceSelector } from "../components/WorkspaceSelector";
 import { socketService } from "../services/socket";
 import NotificationCenter from "../components/NotificationCenter";
-import { CheckSquare2, Users, FileText, Activity, ClipboardList, Plus, Search, Calendar, User, ChevronRight, Loader2, AlertCircle } from "lucide-react";
+import { CheckSquare2, Users, FileText, Activity, Plus, Search, Calendar, User, ChevronRight, Loader2, AlertCircle } from "lucide-react";
 
 /* =========================
    TYPES
@@ -229,43 +230,18 @@ export default function ProjectWorkspace() {
     const tasksTotal = tasks.length;
     const progress = tasksTotal === 0 ? (project?.progress ?? 0) : Math.round((tasksDone / tasksTotal) * 100);
 
-    /* Drag and drop */
-    const [draggingId, setDraggingId] = useState<string | null>(null);
-    const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
-
-    const handleDrop = (columnId: string, e: DragEvent) => {
-        e.preventDefault();
-        const taskId = e.dataTransfer.getData("text/plain") || draggingId;
-        if (taskId) {
-            // Optimistic update
-            setTasks((prev) =>
-                prev.map((t) => (t.id === taskId ? { ...t, columnId } : t))
-            );
-            // Persist to backend
-            updateTaskColumnApi(taskId, columnId).then((updated) => {
-                setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-            }).catch((err) => {
-                console.error("Failed to update task column:", err);
-                // Revert on failure — refetch the task list
-                if (routeParam) {
-                    fetchProjectById(routeParam).then((data) => setTasks(data.tasks)).catch(() => {});
-                }
-            });
-        }
-        setDraggingId(null);
-        setDragOverColumn(null);
-    };
-
     /* Task modal (create / edit) */
     const [modalOpen, setModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<"create" | "edit">("create");
     const [modalTask, setModalTask] = useState<Task | null>(null);
     const [modalDefaultColumnId, setModalDefaultColumnId] = useState<string | null>(null);
+    const [modalDefaultSwimlaneId, setModalDefaultSwimlaneId] = useState<string | null>(null);
 
-    const openCreateModal = (columnId?: string) => {
+    const openCreateModal = (columnId?: string, swimlaneId?: string) => {
         setModalMode("create");
         setModalTask(null);
         setModalDefaultColumnId(columnId || board?.columns[0]?.id || null);
+        setModalDefaultSwimlaneId(swimlaneId || null);
         setModalOpen(true);
     };
 
@@ -286,9 +262,12 @@ export default function ProjectWorkspace() {
                 title: task.title,
                 description: task.description,
                 columnId: task.columnId || undefined,
+                swimlaneId: task.swimlaneId || undefined,
                 priority: task.priority,
                 due: task.due,
                 assignee: task.assignee,
+                assigneeId: task.assigneeId,
+                labelIds: task.labels?.map((l) => l.id),
                 members,
             })
                 .then((created) => {
@@ -305,9 +284,12 @@ export default function ProjectWorkspace() {
                 title: task.title,
                 description: task.description,
                 columnId: task.columnId || undefined,
+                swimlaneId: task.swimlaneId || undefined,
                 priority: task.priority,
                 due: task.due,
                 assignee: task.assignee,
+                assigneeId: task.assigneeId,
+                labelIds: task.labels?.map((l) => l.id),
                 members,
             })
                 .then((updated) => {
@@ -980,100 +962,17 @@ export default function ProjectWorkspace() {
                         </div>
                     )}
 
-                                      {/* BOARD TAB (KANBAN VIEW) */}
+                    {/* BOARD TAB (DYNAMIC KANBAN VIEW) */}
                     {activeTab === "Board" && (
-                        <div className="tab-pane">
-                            <div className="pane-toolbar">
-                                <div className="pane-title">
-                                    <h2>Kanban Board</h2>
-                                    <p>Drag and drop tasks between columns to update status.</p>
-                                </div>
-
-                                <button className="cs-btn cs-btn-primary" onClick={() => openCreateModal(board?.columns[0]?.id)}>
-                                    <Plus size={14} style={{ marginRight: 4 }} />
-                                    New Task
-                                </button>
-                            </div>
-
-                            <div className="kb-board">
-                                {board?.columns.map((col) => {
-                                    const colTasks = tasks.filter((t) => t.columnId === col.id);
-                                    const isTarget = dragOverColumn === col.id;
-
-                                    return (
-                                        <div
-                                            key={col.id}
-                                            className={`kb-column ${isTarget ? "kb-drag-over" : ""}`}
-                                            onDragOver={(e) => { e.preventDefault(); setDragOverColumn(col.id); }}
-                                            onDragLeave={() => setDragOverColumn(null)}
-                                            onDrop={(e) => handleDrop(col.id, e)}
-                                        >
-                                            <div className="kb-col-header">
-                                                <div className="kb-col-title">
-                                                    <span className="kb-col-dot" />
-                                                    <strong>{col.name}</strong>
-                                                    <span className="kb-col-count">{colTasks.length}</span>
-                                                </div>
-                                                <button className="kb-add-btn" onClick={() => openCreateModal(col.id)} title="Add task to column">
-                                                    <Plus size={13} />
-                                                </button>
-                                            </div>
-
-                                            <div className="kb-col-body">
-                                                {colTasks.length === 0 && !isTarget && (
-                                                    <div className="kb-empty-col">
-                                                        Drop tasks here
-                                                    </div>
-                                                )}
-
-                                                {colTasks.map((t) => {
-                                                    const assigneeMember = members.find(m => m.initials === t.assignee);
-                                                    return (
-                                                        <div
-                                                            key={t.id}
-                                                            className={`kb-card ${draggingId === t.id ? "kb-dragging" : ""} priority-border-${t.priority?.toLowerCase() || "medium"}`}
-                                                            draggable
-                                                            onDragStart={(e) => { setDraggingId(t.id); e.dataTransfer.setData("text/plain", t.id); }}
-                                                            onDragEnd={() => setDraggingId(null)}
-                                                            onClick={() => openEditModal(t)}
-                                                        >
-                                                            <div className="kb-card-top">
-                                                                <span className={`priority-tag ${t.priority?.toLowerCase() || "medium"}`}>
-                                                                    {t.priority}
-                                                                </span>
-                                                                <div className="tw-avatar sm" title={assigneeMember?.name || t.assignee}>
-                                                                    {t.assignee || "?"}
-                                                                </div>
-                                                            </div>
-
-                                                            <h4 className="kb-card-title">{t.title}</h4>
-
-                                                            {t.description && (
-                                                                <p className="kb-card-desc">{t.description}</p>
-                                                            )}
-
-                                                            <div className="kb-card-footer">
-                                                                <span className="kb-due">
-                                                                    <Calendar size={11} />
-                                                                    {t.due || "No date"}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-
-                                {!board && (
-                                    <div className="tw-empty-state" style={{ gridColumn: "1 / -1" }}>
-                                        <ClipboardList size={40} color="#9a968a" />
-                                        <h3>No board configured</h3>
-                                        <p>Create a board to start organizing tasks.</p>
-                                    </div>
-                                )}
-                            </div>
+                        <div className="tab-pane" style={{ padding: 0 }}>
+                            <KanbanBoard
+                                projectId={routeParam}
+                                tasks={tasks}
+                                members={members}
+                                onTaskClick={openEditModal}
+                                onQuickCreateTask={(colId, swimlaneId) => openCreateModal(colId, swimlaneId)}
+                                onTasksChange={(updatedTasks) => setTasks(updatedTasks)}
+                            />
                         </div>
                     )}
 
@@ -1374,9 +1273,11 @@ export default function ProjectWorkspace() {
                     mode={modalMode}
                     task={modalTask}
                     defaultColumnId={modalDefaultColumnId}
+                    defaultSwimlaneId={modalDefaultSwimlaneId}
                     columns={board?.columns || []}
+                    swimlanes={board?.swimlanes || []}
                     members={members}
-                    projectId={id || ""}
+                    projectId={routeParam}
                     onClose={closeModal}
                     onSave={saveTask}
                     onDelete={deleteTask}

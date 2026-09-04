@@ -106,11 +106,75 @@ export interface ChatMessage {
     timestamp: string;
 }
 
-export interface Board {
+export interface Label {
     id: string;
     name: string;
-    projectId: string;
-    columns: Column[];
+    color: string;
+    projectId?: string;
+    createdAt?: string;
+}
+
+export interface TaskLabel {
+    taskId: string;
+    labelId: string;
+    label: Label;
+}
+
+export interface TaskChecklistItem {
+    id: string;
+    content: string;
+    isCompleted: boolean;
+    checklistId: string;
+    createdAt?: string;
+}
+
+export interface TaskChecklist {
+    id: string;
+    title: string;
+    taskId: string;
+    items: TaskChecklistItem[];
+    createdAt?: string;
+}
+
+export interface TaskAttachment {
+    id: string;
+    fileName: string;
+    fileUrl: string;
+    fileType?: string | null;
+    fileSize?: number | null;
+    taskId: string;
+    uploadedById?: string;
+    uploadedBy?: { id: string; firstName: string; lastName: string; email?: string; avatar?: string | null };
+    createdAt?: string;
+}
+
+export interface TimeEntry {
+    id: string;
+    duration: number; // in minutes
+    description?: string | null;
+    taskId: string;
+    userId: string;
+    user?: { id: string; firstName: string; lastName: string; email?: string; avatar?: string | null };
+    date: string;
+    createdAt?: string;
+}
+
+export interface TaskActivityLog {
+    id: string;
+    action: string;
+    entityType: string;
+    entityId?: string;
+    details?: any;
+    createdAt: string;
+    user?: { id: string; firstName: string; lastName: string; email?: string; avatar?: string | null };
+}
+
+export interface Swimlane {
+    id: string;
+    name: string;
+    order: number;
+    boardId: string;
+    createdAt?: string;
 }
 
 export interface Column {
@@ -118,6 +182,17 @@ export interface Column {
     name: string;
     order: number;
     boardId: string;
+    createdAt?: string;
+}
+
+export interface Board {
+    id: string;
+    name: string;
+    description?: string | null;
+    projectId: string;
+    columns: Column[];
+    swimlanes?: Swimlane[];
+    createdAt?: string;
 }
 
 export interface Task {
@@ -125,11 +200,26 @@ export interface Task {
     title: string;
     description?: string;
     columnId: string | null;
+    column?: Column | null;
     swimlaneId: string | null;
+    swimlane?: Swimlane | null;
     order: number;
     priority: TaskPriority;
     due: string;
+    dueDateRaw?: string | null;
     assignee: string;
+    assigneeId?: string | null;
+    assigneeUser?: { id: string; firstName: string; lastName: string; email?: string; avatar?: string | null } | null;
+    labels?: Label[];
+    checklists?: TaskChecklist[];
+    checklistStats?: { total: number; completed: number; progress: number };
+    attachmentsCount?: number;
+    attachments?: TaskAttachment[];
+    timeEntries?: TimeEntry[];
+    totalTimeSpentMinutes?: number;
+    commentsCount?: number;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface MyTaskItem {
@@ -314,16 +404,42 @@ export function mapApiTaskToFrontend(apiTask: any): Task {
         assigneeInitials = deriveMemberInitials(apiTask.assignee.firstName, apiTask.assignee.lastName, apiTask.assignee.email);
     }
 
+    const labels = (apiTask.labels || []).map((tl: any) => (tl.label ? tl.label : tl));
+    const checklists = apiTask.checklists || [];
+    const totalChecklistItems = apiTask.checklistStats?.total ?? checklists.reduce((acc: number, cl: any) => acc + (cl.items?.length || 0), 0);
+    const completedChecklistItems = apiTask.checklistStats?.completed ?? checklists.reduce((acc: number, cl: any) => acc + (cl.items?.filter((it: any) => it.isCompleted)?.length || 0), 0);
+    const progress = totalChecklistItems > 0 ? Math.round((completedChecklistItems / totalChecklistItems) * 100) : 0;
+    const totalTimeSpentMinutes = apiTask.totalTimeSpentMinutes ?? (apiTask.timeEntries || []).reduce((acc: number, entry: any) => acc + (entry.duration || 0), 0);
+
     return {
         id: apiTask.id,
         title: apiTask.title,
         description: apiTask.description || undefined,
         columnId: apiTask.columnId || null,
+        column: apiTask.column || null,
         swimlaneId: apiTask.swimlaneId || null,
+        swimlane: apiTask.swimlane || null,
         order: apiTask.order || 0,
         priority: mapTaskPriority(apiTask.priority),
         due: formatShortDate(apiTask.dueDate),
+        dueDateRaw: apiTask.dueDate || null,
         assignee: assigneeInitials,
+        assigneeId: apiTask.assigneeId || null,
+        assigneeUser: apiTask.assignee || null,
+        labels,
+        checklists,
+        checklistStats: {
+            total: totalChecklistItems,
+            completed: completedChecklistItems,
+            progress,
+        },
+        attachmentsCount: apiTask.attachmentsCount ?? apiTask.attachments?.length ?? 0,
+        attachments: apiTask.attachments || [],
+        timeEntries: apiTask.timeEntries || [],
+        totalTimeSpentMinutes,
+        commentsCount: apiTask.commentsCount ?? apiTask.comments?.length ?? 0,
+        createdAt: apiTask.createdAt,
+        updatedAt: apiTask.updatedAt,
     };
 }
 
@@ -461,6 +577,20 @@ export function parseDueForApi(due: string): string | null {
 }
 
 /**
+ * GET /api/tasks/:id
+ * Fetch a single task by ID.
+ */
+export async function fetchTaskByIdApi(taskId: string): Promise<Task> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${encodeURIComponent(taskId)}`, { credentials: "include" });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Failed to fetch task (HTTP ${res.status})`);
+    }
+    const json = await res.json();
+    return mapApiTaskToFrontend(json.data);
+}
+
+/**
  * POST /api/projects/:projectId/tasks
  * Create a new task and return the mapped frontend Task.
  */
@@ -474,11 +604,17 @@ export async function createTaskApi(
         order?: number;
         priority: TaskPriority;
         due: string;
-        assignee: string;          // frontend initials
-        members: Member[];         // to resolve initials → userId
+        assignee?: string;          // frontend initials
+        assigneeId?: string | null; // direct user ID
+        labelIds?: string[];
+        members?: Member[];         // to resolve initials → userId
     }
 ): Promise<Task> {
-    const assigneeId = payload.members.find((m) => m.initials === payload.assignee || m.name === payload.assignee || m.email === payload.assignee)?.userId ?? null;
+    let assigneeId = payload.assigneeId ?? null;
+    if (!assigneeId && payload.assignee && payload.members) {
+        assigneeId = payload.members.find((m) => m.initials === payload.assignee || m.name === payload.assignee || m.email === payload.assignee)?.userId ?? null;
+    }
+
     const body: Record<string, unknown> = {
         title: payload.title,
         priority: toApiPriority(payload.priority),
@@ -487,6 +623,7 @@ export async function createTaskApi(
     if (payload.swimlaneId) body.swimlaneId = payload.swimlaneId;
     if (payload.order !== undefined) body.order = payload.order;
     if (payload.description) body.description = payload.description;
+    if (Array.isArray(payload.labelIds)) body.labelIds = payload.labelIds;
     const dueDateIso = parseDueForApi(payload.due);
     if (dueDateIso) body.dueDate = dueDateIso;
     if (assigneeId) body.assigneeId = assigneeId;
@@ -514,13 +651,15 @@ export async function updateTaskApi(
     payload: {
         title?: string;
         description?: string;
-        columnId?: string;
-        swimlaneId?: string;
+        columnId?: string | null;
+        swimlaneId?: string | null;
         order?: number;
         priority?: TaskPriority;
         due?: string;
-        assignee?: string;         // frontend initials
-        members?: Member[];        // to resolve initials → userId
+        assignee?: string;          // frontend initials
+        assigneeId?: string | null; // direct user ID
+        labelIds?: string[];
+        members?: Member[];         // to resolve initials → userId
     }
 ): Promise<Task> {
     const body: Record<string, unknown> = {};
@@ -530,10 +669,13 @@ export async function updateTaskApi(
     if (payload.swimlaneId !== undefined)  body.swimlaneId  = payload.swimlaneId;
     if (payload.order !== undefined)       body.order       = payload.order;
     if (payload.priority !== undefined)    body.priority    = toApiPriority(payload.priority);
+    if (Array.isArray(payload.labelIds))   body.labelIds    = payload.labelIds;
     if (payload.due !== undefined) {
         body.dueDate = parseDueForApi(payload.due) ?? null;
     }
-    if (payload.assignee !== undefined && payload.members) {
+    if (payload.assigneeId !== undefined) {
+        body.assigneeId = payload.assigneeId;
+    } else if (payload.assignee !== undefined && payload.members) {
         const uid = payload.members.find((m) => m.initials === payload.assignee)?.userId ?? null;
         body.assigneeId = uid;
     }
@@ -555,8 +697,15 @@ export async function updateTaskApi(
 /**
  * PATCH /api/tasks/:id  (used by Board drag-and-drop)
  */
-export async function updateTaskColumnApi(taskId: string, columnId: string, order?: number): Promise<Task> {
-    return updateTaskApi(taskId, { columnId, order });
+export async function updateTaskColumnApi(taskId: string, columnId: string | null, order?: number, swimlaneId?: string | null): Promise<Task> {
+    const payload: any = { columnId };
+    if (order !== undefined) payload.order = order;
+    if (swimlaneId !== undefined) payload.swimlaneId = swimlaneId;
+    return updateTaskApi(taskId, payload);
+}
+
+export async function updateTaskSwimlaneApi(taskId: string, swimlaneId: string | null, order?: number): Promise<Task> {
+    return updateTaskApi(taskId, { swimlaneId, order });
 }
 
 /**
@@ -1085,34 +1234,331 @@ export async function fetchBoards(projectId: string): Promise<Board[]> {
     return json.data;
 }
 
+export async function createBoardApi(projectId: string, payload: { name: string; description?: string; template?: string; columns?: Array<{ name: string }> }): Promise<Board> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create board");
+    return json.data;
+}
+
+export async function updateBoardApi(projectId: string, boardId: string, payload: { name?: string; description?: string | null }): Promise<Board> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/${boardId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to update board");
+    return json.data;
+}
+
+export async function deleteBoardApi(projectId: string, boardId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/${boardId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to delete board");
+}
+
+export async function createColumnApi(projectId: string, boardId: string, payload: { name: string; order?: number }): Promise<Column> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/${boardId}/columns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create column");
+    return json.data;
+}
+
+export async function updateColumnApi(projectId: string, columnId: string, payload: { name?: string; order?: number }): Promise<Column> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/columns/${columnId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to update column");
+    return json.data;
+}
+
+export async function deleteColumnApi(projectId: string, columnId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/columns/${columnId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to delete column");
+}
+
+export async function reorderColumnsApi(projectId: string, boardId: string, columnIds: string[]): Promise<Column[]> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/${boardId}/columns/reorder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ columnIds }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to reorder columns");
+    return json.data;
+}
+
+// Swimlanes API
+export async function createSwimlaneApi(projectId: string, boardId: string, payload: { name: string; order?: number }): Promise<Swimlane> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/${boardId}/swimlanes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create swimlane");
+    return json.data;
+}
+
+export async function updateSwimlaneApi(projectId: string, swimlaneId: string, payload: { name?: string; order?: number }): Promise<Swimlane> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/swimlanes/${swimlaneId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to update swimlane");
+    return json.data;
+}
+
+export async function deleteSwimlaneApi(projectId: string, swimlaneId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/swimlanes/${swimlaneId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to delete swimlane");
+}
+
+export async function reorderSwimlanesApi(projectId: string, boardId: string, swimlaneIds: string[]): Promise<Swimlane[]> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/${boardId}/swimlanes/reorder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ swimlaneIds }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to reorder swimlanes");
+    return json.data;
+}
+
+// Labels API
+export async function fetchProjectLabelsApi(projectId: string): Promise<Label[]> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/labels`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch project labels");
+    const json = await res.json();
+    return json.data || [];
+}
+
+export async function createProjectLabelApi(projectId: string, payload: { name: string; color: string }): Promise<Label> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/labels`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create label");
+    return json.data;
+}
+
+export async function updateProjectLabelApi(projectId: string, labelId: string, payload: { name?: string; color?: string }): Promise<Label> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/labels/${labelId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to update label");
+    return json.data;
+}
+
+export async function deleteProjectLabelApi(projectId: string, labelId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/labels/${labelId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to delete label");
+}
+
+export async function addLabelToTaskApi(taskId: string, labelId: string): Promise<TaskLabel> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/labels`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ labelId }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to add label to task");
+    return json.data;
+}
+
+export async function removeLabelFromTaskApi(taskId: string, labelId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/labels/${labelId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to remove label from task");
+}
+
+// Checklists API
+export async function fetchTaskChecklistsApi(taskId: string): Promise<TaskChecklist[]> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/checklists`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch checklists");
+    const json = await res.json();
+    return json.data || [];
+}
+
+export async function createChecklistApi(taskId: string, title?: string): Promise<TaskChecklist> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/checklists`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title: title || "Checklist" }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create checklist");
+    return json.data;
+}
+
+export async function deleteChecklistApi(checklistId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/tasks/checklists/${checklistId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to delete checklist");
+}
+
+export async function addChecklistItemApi(checklistId: string, content: string): Promise<TaskChecklistItem> {
+    const res = await fetch(`${API_BASE_URL}/tasks/checklists/${checklistId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ content }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to add checklist item");
+    return json.data;
+}
+
+export async function updateChecklistItemApi(itemId: string, payload: { isCompleted?: boolean; content?: string }): Promise<TaskChecklistItem> {
+    const res = await fetch(`${API_BASE_URL}/tasks/checklists/items/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to update checklist item");
+    return json.data;
+}
+
+export async function deleteChecklistItemApi(itemId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/tasks/checklists/items/${itemId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to delete checklist item");
+}
+
+// Time Tracking API
+export async function fetchTaskTimeEntriesApi(taskId: string): Promise<{ totalMinutes: number; data: TimeEntry[] }> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/time-entries`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch time entries");
+    const json = await res.json();
+    return {
+        totalMinutes: json.totalMinutes || 0,
+        data: json.data || [],
+    };
+}
+
+export async function addTimeEntryApi(taskId: string, payload: { duration: number; description?: string; date?: string }): Promise<TimeEntry> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/time-entries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to log time entry");
+    return json.data;
+}
+
+export async function deleteTimeEntryApi(entryId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/tasks/time-entries/${entryId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to delete time entry");
+}
+
+// Attachments API
+export async function fetchTaskAttachmentsApi(taskId: string): Promise<TaskAttachment[]> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/attachments`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch attachments");
+    const json = await res.json();
+    return json.data || [];
+}
+
+export async function uploadTaskAttachmentApi(taskId: string, file: File): Promise<TaskAttachment> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/attachments`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to upload attachment");
+    return json.data;
+}
+
+export async function deleteTaskAttachmentApi(taskId: string, attachmentId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/attachments/${attachmentId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to delete attachment");
+}
+
+// Task Activity / Audit History API
+export async function fetchTaskActivityApi(taskId: string): Promise<TaskActivityLog[]> {
+    const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/activity`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch task activity");
+    const json = await res.json();
+    return json.data || [];
+}
+
 export async function updateTaskSemanticStatusApi(taskId: string, semanticStatus: string): Promise<Task> {
     const res = await fetch(`${API_BASE_URL}/tasks/${encodeURIComponent(taskId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ semanticStatus }),
-    });
-    const json = await res.json();
-    return json.data;
-}
-
-export async function createBoardApi(projectId: string, name: string): Promise<Board> {
-    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ name }),
-    });
-    const json = await res.json();
-    return json.data;
-}
-
-export async function createColumnApi(projectId: string, boardId: string, payload: { name: string, order?: number }): Promise<Column> {
-    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/boards/${boardId}/columns`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
     });
     const json = await res.json();
     return json.data;
@@ -1166,7 +1612,6 @@ export async function deleteTaskCommentApi(_projectId: string, commentId: string
 }
 
 // Folders & Files API
-
 export async function fetchFoldersApi(projectId: string): Promise<Folder[]> {
     const res = await fetch(`${API_BASE_URL}/projects/${projectId}/folders`, { credentials: "include" });
     if (!res.ok) throw new Error("Failed to fetch folders");
@@ -1205,4 +1650,5 @@ export async function toggleFileLockApi(projectId: string, fileId: string): Prom
     if (!json.success) throw new Error(json.error);
     return json.data;
 }
+
 

@@ -24,7 +24,8 @@ import { authenticate } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { requireProjectAccess, requireTaskAccess, requireDocumentAccess, requireFileAccess, requirePermission } from "./middleware/rbac";
 import { Permission } from "./lib/permissions";
-import { getMyTasks, updateTask, deleteTask } from "./controllers/taskController";
+import labelRoutes from "./routes/labelRoutes";
+import { getMyTasks, getTaskById, updateTask, deleteTask } from "./controllers/taskController";
 import { getDocumentsByWorkspace, getDocumentById, updateDocument, deleteDocument } from "./controllers/documentController";
 import { deleteFile } from "./controllers/fileController";
 import { connectRedis } from "./lib/redis";
@@ -109,6 +110,7 @@ app.use("/api/audit-logs", auditRoutes);
 
 // Nested project sub-resource routes (must be mounted before base /api/projects route)
 app.use("/api/projects/:projectId/boards", authenticate, requireProjectAccess, boardRoutes);
+app.use("/api/projects/:projectId/labels", authenticate, requireProjectAccess, labelRoutes);
 app.use("/api/projects/:projectId/tasks", authenticate, requireProjectAccess, taskRoutes);
 app.use("/api/projects/:projectId/tasks", authenticate, taskDetailsRoutes);
 app.use("/api/projects/:projectId/members", authenticate, requireProjectAccess, memberRoutes);
@@ -121,6 +123,7 @@ app.use("/api/projects", authenticate, projectRoutes);
 
 // Top-level task & document routes
 app.get("/api/tasks/my-tasks", authenticate, getMyTasks);
+app.get("/api/tasks/:id", authenticate, requireTaskAccess, getTaskById);
 app.use("/api/tasks", authenticate, taskDetailsRoutes);
 app.patch("/api/tasks/:id", authenticate, requireTaskAccess, requirePermission(Permission.EDIT_TASK), updateTask);
 app.delete("/api/tasks/:id", authenticate, requireTaskAccess, requirePermission(Permission.DELETE_TASK), deleteTask);

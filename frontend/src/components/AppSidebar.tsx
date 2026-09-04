@@ -26,7 +26,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 }) => {
   const { userFullName, userInitials, logout } = useAuth();
   const { isOpen, setIsOpen } = useSidebar();
-  const { role, canViewAnalytics } = usePermissions();
+  const { role } = usePermissions();
 
   const formattedRole = role.replace("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 

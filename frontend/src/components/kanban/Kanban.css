@@ -1,0 +1,778 @@
+/* =========================================================
+   KANBAN BOARDS DESIGN SYSTEM & COMPONENT STYLING
+   State-of-the-Art aesthetics with glassmorphism, smooth gradients,
+   vibrant priority tags, drag-and-drop animations, and dark/light accents.
+========================================================= */
+
+/* --- Top Control Bar --- */
+.kb-container {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+    min-height: calc(100vh - 280px);
+}
+
+.kb-topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    background: #ffffff;
+    border: 1px solid #e7e3d8;
+    border-radius: 12px;
+    padding: 12px 18px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.kb-topbar-left {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.kb-board-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kb-board-select {
+    padding: 7px 12px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #14161c;
+    background: #fdfdfc;
+    border: 1px solid #dcd7ca;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.kb-board-select:hover,
+.kb-board-select:focus {
+    border-color: #232a3d;
+    background: #ffffff;
+}
+
+.kb-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+    font-weight: 500;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+}
+
+.kb-action-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+
+.kb-action-btn.primary {
+    background: #232a3d;
+    border-color: #232a3d;
+    color: #ffffff;
+}
+
+.kb-action-btn.primary:hover {
+    background: #14161c;
+    border-color: #14161c;
+}
+
+.kb-action-btn.danger {
+    color: #ef4444;
+    border-color: #fecaca;
+    background: #fff5f5;
+}
+
+.kb-action-btn.danger:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
+
+/* Swimlane & View Switcher */
+.kb-view-pills {
+    display: inline-flex;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+}
+
+.kb-view-pill {
+    padding: 5px 11px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.kb-view-pill.active {
+    background: #ffffff;
+    color: #0f172a;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Filters bar */
+.kb-filters-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #fafaf8;
+    border: 1px solid #e7e3d8;
+    border-radius: 10px;
+}
+
+.kb-search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #ffffff;
+    border: 1px solid #dcd7ca;
+    border-radius: 8px;
+    padding: 5px 10px;
+    min-width: 200px;
+}
+
+.kb-search-box input {
+    border: none;
+    outline: none;
+    font-size: 12.5px;
+    background: transparent;
+    width: 100%;
+    color: #1e293b;
+}
+
+.kb-filter-select {
+    padding: 6px 10px;
+    font-size: 12.5px;
+    font-family: inherit;
+    color: #475569;
+    background: #ffffff;
+    border: 1px solid #dcd7ca;
+    border-radius: 7px;
+    outline: none;
+    cursor: pointer;
+}
+
+.kb-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    font-size: 11.5px;
+    font-weight: 500;
+    border-radius: 20px;
+    background: #e2e8f0;
+    color: #334155;
+}
+
+.kb-filter-chip .remove-chip {
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.kb-filter-chip .remove-chip:hover {
+    color: #ef4444;
+}
+
+/* --- Canvas / Column Grid --- */
+.kb-canvas {
+    display: flex;
+    gap: 18px;
+    overflow-x: auto;
+    padding-bottom: 20px;
+    align-items: flex-start;
+    min-height: 520px;
+}
+
+.kb-canvas::-webkit-scrollbar {
+    height: 8px;
+}
+
+.kb-canvas::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.kb-canvas::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.kb-canvas::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* --- Column Styling --- */
+.kb-column {
+    flex: 0 0 310px;
+    max-width: 310px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 270px);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.kb-column.kb-drag-over {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.kb-col-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid #edf2f7;
+    background: #ffffff;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+.kb-col-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.kb-col-indicator {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #3b82f6;
+    flex-shrink: 0;
+}
+
+.kb-col-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kb-col-badge {
+    padding: 2px 7px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 10px;
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.kb-col-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.kb-col-btn {
+    background: transparent;
+    border: none;
+    padding: 5px;
+    border-radius: 5px;
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.12s ease;
+}
+
+.kb-col-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.kb-col-body {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 120px;
+}
+
+.kb-empty-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 24px 12px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 12.5px;
+    font-style: italic;
+    transition: all 0.2s ease;
+}
+
+.kb-empty-zone.active {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #3b82f6;
+}
+
+.kb-quick-add {
+    padding: 8px 10px;
+    border-top: 1px solid #edf2f7;
+    background: #ffffff;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+.kb-quick-add-btn {
+    width: 100%;
+    padding: 7px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #64748b;
+    background: transparent;
+    border: 1px dashed #cbd5e1;
+    border-radius: 7px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+
+.kb-quick-add-btn:hover {
+    border-color: #94a3b8;
+    color: #0f172a;
+    background: #f8fafc;
+}
+
+/* --- Task Card Styling --- */
+.kb-task-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: grab;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    position: relative;
+    user-select: none;
+}
+
+.kb-task-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+
+.kb-task-card.kb-card-dragging {
+    opacity: 0.4;
+    transform: scale(0.97);
+    cursor: grabbing;
+}
+
+.kb-task-card.priority-border-high {
+    border-left: 4px solid #ef4444;
+}
+
+.kb-task-card.priority-border-medium {
+    border-left: 4px solid #f59e0b;
+}
+
+.kb-task-card.priority-border-low {
+    border-left: 4px solid #3b82f6;
+}
+
+.kb-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.kb-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+}
+
+.kb-priority-tag {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+
+.kb-priority-tag.high {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.kb-priority-tag.medium {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.kb-priority-tag.low {
+    background: #e0f2fe;
+    color: #0284c7;
+}
+
+.kb-label-tag {
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.kb-card-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.4;
+    margin: 0 0 6px 0;
+    word-break: break-word;
+}
+
+.kb-card-desc {
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.45;
+    margin: 0 0 10px 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Card Progress Meter */
+.kb-card-progress {
+    margin-bottom: 10px;
+}
+
+.kb-progress-bar-bg {
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.kb-progress-bar-fill {
+    height: 100%;
+    background: #10b981;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* Card Footer Metas */
+.kb-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 11.5px;
+    color: #64748b;
+}
+
+.kb-card-meta-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.kb-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.kb-due-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #f8fafc;
+    color: #64748b;
+}
+
+.kb-due-badge.overdue {
+    background: #fee2e2;
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.kb-due-badge.due-today {
+    background: #fef3c7;
+    color: #d97706;
+    font-weight: 600;
+}
+
+.kb-card-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #232a3d;
+    color: #ffffff;
+    font-size: 10.5px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1.5px solid #ffffff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* --- Swimlane Row Layout --- */
+.kb-swimlanes-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+.kb-swimlane-row {
+    background: #ffffff;
+    border: 1px solid #e7e3d8;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.kb-swimlane-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: #fcfbf9;
+    border-bottom: 1px solid #e7e3d8;
+    cursor: pointer;
+    user-select: none;
+}
+
+.kb-swimlane-title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.kb-swimlane-toggle-icon {
+    transition: transform 0.2s ease;
+    color: #64748b;
+}
+
+.kb-swimlane-toggle-icon.collapsed {
+    transform: rotate(-90deg);
+}
+
+.kb-swimlane-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.kb-swimlane-count {
+    padding: 2px 7px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 10px;
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.kb-swimlane-grid {
+    display: flex;
+    gap: 16px;
+    padding: 14px;
+    overflow-x: auto;
+    align-items: flex-start;
+}
+
+.kb-swimlane-col-sub {
+    flex: 0 0 280px;
+    max-width: 280px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    min-height: 120px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.kb-swimlane-col-sub.kb-drag-over {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+/* --- Column / Board Modals --- */
+.kb-modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.kb-color-palette {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.kb-color-dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.kb-color-dot:hover {
+    transform: scale(1.15);
+}
+
+.kb-color-dot.selected {
+    border-color: #0f172a;
+    transform: scale(1.15);
+}
+
+/* --- Stopwatch Live Timer Widget --- */
+.kb-timer-widget {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.kb-timer-display {
+    font-family: "IBM Plex Mono", monospace, monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: 0.05em;
+}
+
+.kb-timer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* --- Activity Timeline Feed --- */
+.kb-activity-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.kb-activity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 12.5px;
+}
+
+.kb-activity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3b82f6;
+    margin-top: 5px;
+    flex-shrink: 0;
+}
+
+.kb-activity-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.kb-activity-time {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+/* Attachments Grid in Task Modal */
+.kb-attachment-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.kb-attachment-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 8px;
+    transition: all 0.15s ease;
+}
+
+.kb-attachment-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.kb-attachment-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kb-attachment-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

@@ -20,23 +20,69 @@ const safeUserSelect = {
     updatedAt: true,
 };
 
+const taskFullInclude = {
+    assignee: { select: safeUserSelect },
+    column: { select: { id: true, name: true, order: true, boardId: true } },
+    swimlane: { select: { id: true, name: true, order: true, boardId: true } },
+    labels: { include: { label: true } },
+    checklists: {
+        include: {
+            items: { orderBy: { createdAt: "asc" as const } }
+        },
+        orderBy: { createdAt: "asc" as const }
+    },
+    attachments: {
+        include: { uploadedBy: { select: safeUserSelect } },
+        orderBy: { createdAt: "desc" as const }
+    },
+    timeEntries: {
+        include: { user: { select: safeUserSelect } },
+        orderBy: { date: "desc" as const }
+    },
+    _count: {
+        select: {
+            comments: true,
+            attachments: true,
+        }
+    }
+};
+
 /**
  * Format a raw Prisma Task record into the public API shape.
- * Excludes no fields — all task fields are non-sensitive.
  */
 function formatTask(task: any) {
+    const labels = (task.labels || []).map((tl: any) => (tl.label ? tl.label : tl));
+    const checklists = task.checklists || [];
+    const totalChecklistItems = checklists.reduce((acc: number, cl: any) => acc + (cl.items?.length || 0), 0);
+    const completedChecklistItems = checklists.reduce((acc: number, cl: any) => acc + (cl.items?.filter((it: any) => it.isCompleted)?.length || 0), 0);
+    const totalTimeSpentMinutes = (task.timeEntries || []).reduce((acc: number, entry: any) => acc + (entry.duration || 0), 0);
+
     return {
         id: task.id,
         title: task.title,
         description: task.description,
         columnId: task.columnId,
+        column: task.column ? { id: task.column.id, name: task.column.name, order: task.column.order, boardId: task.column.boardId } : null,
         swimlaneId: task.swimlaneId,
-        order: task.order,
+        swimlane: task.swimlane ? { id: task.swimlane.id, name: task.swimlane.name, order: task.swimlane.order, boardId: task.swimlane.boardId } : null,
+        order: task.order ?? 0,
         priority: task.priority,
         dueDate: task.dueDate,
         projectId: task.projectId,
         assigneeId: task.assigneeId,
         assignee: task.assignee ?? null,
+        labels,
+        checklists,
+        checklistStats: {
+            total: totalChecklistItems,
+            completed: completedChecklistItems,
+            progress: totalChecklistItems > 0 ? Math.round((completedChecklistItems / totalChecklistItems) * 100) : 0,
+        },
+        attachmentsCount: task._count?.attachments ?? task.attachments?.length ?? 0,
+        attachments: task.attachments || [],
+        timeEntries: task.timeEntries || [],
+        totalTimeSpentMinutes,
+        commentsCount: task._count?.comments ?? task.comments?.length ?? 0,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
     };
@@ -91,13 +137,11 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
                 { assigneeId: null, project: { ownerId: userId } }
             ];
         }
-        // If scope === "all", fetches all tasks in the workspace projects
 
         const tasks = await prisma.task.findMany({
             where: whereClause,
             include: {
-                assignee: { select: safeUserSelect },
-                column: { select: { id: true, name: true, order: true } },
+                ...taskFullInclude,
                 project: {
                     select: {
                         id: true,
@@ -114,23 +158,11 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
         });
 
         const formatted = tasks.map((task: any) => ({
-            id: task.id,
-            title: task.title,
-            description: task.description,
-            columnId: task.columnId,
+            ...formatTask(task),
             columnName: task.column?.name || "Unknown",
-            swimlaneId: task.swimlaneId,
-            order: task.order,
-            priority: task.priority,
-            dueDate: task.dueDate,
-            projectId: task.projectId,
-            projectName: task.project.name,
-            projectCode: task.project.code,
-            projectStatus: task.project.status,
-            assigneeId: task.assigneeId,
-            assignee: task.assignee ?? null,
-            createdAt: task.createdAt,
-            updatedAt: task.updatedAt,
+            projectName: task.project?.name || "Project",
+            projectCode: task.project?.code || null,
+            projectStatus: task.project?.status || "ACTIVE",
         }));
 
         res.status(200).json({
@@ -146,23 +178,16 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
 
 /**
  * GET /api/projects/:projectId/tasks
- * Returns all tasks belonging to a project, ordered oldest-first.
- * Each task includes the assignee's safe user fields.
+ * Returns all tasks belonging to a project, with full details.
  */
 export const getTasksByProject = async (req: Request, res: Response): Promise<void> => {
     try {
         const { projectId } = req.params;
 
-        // requireProjectAccess has verified access and project existence.
-
         const tasks = await prisma.task.findMany({
             where: { projectId },
-            include: {
-                assignee: { select: safeUserSelect },
-                column: { select: { id: true, name: true, boardId: true } },
-            },
+            include: taskFullInclude,
             orderBy: [
-                { columnId: "asc" },
                 { order: "asc" },
                 { createdAt: "asc" }
             ],
@@ -180,19 +205,42 @@ export const getTasksByProject = async (req: Request, res: Response): Promise<vo
 };
 
 /**
+ * GET /api/tasks/:id
+ * Get single task by ID with full details.
+ */
+export const getTaskById = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+
+        const task = await prisma.task.findUnique({
+            where: { id },
+            include: taskFullInclude,
+        });
+
+        if (!task) {
+            res.status(404).json({ success: false, error: "Task not found" });
+            return;
+        }
+
+        res.status(200).json({
+            success: true,
+            data: formatTask(task),
+        });
+    } catch (error) {
+        console.error("Error fetching task:", error);
+        res.status(500).json({ success: false, error: "Failed to fetch task" });
+    }
+};
+
+/**
  * POST /api/projects/:projectId/tasks
  * Create a new task under a project.
- * Required body fields: title
- * Optional body fields: description, status, priority, dueDate, assigneeId
  */
 export const createTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const { projectId } = req.params;
-        const { title, description, priority, dueDate, assigneeId, columnId, swimlaneId, order } = req.body;
+        const { title, description, priority, dueDate, assigneeId, columnId, swimlaneId, order, labelIds } = req.body;
 
-        // requireProjectAccess has verified access and project existence.
-
-        // title is required
         if (!title || typeof title !== "string" || title.trim() === "") {
             res.status(400).json({
                 success: false,
@@ -201,7 +249,6 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
-        // Validate priority enum if provided
         if (priority !== undefined && !Object.values(TaskPriority).includes(priority)) {
             res.status(400).json({
                 success: false,
@@ -210,7 +257,6 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
-        // Validate dueDate if provided
         let parsedDueDate: Date | null = null;
         if (dueDate) {
             parsedDueDate = new Date(dueDate);
@@ -223,17 +269,9 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             }
         }
 
-        // Validate assigneeId if provided
-        if (assigneeId !== undefined && assigneeId !== null) {
-            if (typeof assigneeId !== "string" || assigneeId.trim() === "") {
-                res.status(400).json({
-                    success: false,
-                    error: "assigneeId must be a non-empty string",
-                });
-                return;
-            }
+        if (assigneeId !== undefined && assigneeId !== null && assigneeId !== "") {
             const assigneeExists = await prisma.user.findUnique({
-                where: { id: assigneeId.trim() },
+                where: { id: String(assigneeId).trim() },
             });
             if (!assigneeExists) {
                 res.status(400).json({
@@ -264,13 +302,14 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             } else {
                 const newBoard = await prisma.board.create({
                     data: {
-                        name: "Default Board",
+                        name: "Main Board",
                         projectId,
                         columns: {
                             create: [
                                 { name: "To Do", order: 1000 },
                                 { name: "In Progress", order: 2000 },
-                                { name: "Done", order: 3000 },
+                                { name: "Review", order: 3000 },
+                                { name: "Done", order: 4000 },
                             ],
                         },
                     },
@@ -280,7 +319,6 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             }
         }
 
-        // Validate swimlaneId safely
         let targetSwimlaneId: string | null = swimlaneId && typeof swimlaneId === "string" && swimlaneId.trim() ? swimlaneId.trim() : null;
         if (targetSwimlaneId) {
             const swimlaneExists = await prisma.swimlane.findUnique({ where: { id: targetSwimlaneId } });
@@ -296,23 +334,24 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
                 priority: priority ?? TaskPriority.MEDIUM,
                 dueDate: parsedDueDate,
                 projectId,
-                assigneeId: assigneeId ? assigneeId.trim() : null,
+                assigneeId: assigneeId ? String(assigneeId).trim() : null,
                 columnId: targetColumnId,
                 swimlaneId: targetSwimlaneId,
                 order: typeof order === "number" ? order : 0,
+                labels: Array.isArray(labelIds) && labelIds.length > 0 ? {
+                    create: labelIds.map((lid: string) => ({ labelId: lid }))
+                } : undefined,
             },
-            include: {
-                assignee: { select: safeUserSelect },
-                column: { select: { id: true, name: true, boardId: true } },
-            },
+            include: taskFullInclude,
         });
 
         const formattedTask = formatTask(task);
         
         try {
             getIO().to(projectId).emit("taskUpdated", formattedTask);
+            getIO().to(projectId).emit("taskCreated", formattedTask);
         } catch (e) {
-            console.error("Failed to emit taskUpdated event", e);
+            console.error("Failed to emit task socket events", e);
         }
 
         // Notification: Task Assigned
@@ -335,24 +374,10 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             action: "TASK_CREATED",
             entityType: "Task",
             entityId: task.id,
-            details: { title: task.title, columnId: task.columnId, assigneeId: task.assigneeId },
+            details: { title: task.title, columnId: task.columnId, swimlaneId: task.swimlaneId, assigneeId: task.assigneeId },
             ipAddress: req.ip,
             userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
-
-        if (task.assigneeId) {
-            logAuditAction({
-                userId: req.user?.id,
-                workspaceId: req.workspace?.id,
-                projectId: projectId as string,
-                action: "TASK_ASSIGNED",
-                entityType: "Task",
-                entityId: task.id,
-                details: { title: task.title, assigneeId: task.assigneeId },
-                ipAddress: req.ip,
-                userAgent: req.headers["user-agent"] as string,
-            }).catch((err) => console.error("Audit log error:", err));
-        }
 
         res.status(201).json({
             success: true,
@@ -368,15 +393,16 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
 /**
  * PATCH /api/tasks/:id
  * Partially update a task's fields.
- * All body fields are optional; only provided fields are updated.
  */
 export const updateTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
-        const { title, description, priority, dueDate, assigneeId, columnId, swimlaneId, order, semanticStatus } = req.body;
+        const { title, description, priority, dueDate, assigneeId, columnId, swimlaneId, order, semanticStatus, labelIds } = req.body;
 
-        // requireTaskAccess has already verified task existence and project access.
-        const existingTask = await prisma.task.findUnique({ where: { id } });
+        const existingTask = await prisma.task.findUnique({
+            where: { id },
+            include: { labels: true },
+        });
 
         if (!existingTask) {
             res.status(404).json({ success: false, error: "Task not found" });
@@ -385,11 +411,10 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
 
         let finalColumnId = columnId;
         if (semanticStatus) {
-            // Find a column in this project that matches semanticStatus
             const boards = await prisma.board.findMany({ where: { projectId: existingTask.projectId }, include: { columns: true } });
             if (boards.length > 0) {
-                 const targetCol = boards[0].columns.find((c: any) => c.name.toLowerCase().includes(semanticStatus.toLowerCase()) || c.name.toLowerCase() === semanticStatus.toLowerCase());
-                 if (targetCol) finalColumnId = targetCol.id;
+                const targetCol = boards[0].columns.find((c: any) => c.name.toLowerCase().includes(semanticStatus.toLowerCase()) || c.name.toLowerCase() === semanticStatus.toLowerCase());
+                if (targetCol) finalColumnId = targetCol.id;
             }
         }
 
@@ -397,10 +422,7 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
 
         if (title !== undefined) {
             if (typeof title !== "string" || title.trim() === "") {
-                res.status(400).json({
-                    success: false,
-                    error: "title must be a non-empty string",
-                });
+                res.status(400).json({ success: false, error: "title must be a non-empty string" });
                 return;
             }
             updateData.title = xss(title.trim());
@@ -410,8 +432,12 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             updateData.description = description ? xss(String(description).trim()) : null;
         }
 
-        if (columnId !== undefined) {
-            updateData.columnId = columnId === null ? null : String(columnId).trim();
+        if (finalColumnId !== undefined) {
+            if (finalColumnId === null) {
+                updateData.columnId = null;
+            } else {
+                updateData.columnId = String(finalColumnId).trim();
+            }
         }
 
         if (swimlaneId !== undefined) {
@@ -438,7 +464,7 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
         }
 
         if (dueDate !== undefined) {
-            if (dueDate === null) {
+            if (dueDate === null || dueDate === "") {
                 updateData.dueDate = null;
             } else {
                 const parsed = new Date(dueDate);
@@ -453,68 +479,35 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             }
         }
 
-        if (finalColumnId !== undefined) {
-            if (finalColumnId === null) {
-                updateData.columnId = null;
+        if (assigneeId !== undefined) {
+            if (assigneeId === null || assigneeId === "") {
+                updateData.assigneeId = null;
             } else {
-                if (typeof finalColumnId !== "string" || finalColumnId.trim() === "") {
-                    res.status(400).json({
-                        success: false,
-                        error: "columnId must be a non-empty string or null",
-                    });
-                    return;
-                }
-                const columnExists = await prisma.column.findUnique({
-                    where: { id: finalColumnId.trim() },
-                });
-                if (!columnExists) {
-                    res.status(400).json({
-                        success: false,
-                        error: `Column specified by columnId '${finalColumnId}' does not exist`,
-                    });
-                    return;
-                }
-                updateData.columnId = finalColumnId.trim();
+                updateData.assigneeId = String(assigneeId).trim();
             }
         }
 
-        if (assigneeId !== undefined) {
-            if (assigneeId === null) {
-                updateData.assigneeId = null;
-            } else {
-                if (typeof assigneeId !== "string" || assigneeId.trim() === "") {
-                    res.status(400).json({
-                        success: false,
-                        error: "assigneeId must be a non-empty string or null",
-                    });
-                    return;
-                }
-                const assigneeExists = await prisma.user.findUnique({
-                    where: { id: assigneeId.trim() },
+        // Handle labelIds array replacement if provided
+        if (Array.isArray(labelIds)) {
+            await prisma.taskLabel.deleteMany({ where: { taskId: id } });
+            if (labelIds.length > 0) {
+                await prisma.taskLabel.createMany({
+                    data: labelIds.map((lid: string) => ({ taskId: id, labelId: lid })),
+                    skipDuplicates: true,
                 });
-                if (!assigneeExists) {
-                    res.status(400).json({
-                        success: false,
-                        error: `User specified by assigneeId '${assigneeId}' does not exist`,
-                    });
-                    return;
-                }
-                updateData.assigneeId = assigneeId.trim();
             }
         }
 
         const updated = await prisma.task.update({
             where: { id },
             data: updateData,
-            include: {
-                assignee: { select: safeUserSelect },
-            },
+            include: taskFullInclude,
         });
 
         const formattedTask = formatTask(updated);
 
         try {
-            getIO().to(req.project.id).emit("taskUpdated", formattedTask);
+            getIO().to(updated.projectId).emit("taskUpdated", formattedTask);
         } catch (e) {
             console.error("Failed to emit taskUpdated event", e);
         }
@@ -555,12 +548,12 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             }).catch((err) => console.error("Notification error:", err));
         }
 
-        // Audit Logs: TASK_STATUS_CHANGED, TASK_ASSIGNED, TASK_UPDATED
+        // Audit Logs
         if (columnId !== undefined && existingTask?.columnId !== updated.columnId) {
             logAuditAction({
                 userId: req.user?.id,
                 workspaceId: req.workspace?.id,
-                projectId: req.project?.id,
+                projectId: updated.projectId,
                 action: "TASK_STATUS_CHANGED",
                 entityType: "Task",
                 entityId: updated.id,
@@ -574,7 +567,7 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             logAuditAction({
                 userId: req.user?.id,
                 workspaceId: req.workspace?.id,
-                projectId: req.project?.id,
+                projectId: updated.projectId,
                 action: "TASK_ASSIGNED",
                 entityType: "Task",
                 entityId: updated.id,
@@ -587,7 +580,7 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
         logAuditAction({
             userId: req.user?.id,
             workspaceId: req.workspace?.id,
-            projectId: req.project?.id,
+            projectId: updated.projectId,
             action: "TASK_UPDATED",
             entityType: "Task",
             entityId: updated.id,
@@ -615,26 +608,28 @@ export const deleteTask = async (req: Request, res: Response): Promise<void> => 
     try {
         const { id } = req.params;
 
-        // requireTaskAccess has already verified task existence and project access.
         const taskToDelete = await prisma.task.findUnique({ where: { id } });
+        if (!taskToDelete) {
+            res.status(404).json({ success: false, error: "Task not found" });
+            return;
+        }
 
         await prisma.task.delete({ where: { id } });
 
         try {
-            getIO().to(req.project.id).emit("taskDeleted", id);
+            getIO().to(taskToDelete.projectId).emit("taskDeleted", id);
         } catch (e) {
             console.error("Failed to emit taskDeleted event", e);
         }
 
-        // Audit Log: TASK_DELETED
         logAuditAction({
             userId: req.user?.id,
             workspaceId: req.workspace?.id,
-            projectId: req.project?.id,
+            projectId: taskToDelete.projectId,
             action: "TASK_DELETED",
             entityType: "Task",
             entityId: id as string,
-            details: { title: taskToDelete?.title || id },
+            details: { title: taskToDelete.title },
             ipAddress: req.ip,
             userAgent: req.headers["user-agent"] as string,
         }).catch((err) => console.error("Audit log error:", err));
