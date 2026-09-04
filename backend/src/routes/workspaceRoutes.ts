@@ -9,6 +9,7 @@ import {
     deleteWorkspace,
     addWorkspaceMember,
     removeWorkspaceMember,
+    updateWorkspaceMemberRole,
     getWorkspaceDocuments,
     getWorkspaceFiles,
     getWorkspaceMessages
@@ -46,6 +47,7 @@ router.delete("/:id", requireWorkspaceAccess, requirePermission(Permission.DELET
 
 // Member management
 router.post("/:id/members", requireWorkspaceAccess, requirePermission(Permission.INVITE_MEMBERS), addWorkspaceMember);
+router.put("/:id/members/:targetUserId/role", requireWorkspaceAccess, requirePermission(Permission.CHANGE_ROLES), updateWorkspaceMemberRole);
 router.delete("/:id/members/:targetUserId", requireWorkspaceAccess, requirePermission(Permission.REMOVE_MEMBERS), removeWorkspaceMember);
 
 export default router;

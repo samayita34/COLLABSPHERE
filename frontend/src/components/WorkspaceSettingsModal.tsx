@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { type Workspace, fetchWorkspaceMembers, addWorkspaceMemberApi, removeWorkspaceMemberApi } from "../services/workspaceApi";
+import { type Workspace, fetchWorkspaceMembers, addWorkspaceMemberApi, removeWorkspaceMemberApi, updateWorkspaceMemberRoleApi } from "../services/workspaceApi";
 import type { Member } from "../services/projectApi";
 import { fetchWorkspaceTeams, createTeamApi, addTeamMemberApi, removeTeamMemberApi, deleteTeamApi, type Team } from "../services/teamApi";
 import "./Modal.css";
@@ -29,6 +29,15 @@ export function WorkspaceSettingsModal({ isOpen, onClose, workspace }: Props) {
     const [creatingTeam, setCreatingTeam] = useState(false);
     const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
     const [teamMemberUserId, setTeamMemberUserId] = useState<string>("");
+
+    const handleUpdateRole = async (userId: string, newRole: string) => {
+        try {
+            await updateWorkspaceMemberRoleApi(workspace.id, userId, newRole);
+            setMembers((prev) => prev.map((m) => (m.userId === userId ? { ...m, role: newRole } : m)));
+        } catch (err: any) {
+            setError(err.message || "Failed to update member role");
+        }
+    };
 
     useEffect(() => {
         if (isOpen && activeTab === "members") {
@@ -235,13 +244,25 @@ export function WorkspaceSettingsModal({ isOpen, onClose, workspace }: Props) {
                                                 </div>
                                             </div>
                                             
-                                            <button 
-                                                onClick={() => m.userId && handleRemoveMember(m.userId)}
-                                                style={{ background: "transparent", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600 }}
-                                                disabled={!m.userId}
-                                            >
-                                                Remove
-                                            </button>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                                <select
+                                                    value={m.role}
+                                                    onChange={(e) => m.userId && handleUpdateRole(m.userId, e.target.value)}
+                                                    style={{ fontSize: "0.75rem", padding: "4px 8px", borderRadius: "4px", border: "1px solid #cbd5e1" }}
+                                                >
+                                                    <option value="MEMBER">Member</option>
+                                                    <option value="WORKSPACE_ADMIN">Admin</option>
+                                                    <option value="PROJECT_MANAGER">Manager</option>
+                                                    <option value="GUEST">Guest</option>
+                                                </select>
+                                                <button 
+                                                    onClick={() => m.userId && handleRemoveMember(m.userId)}
+                                                    style={{ background: "transparent", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600 }}
+                                                    disabled={!m.userId}
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                     {members.length === 0 && (

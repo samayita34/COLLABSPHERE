@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { WorkspaceSelector } from "./WorkspaceSelector";
 import { useSidebar } from "../context/SidebarContext";
+import { usePermissions } from "../hooks/usePermissions";
 
 interface AppSidebarProps {
   activePage: "overview" | "projects" | "tasks" | "documents" | "files" | "messages" | "activity-log" | "analytics" | "settings";
@@ -25,6 +26,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 }) => {
   const { userFullName, userInitials, logout } = useAuth();
   const { isOpen, setIsOpen } = useSidebar();
+  const { role, canViewAnalytics } = usePermissions();
+
+  const formattedRole = role.replace("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
     <>
@@ -138,7 +142,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             <strong style={{ display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
               {userFullName}
             </strong>
-            <span style={{ fontSize: "0.75rem", color: "#9a968a" }}>Workspace Member</span>
+            <span style={{ fontSize: "0.75rem", color: "#6366f1", fontWeight: 600 }}>{formattedRole}</span>
           </div>
 
           <button

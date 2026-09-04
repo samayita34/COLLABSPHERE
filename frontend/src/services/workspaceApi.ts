@@ -282,6 +282,27 @@ export async function removeWorkspaceMemberApi(
 }
 
 /**
+ * PUT /api/workspaces/:id/members/:targetUserId/role
+ */
+export async function updateWorkspaceMemberRoleApi(
+    id: string,
+    targetUserId: string,
+    role: string
+): Promise<Member> {
+    const res = await fetch(`${API_BASE_URL}/workspaces/${id}/members/${targetUserId}/role`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ role }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(json.error || `Failed to update member role (HTTP ${res.status})`);
+    }
+    return mapApiMemberToFrontend(json.member);
+}
+
+/**
  * GET /api/workspaces/:id/documents
  */
 export async function fetchWorkspaceDocuments(workspaceId: string): Promise<WorkspaceDocument[]> {

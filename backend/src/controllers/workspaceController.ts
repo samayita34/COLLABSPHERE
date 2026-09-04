@@ -406,6 +406,39 @@ export const removeWorkspaceMember = async (req: Request, res: Response): Promis
     }
 };
 
+export const updateWorkspaceMemberRole = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id, targetUserId } = req.params;
+        const { role } = req.body;
+
+        if (!role || !["WORKSPACE_ADMIN", "MEMBER"].includes(role)) {
+            res.status(400).json({ success: false, error: "Valid role is required (WORKSPACE_ADMIN or MEMBER)" });
+            return;
+        }
+
+        const member = await prisma.workspaceMember.update({
+            where: { workspaceId_userId: { workspaceId: id, userId: targetUserId } },
+            data: { role },
+        });
+
+        logAuditAction({
+            userId: req.user?.id,
+            workspaceId: (Array.isArray(id) ? id[0] : id) as string,
+            action: "ROLE_UPDATED",
+            entityType: "WorkspaceMember",
+            entityId: member.id,
+            details: { targetUserId, newRole: role },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err: any) => console.error("Audit log error:", err));
+
+        res.status(200).json({ success: true, member });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message || "Failed to update member role" });
+    }
+};
+
+
 /**
  * GET /api/workspaces/:id/overview
  * Returns high-level metrics, recent projects with derived progress, and latest tasks across all projects.
