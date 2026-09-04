@@ -266,6 +266,8 @@
   align-items: center;
   justify-content: center;
   border: 1px solid #c7d2fe;
+  user-select: none;
+  cursor: default;
 }
 
 .cs-user-meta {
@@ -427,6 +429,8 @@
   align-items: center;
   justify-content: center;
   border: 1.5px solid #c7d2fe;
+  user-select: none;
+  cursor: default;
 }
 
 .cs-status-dot.online {
@@ -821,6 +825,8 @@
   justify-content: center;
   border: 2px solid #ffffff;
   margin-left: -6px;
+  user-select: none;
+  cursor: default;
 }
 
 .cs-member-avatar:first-child {

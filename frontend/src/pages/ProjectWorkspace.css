@@ -418,6 +418,8 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    user-select: none;
+    cursor: default;
 }
 
 .member-info {
@@ -2236,8 +2238,9 @@
     width: 34px;
     height: 34px;
     flex-shrink: 0;
-
     font-size: 11.5px;
+    user-select: none;
+    cursor: default;
 }
 
 .chat-message-body {
@@ -2652,6 +2655,8 @@
     justify-content: center;
     flex-shrink: 0;
     letter-spacing: 0.02em;
+    user-select: none;
+    cursor: default;
 }
 .tw-avatar.sm {
     width: 24px;
@@ -2671,6 +2676,8 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    user-select: none;
+    cursor: default;
 }
 
 /* ---- Shared empty state ---- */
@@ -3084,6 +3091,8 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    user-select: none;
+    cursor: default;
 }
 
 .tw-member-info {

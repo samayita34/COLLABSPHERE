@@ -54,6 +54,8 @@
     position: relative;
     flex-shrink: 0;
     overflow: hidden;
+    user-select: none;
+    cursor: default;
 }
 
 .wa-avatar img {

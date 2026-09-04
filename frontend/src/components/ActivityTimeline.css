@@ -290,6 +290,8 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     overflow: hidden;
+    user-select: none;
+    cursor: default;
 }
 
 /* ── Card Info ────────────────────────────────────────────── */

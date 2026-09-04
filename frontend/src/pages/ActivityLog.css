@@ -104,6 +104,8 @@
     justify-content: center;
     font-weight: 600;
     font-size: 0.8rem;
+    user-select: none;
+    cursor: default;
 }
 
 .audit-user-name {

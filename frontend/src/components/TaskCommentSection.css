@@ -77,6 +77,8 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    user-select: none;
+    cursor: default;
 }
 
 .task-comment-body {

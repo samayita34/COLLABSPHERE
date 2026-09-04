@@ -430,6 +430,8 @@
     align-items: center;
     justify-content: center;
     font-family: "Inter", sans-serif;
+    user-select: none;
+    cursor: default;
 }
 
 .analytics-member-name {

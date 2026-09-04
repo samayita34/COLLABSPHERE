@@ -558,6 +558,8 @@
     flex-shrink: 0;
     border: 1.5px solid #ffffff;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    user-select: none;
+    cursor: default;
 }
 
 /* --- Swimlane Row Layout --- */

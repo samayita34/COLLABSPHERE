@@ -119,6 +119,8 @@
     justify-content: center;
     flex-shrink: 0;
     box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+    user-select: none;
+    cursor: default;
 }
 
 .message-card-content {

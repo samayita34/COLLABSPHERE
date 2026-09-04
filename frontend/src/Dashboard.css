@@ -80,6 +80,8 @@
 
     font-size: 9px;
     font-weight: 700;
+    user-select: none;
+    cursor: default;
 }
 
 .workspace-info {
@@ -227,6 +229,8 @@
     color: #4f46e5;
 
     font-weight: 650;
+    user-select: none;
+    cursor: default;
 }
 
 .profile-avatar {
@@ -710,6 +714,8 @@
 
     font-size: 7px;
     font-weight: 700;
+    user-select: none;
+    cursor: default;
 }
 
 .activity-text {
