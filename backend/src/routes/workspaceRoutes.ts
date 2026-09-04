@@ -16,6 +16,7 @@ import {
 import { getWorkspaceAnalytics } from "../controllers/analyticsController";
 import { getAuditLogs } from "../controllers/auditController";
 import { authenticate } from "../middleware/auth";
+import { validateTenantContext } from "../middleware/tenantValidation";
 
 import { requireWorkspaceAccess, requireOrganizationAccess, requirePermission } from "../middleware/rbac";
 import { Permission } from "../lib/permissions";
@@ -23,6 +24,7 @@ import { Permission } from "../lib/permissions";
 const router = Router();
 
 router.use(authenticate);
+router.use(validateTenantContext);
 
 // Organization-level operations (workspace creation/listing)
 router.post("/", requireOrganizationAccess, requirePermission(Permission.MANAGE_WORKSPACE), createWorkspace);

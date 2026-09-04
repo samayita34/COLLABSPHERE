@@ -8,9 +8,12 @@ import {
 } from "../controllers/projectController";
 import { getProjectMessages, sendProjectMessage } from "../controllers/chatController";
 import { requireProjectAccess, requireWorkspaceAccess, requirePermission } from "../middleware/rbac";
+import { validateTenantContext } from "../middleware/tenantValidation";
 import { Permission } from "../lib/permissions";
 
 const router = Router();
+
+router.use(validateTenantContext);
 
 router.get("/", getProjects);
 router.post("/", requireWorkspaceAccess, requirePermission(Permission.CREATE_PROJECT), createProject);

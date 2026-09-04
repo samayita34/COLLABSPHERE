@@ -8,6 +8,7 @@ import {
     removeTeamMember
 } from "../controllers/teamController";
 import { authenticate } from "../middleware/auth";
+import { validateTenantContext } from "../middleware/tenantValidation";
 
 import { requireWorkspaceAccess, requireTeamAccess, requirePermission } from "../middleware/rbac";
 import { Permission } from "../lib/permissions";
@@ -15,6 +16,7 @@ import { Permission } from "../lib/permissions";
 const router = Router();
 
 router.use(authenticate);
+router.use(validateTenantContext);
 
 router.post("/", requireWorkspaceAccess, requirePermission(Permission.MANAGE_WORKSPACE), createTeam);
 router.get("/workspace/:workspaceId", requireWorkspaceAccess, listTeams);
