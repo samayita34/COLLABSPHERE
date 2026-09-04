@@ -72,9 +72,29 @@ export interface ProjectFile {
     folderId?: string | null;
     isLocked: boolean;
     lockedBy?: { id: string; firstName: string; lastName: string } | null;
+    downloadCount?: number;
     versions: FileVersion[];
     createdAt: string;
     updatedAt: string;
+}
+
+export interface StorageQuota {
+    storageUsed: string;
+    storageQuota: string;
+    storageUsedFormatted: string;
+    storageQuotaFormatted: string;
+    percentage: number;
+}
+
+export interface FileDownloadRecord {
+    id: string;
+    downloadedAt: string;
+    user: {
+        id: string;
+        name: string;
+        email: string;
+        avatar?: string | null;
+    } | null;
 }
 
 export interface Folder {
@@ -932,6 +952,7 @@ export function mapApiFileToFrontend(apiFile: any): ProjectFile {
         folderId: apiFile.folderId || null,
         isLocked: apiFile.isLocked || false,
         lockedBy: apiFile.lockedBy || null,
+        downloadCount: apiFile.downloadCount ?? 0,
         versions: (apiFile.versions || []).map((v: any) => ({
             id: v.id,
             versionNum: v.versionNum,
@@ -1648,7 +1669,75 @@ export async function toggleFileLockApi(projectId: string, fileId: string): Prom
     });
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
+    return mapApiFileToFrontend(json.data);
+}
+
+export async function fetchStorageQuotaApi(projectId: string): Promise<StorageQuota> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/files/storage-quota`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch storage quota");
+    const json = await res.json();
     return json.data;
+}
+
+export async function restoreFileVersionApi(projectId: string, fileId: string, versionId: string): Promise<ProjectFile> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/files/${fileId}/versions/${versionId}/restore`, {
+        method: "POST",
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || "Failed to restore version");
+    return mapApiFileToFrontend(json.data);
+}
+
+export async function fetchFileDownloadsApi(projectId: string, fileId: string): Promise<FileDownloadRecord[]> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/files/${fileId}/downloads`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch downloads");
+    const json = await res.json();
+    return json.data || [];
+}
+
+export async function moveFileApi(projectId: string, fileId: string, folderId: string | null): Promise<ProjectFile> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/files/${fileId}/move`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ folderId }),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || "Failed to move file");
+    return mapApiFileToFrontend(json.data);
+}
+
+export async function renameFolderApi(projectId: string, folderId: string, name: string): Promise<Folder> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/folders/${folderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name }),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || "Failed to rename folder");
+    return json.data;
+}
+
+export async function moveFolderApi(projectId: string, folderId: string, parentId: string | null): Promise<Folder> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/folders/${folderId}/move`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ parentId }),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || "Failed to move folder");
+    return json.data;
+}
+
+export async function deleteFolderApi(projectId: string, folderId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/folders/${folderId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to delete folder");
 }
 
 // Document Comments API

@@ -5,6 +5,15 @@ import { createAndSendNotification } from "../services/notificationService";
 import { logAuditAction } from "../services/auditService";
 import { storageService } from "../services/storageService";
 
+function formatBytes(bytes: number | bigint): string {
+    const b = Number(bytes);
+    if (isNaN(b) || b === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(b) / Math.log(k));
+    return parseFloat((b / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
 function formatFile(file: any) {
     return {
         id: file.id,
@@ -15,6 +24,7 @@ function formatFile(file: any) {
         folderId: file.folderId,
         isLocked: file.isLocked,
         lockedBy: file.lockedBy,
+        downloadCount: file._count?.downloads ?? 0,
         versions: file.versions?.map((v: any) => ({
             id: v.id,
             versionNum: v.versionNum,
@@ -43,7 +53,8 @@ export const getFilesByProject = async (req: Request, res: Response): Promise<vo
                     include: { uploadedBy: { select: { id: true, firstName: true, lastName: true, email: true } } },
                     orderBy: { versionNum: 'desc' }
                 },
-                lockedBy: { select: { id: true, firstName: true, lastName: true } }
+                lockedBy: { select: { id: true, firstName: true, lastName: true } },
+                _count: { select: { downloads: true } }
             },
             orderBy: { createdAt: "desc" },
         });
@@ -228,7 +239,8 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
                     include: { uploadedBy: { select: { id: true, firstName: true, lastName: true, email: true } } },
                     orderBy: { versionNum: "desc" }
                 },
-                lockedBy: { select: { id: true, firstName: true, lastName: true } }
+                lockedBy: { select: { id: true, firstName: true, lastName: true } },
+                _count: { select: { downloads: true } }
             }
         });
 
@@ -364,7 +376,8 @@ export const toggleLockFile = async (req: Request, res: Response): Promise<void>
                     include: { uploadedBy: { select: { id: true, firstName: true, lastName: true } } },
                     orderBy: { versionNum: 'desc' }
                 },
-                lockedBy: { select: { id: true, firstName: true, lastName: true } }
+                lockedBy: { select: { id: true, firstName: true, lastName: true } },
+                _count: { select: { downloads: true } }
             }
         });
 
@@ -384,5 +397,214 @@ export const downloadRawFile = async (req: Request, res: Response): Promise<void
         res.send(buffer);
     } catch (error) {
         res.status(404).send("File not found");
+    }
+};
+
+export const getFileDownloads = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { fileId, projectId } = req.params;
+        const file = await prisma.file.findUnique({ where: { id: fileId } });
+        if (!file || file.projectId !== projectId) {
+            res.status(404).json({ success: false, error: "File not found" });
+            return;
+        }
+
+        const downloads = await prisma.fileDownload.findMany({
+            where: { fileId },
+            include: {
+                downloadedBy: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } }
+            },
+            orderBy: { downloadedAt: "desc" },
+            take: 50,
+        });
+
+        res.status(200).json({
+            success: true,
+            count: downloads.length,
+            data: downloads.map((d: any) => ({
+                id: d.id,
+                downloadedAt: d.downloadedAt,
+                user: d.downloadedBy ? {
+                    id: d.downloadedBy.id,
+                    name: `${d.downloadedBy.firstName} ${d.downloadedBy.lastName}`.trim() || d.downloadedBy.email,
+                    email: d.downloadedBy.email,
+                    avatar: d.downloadedBy.avatar,
+                } : null,
+            })),
+        });
+    } catch (error: any) {
+        console.error("Error fetching file downloads:", error);
+        res.status(500).json({ success: false, error: "Failed to fetch download history" });
+    }
+};
+
+export const restoreFileVersion = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { projectId, fileId, versionId } = req.params;
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ success: false, error: "Unauthorized" });
+            return;
+        }
+
+        const file = await prisma.file.findUnique({
+            where: { id: fileId },
+            include: {
+                versions: { orderBy: { versionNum: "desc" } }
+            }
+        });
+
+        if (!file || file.projectId !== projectId) {
+            res.status(404).json({ success: false, error: "File not found" });
+            return;
+        }
+
+        if (file.isLocked && file.lockedById !== userId) {
+            res.status(403).json({ success: false, error: "File is locked by another user" });
+            return;
+        }
+
+        const targetVersion = file.versions.find((v: any) => v.id === versionId);
+        if (!targetVersion) {
+            res.status(404).json({ success: false, error: "Target version not found" });
+            return;
+        }
+
+        const latestVersionNum = file.versions[0]?.versionNum || 1;
+        const newVersionNum = latestVersionNum + 1;
+
+        // Duplicate the storage file buffer or key for the new version
+        const oldKey = targetVersion.s3Key;
+        const newKey = `projects/${projectId}/${Date.now()}-restored-v${newVersionNum}-${file.name}`;
+
+        try {
+            const buffer = await storageService.getFileBuffer(oldKey);
+            await storageService.uploadFile(newKey, buffer);
+        } catch (e) {
+            console.warn("Could not copy buffer, re-using existing key for restored version:", e);
+        }
+
+        await prisma.fileVersion.create({
+            data: {
+                versionNum: newVersionNum,
+                s3Key: newKey,
+                sizeBytes: targetVersion.sizeBytes,
+                fileId: file.id,
+                uploadedById: userId,
+            }
+        });
+
+        // Audit Log
+        const userAgentHeader = req.headers["user-agent"];
+        const userAgentStr = typeof userAgentHeader === "string" ? userAgentHeader : undefined;
+        logAuditAction({
+            userId,
+            projectId: String(projectId),
+            action: AuditAction.FILE_UPLOADED,
+            entityType: "File",
+            entityId: file.id,
+            details: { name: file.name, restoredFromVersion: targetVersion.versionNum, newVersion: newVersionNum },
+            ipAddress: req.ip,
+            userAgent: userAgentStr,
+        }).catch((err) => console.error("Audit log error:", err));
+
+        const updatedFile = await prisma.file.findUnique({
+            where: { id: file.id },
+            include: {
+                versions: {
+                    include: { uploadedBy: { select: { id: true, firstName: true, lastName: true, email: true } } },
+                    orderBy: { versionNum: "desc" }
+                },
+                lockedBy: { select: { id: true, firstName: true, lastName: true } },
+                _count: { select: { downloads: true } }
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: `Version ${targetVersion.versionNum} restored successfully as Version ${newVersionNum}`,
+            data: formatFile(updatedFile),
+        });
+    } catch (error: any) {
+        console.error("Error restoring file version:", error);
+        res.status(500).json({ success: false, error: error.message || "Failed to restore file version" });
+    }
+};
+
+export const moveFile = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { projectId, fileId } = req.params;
+        const { folderId } = req.body;
+
+        const file = await prisma.file.findUnique({ where: { id: fileId } });
+        if (!file || file.projectId !== projectId) {
+            res.status(404).json({ success: false, error: "File not found" });
+            return;
+        }
+
+        if (file.isLocked && file.lockedById !== req.user?.id) {
+            res.status(403).json({ success: false, error: "File is locked by another user" });
+            return;
+        }
+
+        if (folderId) {
+            const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+            if (!folder || folder.projectId !== projectId) {
+                res.status(404).json({ success: false, error: "Target folder not found" });
+                return;
+            }
+        }
+
+        const updatedFile = await prisma.file.update({
+            where: { id: fileId },
+            data: { folderId: folderId || null },
+            include: {
+                versions: {
+                    include: { uploadedBy: { select: { id: true, firstName: true, lastName: true, email: true } } },
+                    orderBy: { versionNum: "desc" }
+                },
+                lockedBy: { select: { id: true, firstName: true, lastName: true } },
+                _count: { select: { downloads: true } }
+            }
+        });
+
+        res.status(200).json({ success: true, data: formatFile(updatedFile) });
+    } catch (error: any) {
+        console.error("Error moving file:", error);
+        res.status(500).json({ success: false, error: "Failed to move file" });
+    }
+};
+
+export const getStorageQuota = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { projectId } = req.params;
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            include: { workspace: true }
+        });
+
+        if (!project || !project.workspace) {
+            res.status(404).json({ success: false, error: "Project or workspace not found" });
+            return;
+        }
+
+        const workspace = project.workspace;
+        const storageUsed = Number(workspace.storageUsed);
+        const storageQuota = Number(workspace.storageQuota);
+        const percentage = storageQuota > 0 ? Math.min(100, Math.round((storageUsed / storageQuota) * 1000) / 10) : 0;
+
+        res.status(200).json({
+            success: true,
+            data: {
+                storageUsed: workspace.storageUsed.toString(),
+                storageQuota: workspace.storageQuota.toString(),
+                storageUsedFormatted: formatBytes(storageUsed),
+                storageQuotaFormatted: formatBytes(storageQuota),
+                percentage,
+            }
+        });
+    } catch (error: any) {
+        console.error("Error fetching storage quota:", error);
+        res.status(500).json({ success: false, error: "Failed to fetch storage quota" });
     }
 };
