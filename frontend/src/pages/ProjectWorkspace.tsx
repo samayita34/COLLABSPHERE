@@ -10,7 +10,7 @@ import { FileBrowser } from "../components/FileBrowser";
 import { ProjectSettingsModal } from "./ProjectSettingsModal";
 import ProjectChat, { type ChatMessage } from "./ProjectChat";
 import ActivityTimeline from "../components/ActivityTimeline";
-import { fetchProjectById, createTaskApi, updateTaskApi, deleteTaskApi, addMemberApi, fetchDocuments, createDocumentApi, fetchChatMessages, sendChatMessageApi, updateDocumentApi, mapApiTaskToFrontend, mapApiChatMessageToFrontend, fetchBoards } from "../services/projectApi";
+import { fetchProjectById, createTaskApi, updateTaskApi, deleteTaskApi, addMemberApi, fetchDocuments, createDocumentApi, uploadDocumentFileApi, fetchChatMessages, sendChatMessageApi, updateDocumentApi, mapApiTaskToFrontend, mapApiChatMessageToFrontend, fetchBoards } from "../services/projectApi";
 import type { TaskPriority, Task, Member, MappedProject as Project, Board } from "../services/projectApi";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
@@ -352,16 +352,34 @@ export default function ProjectWorkspace() {
         return typeMatch && searchMatch;
     });
 
-    /* AddDocumentModal.onSave receives partial doc; we call createDocumentApi */
-    const handleAddDocumentSave = (form: { name: string; description: string; type: DocType; owner: string; size?: string }) => {
-        createDocumentApi(routeParam, form)
-            .then((newDoc) => {
-                setDocuments((prev) => [newDoc, ...prev]);
-                setAddDocOpen(false);
-            })
-            .catch((err) => {
-                console.error("Failed to create document:", err);
-            });
+    /* AddDocumentModal.onSave receives partial doc; we call the appropriate API */
+    const handleAddDocumentSave = (form: { name: string; description: string; type: DocType; owner: string; size?: string; file?: File | null }) => {
+        if (form.file) {
+            // Uploaded file — multipart POST
+            const formData = new FormData();
+            formData.append("file", form.file);
+            formData.append("name", form.name);
+            if (form.description) formData.append("description", form.description);
+            uploadDocumentFileApi(routeParam, formData)
+                .then((newDoc) => {
+                    setDocuments((prev) => [newDoc, ...prev]);
+                    setAddDocOpen(false);
+                })
+                .catch((err) => {
+                    console.error("Failed to upload document:", err);
+                    alert(err.message || "Failed to upload document");
+                });
+        } else {
+            // Blank native collaborative document
+            createDocumentApi(routeParam, form)
+                .then((newDoc) => {
+                    setDocuments((prev) => [newDoc, ...prev]);
+                    setAddDocOpen(false);
+                })
+                .catch((err) => {
+                    console.error("Failed to create document:", err);
+                });
+        }
     };
 
     const handleUpdateDocument = (id: string, newContent: string) => {

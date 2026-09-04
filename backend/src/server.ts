@@ -28,7 +28,7 @@ import { requireProjectAccess, requireTaskAccess, requireDocumentAccess, require
 import { Permission } from "./lib/permissions";
 import labelRoutes from "./routes/labelRoutes";
 import { getMyTasks, getTaskById, updateTask, deleteTask } from "./controllers/taskController";
-import { getDocumentsByWorkspace, getDocumentById, updateDocument, deleteDocument } from "./controllers/documentController";
+import { getDocumentsByWorkspace, getDocumentById, getDocumentRawFile, updateDocument, deleteDocument } from "./controllers/documentController";
 import { deleteFile } from "./controllers/fileController";
 import { connectRedis } from "./lib/redis";
 import { checkAndSendDueDateReminders, checkAndSendOverdueAlerts } from "./services/notificationService";
@@ -132,6 +132,7 @@ app.patch("/api/tasks/:id", authenticate, requireTaskAccess, requirePermission(P
 app.delete("/api/tasks/:id", authenticate, requireTaskAccess, requirePermission(Permission.DELETE_TASK), deleteTask);
 
 app.get("/api/documents", authenticate, getDocumentsByWorkspace);
+app.get("/api/documents/:id/raw", getDocumentRawFile);
 app.get("/api/documents/:id", authenticate, requireDocumentAccess, getDocumentById);
 app.use("/api/documents/:documentId/versions", authenticate, requireDocumentAccess, documentVersionRoutes);
 app.patch("/api/documents/:id", authenticate, requireDocumentAccess, requirePermission(Permission.EDIT_DOCUMENT), updateDocument);

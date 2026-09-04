@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { fetchWorkspaceDocuments } from "../services/workspaceApi";
-import { updateDocumentApi, createDocumentApi, deleteDocumentApi, type WorkspaceDocument } from "../services/projectApi";
+import { updateDocumentApi, createDocumentApi, uploadDocumentFileApi, deleteDocumentApi, type WorkspaceDocument } from "../services/projectApi";
 import { AppSidebar } from "../components/AppSidebar";
 import { AppTopbar } from "../components/AppTopbar";
 import { DocumentDetailModal, AddDocumentModal, type ProjectDocument } from "./DocumentModal";
@@ -94,19 +94,30 @@ export default function Documents() {
         size?: string;
         content?: string;
         projectId?: string;
+        file?: File | null;
     }) => {
         if (!doc.projectId) {
             alert("Please select a target project for this document.");
             return;
         }
         try {
-            await createDocumentApi(doc.projectId, {
-                name: doc.name,
-                description: doc.description,
-                type: doc.type,
-                owner: doc.owner,
-                size: doc.size,
-            });
+            if (doc.file) {
+                // Uploaded file — multipart POST to /upload endpoint
+                const formData = new FormData();
+                formData.append("file", doc.file);
+                formData.append("name", doc.name);
+                if (doc.description) formData.append("description", doc.description);
+                await uploadDocumentFileApi(doc.projectId, formData);
+            } else {
+                // Blank / native collaborative document
+                await createDocumentApi(doc.projectId, {
+                    name: doc.name,
+                    description: doc.description,
+                    type: doc.type,
+                    owner: doc.owner,
+                    size: doc.size,
+                });
+            }
             setIsAddModalOpen(false);
             setDroppedFile(null);
             loadDocuments();

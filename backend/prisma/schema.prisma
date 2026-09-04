@@ -565,7 +565,7 @@ model Document {
   content     String?
   ydocState   Bytes? // Binary representation of the Yjs document state
 
-  fileId      String?      @unique
+  fileId      String?
   file        File?        @relation(fields: [fileId], references: [id], onDelete: SetNull)
 
   versions DocumentVersion[]
@@ -624,7 +624,7 @@ model File {
   lockedById String?
   lockedBy   User?   @relation("UserLocks", fields: [lockedById], references: [id], onDelete: SetNull)
 
-  document  Document?
+  documents Document[]
 
   versions  FileVersion[]
   downloads FileDownload[]

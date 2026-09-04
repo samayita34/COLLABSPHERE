@@ -81,6 +81,8 @@ import {
     Globe,
     Cloud,
     ArrowLeft,
+    Download,
+    ExternalLink,
 } from "lucide-react";
 
 import "./GoogleDocPage.css";
@@ -839,6 +841,154 @@ export default function GoogleDocPage() {
                     >
                         Go Back
                     </button>
+                </div>
+            </div>
+        );
+    }
+
+    // ============================
+    // UPLOADED FILE VIEWER
+    // ============================
+    const isUploadedFile = docData && (docData.fileId || (docData.type !== "DOC"));
+
+    if (isUploadedFile && docData) {
+        const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:3000/api").replace(/\/api\/?$/, "");
+        const rawFileUrl = `${apiBase}/api/documents/${documentId}/raw`;
+        const downloadUrl = `${rawFileUrl}?download=true`;
+        const isPdf = docData.type === "PDF" || (docData.file?.name || docData.name || "").toLowerCase().endsWith(".pdf");
+        const isImage = ["PNG", "JPG", "JPEG", "GIF", "WEBP", "SVG"].some(
+            (ext) => (docData.file?.name || docData.name || "").toUpperCase().endsWith(ext)
+        );
+
+        const typeBadgeStyle: React.CSSProperties = {
+            display: "inline-block",
+            padding: "2px 8px",
+            borderRadius: "4px",
+            fontSize: "11px",
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            background: isPdf ? "#fee2e2" : isImage ? "#dbeafe" : "#e8f5e9",
+            color: isPdf ? "#b91c1c" : isImage ? "#1e40af" : "#1b5e20",
+            marginLeft: "10px",
+            verticalAlign: "middle",
+        };
+
+        return (
+            <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#f5f5f5", fontFamily: "Inter, sans-serif" }}>
+                {/* Header */}
+                <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 20px",
+                    background: "#ffffff",
+                    borderBottom: "1px solid #e0e0e0",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                    flexShrink: 0,
+                    gap: "12px",
+                }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                        <button
+                            onClick={() => docData.projectId ? navigate(`/projects/${docData.projectId}`) : navigate("/documents")}
+                            style={{ border: "none", background: "transparent", cursor: "pointer", padding: "4px", display: "flex", alignItems: "center" }}
+                            title="Back to project"
+                        >
+                            <ArrowLeft size={18} color="#5f6368" />
+                        </button>
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                <span style={{ fontSize: "15px", fontWeight: 600, color: "#14161c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "400px" }}>
+                                    {docData.name}
+                                </span>
+                                <span style={typeBadgeStyle}>{docData.type}</span>
+                            </div>
+                            {docData.projectName && (
+                                <div style={{ fontSize: "12px", color: "#888", marginTop: "1px" }}>
+                                    {docData.projectName}{docData.owner ? ` · ${docData.owner}` : ""}
+                                    {docData.size ? ` · ${docData.size}` : ""}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+                        <a
+                            href={rawFileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                display: "inline-flex", alignItems: "center", gap: "5px",
+                                padding: "6px 14px", borderRadius: "6px",
+                                border: "1px solid #d1d5db", background: "#ffffff",
+                                color: "#374151", fontSize: "13px", fontWeight: 500,
+                                textDecoration: "none", cursor: "pointer",
+                            }}
+                        >
+                            <ExternalLink size={13} />
+                            Open in tab
+                        </a>
+                        <a
+                            href={downloadUrl}
+                            download
+                            style={{
+                                display: "inline-flex", alignItems: "center", gap: "5px",
+                                padding: "6px 14px", borderRadius: "6px",
+                                border: "none", background: "#14161c",
+                                color: "#ffffff", fontSize: "13px", fontWeight: 500,
+                                textDecoration: "none", cursor: "pointer",
+                            }}
+                        >
+                            <Download size={13} />
+                            Download
+                        </a>
+                    </div>
+                </div>
+
+                {/* Viewer body */}
+                <div style={{ flex: 1, overflow: "hidden", padding: isPdf ? 0 : "24px", display: "flex", flexDirection: "column" }}>
+                    {isPdf ? (
+                        <iframe
+                            src={`${rawFileUrl}#toolbar=1&navpanes=1`}
+                            style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+                            title={docData.name}
+                        />
+                    ) : isImage ? (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                            <img
+                                src={rawFileUrl}
+                                alt={docData.name}
+                                style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: "4px", boxShadow: "0 2px 16px rgba(0,0,0,0.12)" }}
+                            />
+                        </div>
+                    ) : (
+                        /* Unsupported binary — show info card + open-in-tab CTA */
+                        <div style={{
+                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                            height: "100%", textAlign: "center",
+                        }}>
+                            <FileText size={64} color="#94a3b8" style={{ marginBottom: "16px" }} />
+                            <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#14161c", marginBottom: "8px" }}>{docData.name}</h2>
+                            <p style={{ fontSize: "13.5px", color: "#64748b", marginBottom: "20px", maxWidth: "380px" }}>
+                                Preview is not available for this file type. Open in a new tab or download it to view the contents.
+                            </p>
+                            <div style={{ display: "flex", gap: "10px" }}>
+                                <a
+                                    href={rawFileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 18px", borderRadius: "6px", background: "#14161c", color: "#fff", fontWeight: 500, fontSize: "14px", textDecoration: "none" }}
+                                >
+                                    <ExternalLink size={15} /> Open in Tab
+                                </a>
+                                <a
+                                    href={downloadUrl}
+                                    download
+                                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 18px", borderRadius: "6px", border: "1px solid #d1d5db", background: "#fff", color: "#374151", fontWeight: 500, fontSize: "14px", textDecoration: "none" }}
+                                >
+                                    <Download size={15} /> Download
+                                </a>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         );

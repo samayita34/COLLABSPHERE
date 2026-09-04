@@ -283,6 +283,7 @@ interface AddDocumentModalProps {
         size?: string;
         content?: string;
         projectId?: string;
+        file?: File | null;
     }) => void;
     workspaceId?: string;
     defaultProjectId?: string;
@@ -405,6 +406,7 @@ export function AddDocumentModal({
             size: size.trim() || undefined,
             content: content.trim() || undefined,
             projectId: selectedProjectId || defaultProjectId || undefined,
+            file: mode === "upload" ? selectedFile : null,
         });
     };
 

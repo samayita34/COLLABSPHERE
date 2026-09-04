@@ -37,6 +37,9 @@ export interface ProjectDocument {
     updatedAt: string;
     size?: string;
     content?: string;
+    fileId?: string | null;
+    fileUrl?: string | null;
+    file?: ProjectFile;
 }
 
 export type FileType = "PDF" | "PNG" | "JPG" | "FIG" | "ZIP" | "PPT" | "DOC" | "MP4" | "XLS";
@@ -769,6 +772,9 @@ export async function addMemberApi(
  * Map backend document API response to frontend ProjectDocument type.
  */
 export function mapApiDocumentToFrontend(apiDoc: any): ProjectDocument {
+    const fileId = apiDoc.fileId || apiDoc.file?.id || null;
+    const fileUrl = apiDoc.fileUrl || (fileId ? `${API_BASE_URL}/projects/${apiDoc.projectId}/files/${fileId}/download` : (apiDoc.type !== "DOC" ? `${API_BASE_URL}/documents/${apiDoc.id}/raw` : null));
+
     return {
         id: apiDoc.id,
         name: apiDoc.name,
@@ -779,6 +785,9 @@ export function mapApiDocumentToFrontend(apiDoc: any): ProjectDocument {
         updatedAt: formatDisplayDate(apiDoc.updatedAt),
         size: apiDoc.size || undefined,
         content: apiDoc.content || "",
+        fileId,
+        fileUrl,
+        file: apiDoc.file ? mapApiFileToFrontend(apiDoc.file) : undefined,
     };
 }
 
@@ -845,10 +854,9 @@ export async function fetchDocumentByIdApi(documentId: string): Promise<Document
     };
 }
 
-
 /**
  * POST /api/projects/:projectId/documents
- * Create a new document in a project.
+ * Create a new native document in a project.
  */
 export async function createDocumentApi(
     projectId: string,
@@ -869,6 +877,26 @@ export async function createDocumentApi(
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
         throw new Error(json.error || `Failed to create document (HTTP ${res.status})`);
+    }
+    return mapApiDocumentToFrontend(json.data);
+}
+
+/**
+ * POST /api/projects/:projectId/documents/upload (multipart/form-data)
+ * Upload a real file to Documents and Files repository.
+ */
+export async function uploadDocumentFileApi(
+    projectId: string,
+    formData: FormData
+): Promise<ProjectDocument> {
+    const res = await fetch(`${API_BASE_URL}/projects/${projectId}/documents/upload`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(json.error || `Failed to upload document file (HTTP ${res.status})`);
     }
     return mapApiDocumentToFrontend(json.data);
 }

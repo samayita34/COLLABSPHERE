@@ -70,6 +70,46 @@ export const getFilesByProject = async (req: Request, res: Response): Promise<vo
     }
 };
 
+export function getMimeType(fileName: string): string {
+    const ext = fileName.split(".").pop()?.toLowerCase() || "";
+    switch (ext) {
+        case "pdf": return "application/pdf";
+        case "png": return "image/png";
+        case "jpg":
+        case "jpeg": return "image/jpeg";
+        case "gif": return "image/gif";
+        case "webp": return "image/webp";
+        case "svg": return "image/svg+xml";
+        case "txt": return "text/plain; charset=utf-8";
+        case "html":
+        case "htm": return "text/html; charset=utf-8";
+        case "css": return "text/css; charset=utf-8";
+        case "js": return "application/javascript";
+        case "json": return "application/json";
+        case "mp4": return "video/mp4";
+        case "webm": return "video/webm";
+        case "mp3": return "audio/mpeg";
+        case "wav": return "audio/wav";
+        case "doc": return "application/msword";
+        case "docx": return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        case "xls": return "application/vnd.ms-excel";
+        case "xlsx": return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        case "ppt": return "application/vnd.ms-powerpoint";
+        case "pptx": return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+        case "zip": return "application/zip";
+        case "csv": return "text/csv; charset=utf-8";
+        default: return "application/octet-stream";
+    }
+}
+
+export function determineFileTypeToDocType(fileName: string): any {
+    const ext = fileName.split(".").pop()?.toUpperCase() || "";
+    if (ext === "PDF") return "PDF";
+    if (["XLS", "XLSX", "CSV"].includes(ext)) return "XLS";
+    if (["PPT", "PPTX"].includes(ext)) return "PPT";
+    return "DOC";
+}
+
 import fs from "fs";
 
 function determineFileType(fileName: string, mimeType?: string): FileType {
@@ -194,6 +234,51 @@ export const createFile = async (req: Request, res: Response): Promise<void> => 
             }
         });
 
+        // Sync corresponding Document record so it also appears in Documents
+        try {
+            const existingDoc = await prisma.document.findFirst({
+                where: {
+                    projectId,
+                    OR: [
+                        { fileId: file.id },
+                        { name: fileName }
+                    ]
+                }
+            });
+
+            const docType = determineFileTypeToDocType(fileName);
+            const ownerUser = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { firstName: true, lastName: true, email: true }
+            });
+            const ownerName = ownerUser ? `${ownerUser.firstName} ${ownerUser.lastName}`.trim() || ownerUser.email : "Workspace Member";
+
+            if (!existingDoc) {
+                await prisma.document.create({
+                    data: {
+                        name: fileName,
+                        description: description ? String(description).trim() : null,
+                        type: docType,
+                        size: formatBytes(newSize),
+                        owner: ownerName,
+                        fileId: file.id,
+                        projectId,
+                    }
+                });
+            } else if (!existingDoc.fileId) {
+                await prisma.document.update({
+                    where: { id: existingDoc.id },
+                    data: {
+                        fileId: file.id,
+                        size: formatBytes(newSize),
+                        type: docType,
+                    }
+                });
+            }
+        } catch (syncErr) {
+            console.error("Document sync note:", syncErr);
+        }
+
         // Update workspace quota
         if (workspace) {
             await prisma.workspace.update({
@@ -304,11 +389,11 @@ export const deleteFile = async (req: Request, res: Response): Promise<void> => 
 
 export const downloadFile = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { fileId } = req.params;
+        const { fileId, projectId } = req.params;
         const versionId = req.query.versionId as string | undefined;
+        const isDownload = req.query.download === "true" || req.query.download === "1";
 
         const file = await prisma.file.findUnique({ where: { id: fileId } });
-        const { projectId } = req.params;
         if (!file || file.projectId !== projectId) {
             res.status(404).json({ success: false, error: "File not found" });
             return;
@@ -336,13 +421,23 @@ export const downloadFile = async (req: Request, res: Response): Promise<void> =
                     fileId: file.id,
                     downloadedById: req.user.id
                 }
-            });
+            }).catch(() => {});
         }
 
-        // Fetch URL or Buffer from storage service
-        // We'll redirect to a pre-signed URL or download endpoint
-        const url = await storageService.getFileUrl(version.s3Key);
-        res.redirect(url);
+        try {
+            const buffer = await storageService.getFileBuffer(version.s3Key);
+            const mimeType = getMimeType(file.name);
+            res.setHeader("Content-Type", mimeType);
+            res.setHeader(
+                "Content-Disposition",
+                `${isDownload ? "attachment" : "inline"}; filename="${encodeURIComponent(file.name)}"`
+            );
+            res.setHeader("Content-Length", buffer.length);
+            res.send(buffer);
+        } catch (storageErr) {
+            const url = await storageService.getFileUrl(version.s3Key);
+            res.redirect(url + (isDownload ? "?download=true" : ""));
+        }
     } catch (error) {
         console.error("Error downloading file:", error);
         res.status(500).json({ success: false, error: "Failed to download file" });
@@ -392,8 +487,17 @@ export const toggleLockFile = async (req: Request, res: Response): Promise<void>
 export const downloadRawFile = async (req: Request, res: Response): Promise<void> => {
     try {
         const key = req.params.key as string;
+        const isDownload = req.query.download === "true" || req.query.download === "1";
         const buffer = await storageService.getFileBuffer(key);
-        res.setHeader('Content-Disposition', `attachment; filename="${key.split('-').pop()}"`);
+        const fileName = key.split('-').slice(1).join('-') || key.split('/').pop() || "file";
+        const mimeType = getMimeType(fileName);
+
+        res.setHeader("Content-Type", mimeType);
+        res.setHeader(
+            "Content-Disposition",
+            `${isDownload ? "attachment" : "inline"}; filename="${encodeURIComponent(fileName)}"`
+        );
+        res.setHeader("Content-Length", buffer.length);
         res.send(buffer);
     } catch (error) {
         res.status(404).send("File not found");
