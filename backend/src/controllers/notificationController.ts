@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
-import { createAndSendNotification } from "../services/notificationService";
+import {
+    createAndSendNotification,
+    checkAndSendDueDateReminders,
+    checkAndSendOverdueAlerts,
+} from "../services/notificationService";
 import { NotificationType } from "../../generated/prisma/enums";
 
 /**
@@ -17,8 +21,10 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
 
         const workspaceId = req.query.workspaceId as string | undefined;
         const unreadOnly = req.query.unreadOnly === "true";
+        const type = req.query.type as string | undefined;
+        const category = req.query.category as string | undefined;
         const page = parseInt(req.query.page as string || "1", 10);
-        const limit = parseInt(req.query.limit as string || "20", 10);
+        const limit = parseInt(req.query.limit as string || "30", 10);
         const skip = (page - 1) * limit;
 
         const whereCondition: any = { userId };
@@ -27,6 +33,44 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
         }
         if (unreadOnly) {
             whereCondition.isRead = false;
+        }
+
+        if (type) {
+            whereCondition.type = type;
+        } else if (category) {
+            const cat = category.toUpperCase();
+            if (cat === "TASKS") {
+                whereCondition.type = {
+                    in: [
+                        NotificationType.TASK_ASSIGNED,
+                        NotificationType.TASK_UPDATED,
+                        NotificationType.TASK_STATUS_CHANGED,
+                        NotificationType.TASK_PRIORITY_CHANGED,
+                        NotificationType.DUE_DATE_REMINDER,
+                        NotificationType.TASK_OVERDUE,
+                        NotificationType.TASK_COMMENT,
+                        NotificationType.SUBTASK_COMPLETED,
+                    ],
+                };
+            } else if (cat === "MENTIONS") {
+                whereCondition.type = {
+                    in: [NotificationType.MENTION, NotificationType.TASK_MENTION],
+                };
+            } else if (cat === "DOCUMENTS") {
+                whereCondition.type = NotificationType.DOCUMENT_EDITED;
+            } else if (cat === "FILES") {
+                whereCondition.type = NotificationType.FILE_UPLOADED;
+            } else if (cat === "CHAT") {
+                whereCondition.type = NotificationType.CHAT_MESSAGE;
+            } else if (cat === "INVITATIONS" || cat === "INVITES") {
+                whereCondition.type = {
+                    in: [
+                        NotificationType.WORKSPACE_INVITATION,
+                        NotificationType.PROJECT_MEMBER_ADDED,
+                        NotificationType.PROJECT_MEMBER_REMOVED,
+                    ],
+                };
+            }
         }
 
         const [notifications, total, unreadCount] = await Promise.all([
@@ -281,6 +325,21 @@ export const triggerTestNotification = async (req: Request, res: Response): Prom
     } catch (error: any) {
         console.error("triggerTestNotification error:", error);
         res.status(500).json({ success: false, error: "Failed to trigger test notification" });
+    }
+};
+
+/**
+ * POST /api/notifications/check-due-dates
+ * Check and send due date reminders and overdue alerts.
+ */
+export const checkDueDates = async (_req: Request, res: Response): Promise<void> => {
+    try {
+        await checkAndSendDueDateReminders();
+        await checkAndSendOverdueAlerts();
+        res.status(200).json({ success: true, message: "Due date and overdue alerts checked and dispatched" });
+    } catch (error: any) {
+        console.error("checkDueDates error:", error);
+        res.status(500).json({ success: false, error: "Failed to check due date reminders" });
     }
 };
 

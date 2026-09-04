@@ -52,7 +52,8 @@ export const fetchNotifications = async (
     workspaceId?: string,
     page = 1,
     limit = 30,
-    unreadOnly = false
+    unreadOnly = false,
+    category?: string
 ): Promise<{ data: NotificationItem[]; unreadCount: number; pagination: any }> => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (workspaceId && workspaceId !== "all") {
@@ -60,6 +61,9 @@ export const fetchNotifications = async (
     }
     if (unreadOnly) {
         params.append("unreadOnly", "true");
+    }
+    if (category && category !== "ALL" && category !== "UNREAD") {
+        params.append("category", category);
     }
 
     const res = await fetch(`${API_BASE}/notifications?${params.toString()}`, {
@@ -174,5 +178,37 @@ export const clearReadNotifications = async (workspaceId?: string): Promise<void
     if (!res.ok || !json.success) {
         throw new Error(json.error || "Failed to clear read notifications");
     }
+};
+
+export const checkDueDatesApi = async (): Promise<void> => {
+    const res = await fetch(`${API_BASE}/notifications/check-due-dates`, {
+        method: "POST",
+        headers: getHeaders(),
+        credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+        throw new Error(json.error || "Failed to check due dates");
+    }
+};
+
+export const triggerTestNotificationApi = async (payload: {
+    type: NotificationType;
+    title: string;
+    message: string;
+    link?: string;
+    workspaceId?: string;
+}): Promise<NotificationItem> => {
+    const res = await fetch(`${API_BASE}/notifications/test`, {
+        method: "POST",
+        headers: getHeaders(),
+        credentials: "include",
+        body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+        throw new Error(json.error || "Failed to trigger test notification");
+    }
+    return json.data;
 };
 
