@@ -32,15 +32,6 @@ function getInitials(user?: AuditLogItem["user"]): string {
     return (f + l).toUpperCase() || user.email.slice(0, 2).toUpperCase();
 }
 
-function getAvatarColor(str: string): string {
-    const palette = [
-        "#4338ca","#0891b2","#16a34a","#ca8a04","#dc2626","#7c3aed","#db2777","#0284c7",
-    ];
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    return palette[Math.abs(hash) % palette.length];
-}
-
 function formatDetailsPayload(details: any, metadata: any): string | null {
     const payload = metadata || details;
     if (!payload) return null;
@@ -251,7 +242,6 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                                 : "System";
                             const actorEmail = log.user?.email || "system@collabsphere";
                             const initials = getInitials(log.user);
-                            const avatarColor = getAvatarColor(log.userId || "system");
                             const actionCat = getActionCategory(log.action);
                             const colors = ACTION_CATEGORY_COLORS[actionCat] || ACTION_CATEGORY_COLORS["ALL"];
                             const actionLabel = getActionLabel(log.action);
@@ -280,7 +270,6 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                                             {/* Actor avatar */}
                                             <div
                                                 className="atl-avatar"
-                                                style={{ background: avatarColor }}
                                                 title={actorEmail}
                                             >
                                                 {initials}
