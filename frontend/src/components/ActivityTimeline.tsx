@@ -283,9 +283,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                                                 style={{ background: avatarColor }}
                                                 title={actorEmail}
                                             >
-                                                {log.user?.avatar ? (
-                                                    <img src={log.user.avatar} alt={initials} />
-                                                ) : initials}
+                                                {initials}
                                             </div>
 
                                             {/* Actor + Action */}
