@@ -2494,17 +2494,121 @@
 }
 
 /* ==========================================================================
-   REDESIGNED TABS — Minimalist Monochrome (Black, White, Grey) & Fraunces Serif
+   REDESIGNED TABS — Modern Enterprise Sans-Serif (Inter) & Minimalist Styling
    tw- prefix = "tab widget"
 ========================================================================== */
 
-/* Headings font inheritance */
+/* Toolbar and pane header */
+.pane-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+}
+
+.pane-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
 .pane-title h2 {
-    font-family: "Fraunces", serif;
-    font-size: 21px;
-    font-weight: 500;
+    font-family: "Inter", sans-serif;
+    font-size: 20px;
+    font-weight: 600;
     color: #14161c;
-    letter-spacing: -0.01em;
+    margin: 0;
+    letter-spacing: -0.015em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pane-title p {
+    font-family: "Inter", sans-serif;
+    font-size: 13px;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.5;
+    font-weight: 400;
+}
+
+.tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Inter", sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #475569;
+    background: #f1f5f9;
+    border-radius: 12px;
+    padding: 2px 8px;
+    line-height: 1;
+}
+
+.pane-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Filter select elements */
+.filter-select {
+    font-family: "Inter", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    height: 36px;
+    padding: 0 12px;
+    background: #ffffff;
+    border: 1px solid #e7e3d8;
+    border-radius: 7px;
+    color: #14161c;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.15s ease;
+}
+
+.filter-select:hover {
+    border-color: #cbd5e1;
+}
+
+.filter-select:focus {
+    border-color: #14161c;
+    box-shadow: 0 0 0 2px rgba(20, 22, 28, 0.08);
+}
+
+/* Common Buttons */
+.cs-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Inter", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.cs-btn-primary {
+    background: #14161c;
+    color: #ffffff;
+    border-color: #14161c;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.cs-btn-primary:hover {
+    background: #27272a;
+    border-color: #27272a;
 }
 
 /* ---- Search Box ---- */
@@ -2512,8 +2616,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 0 10px;
-    height: 34px;
+    padding: 0 12px;
+    height: 36px;
     border: 1px solid #e7e3d8;
     border-radius: 7px;
     background: #ffffff;
@@ -2584,9 +2688,9 @@
 }
 .tw-empty-state h3 {
     margin: 0;
-    font-family: "Fraunces", serif;
-    font-size: 18px;
-    font-weight: 500;
+    font-family: "Inter", sans-serif;
+    font-size: 16px;
+    font-weight: 600;
     color: #14161c;
 }
 .tw-empty-state p {
@@ -2680,8 +2784,8 @@
     min-width: 0;
 }
 .tw-task-title {
-    font-family: "Fraunces", serif;
-    font-size: 14.5px;
+    font-family: "Inter", sans-serif;
+    font-size: 14px;
     font-weight: 500;
     color: #14161c;
     white-space: nowrap;
