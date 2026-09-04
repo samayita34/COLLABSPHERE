@@ -572,3 +572,66 @@ export const revokeSession = async (req: Request, res: Response): Promise<void> 
         res.status(500).json({ success: false, error: "Failed to revoke session" });
     }
 };
+
+export const changePassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, error: "Not authenticated" });
+            return;
+        }
+
+        const { currentPassword, newPassword } = req.body;
+
+        if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+            res.status(400).json({ success: false, error: "New password must be at least 6 characters long" });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (!user) {
+            res.status(404).json({ success: false, error: "User not found" });
+            return;
+        }
+
+        // Google-only users without a password must provide none; they are setting a password for the first time
+        if (user.password) {
+            if (!currentPassword) {
+                res.status(400).json({ success: false, error: "Current password is required" });
+                return;
+            }
+            const isValid = await bcrypt.compare(String(currentPassword), user.password);
+            if (!isValid) {
+                res.status(400).json({ success: false, error: "Current password is incorrect" });
+                return;
+            }
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await prisma.user.update({ where: { id: req.user.id }, data: { password: hashedPassword } });
+
+        // Revoke all other sessions to force logout on other devices
+        const currentRefreshToken = req.cookies.refreshToken;
+        if (currentRefreshToken) {
+            const currentHash = hashToken(currentRefreshToken);
+            await prisma.session.deleteMany({
+                where: { userId: req.user.id, refreshTokenHash: { not: currentHash } },
+            });
+        } else {
+            await prisma.session.deleteMany({ where: { userId: req.user.id } });
+        }
+
+        logAuditAction({
+            userId: req.user.id,
+            action: "PASSWORD_CHANGED",
+            entityType: "User",
+            entityId: req.user.id,
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error:", err));
+
+        res.status(200).json({ success: true, message: "Password updated successfully. All other sessions have been revoked." });
+    } catch (error) {
+        console.error("Error changing password:", error);
+        res.status(500).json({ success: false, error: "Failed to change password" });
+    }
+};

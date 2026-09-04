@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { signup, login, getMe, logout, refresh, googleLogin, googleCallback, forgotPassword, resetPassword, verifyEmail, getSessions, revokeSession } from "../controllers/authController";
+import { signup, login, getMe, logout, refresh, googleLogin, googleCallback, forgotPassword, resetPassword, verifyEmail, getSessions, revokeSession, changePassword } from "../controllers/authController";
 import { authenticate } from "../middleware/auth";
 
 const router = Router();
@@ -19,5 +19,6 @@ router.get("/google/callback", googleCallback);
 
 router.get("/sessions", authenticate, getSessions);
 router.delete("/sessions/:id", authenticate, revokeSession);
+router.post("/change-password", authenticate, changePassword);
 
 export default router;

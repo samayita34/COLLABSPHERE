@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { updateWorkspaceApi } from "../services/workspaceApi";
+import { getSessionsApi, revokeSessionApi, changePasswordApi, type UserSession } from "../services/authApi";
 import { AppSidebar } from "../components/AppSidebar";
 import { AppTopbar } from "../components/AppTopbar";
 import "./Projects.css";
@@ -10,7 +11,7 @@ export default function Settings() {
   const { userFullName, userInitials, user } = useAuth();
   const { activeWorkspace, refreshContext } = useWorkspace();
 
-  const [activeTab, setActiveTab] = useState<"workspace" | "profile" | "preferences">("workspace");
+  const [activeTab, setActiveTab] = useState<"workspace" | "profile" | "preferences" | "security">("workspace");
 
   // Form State
   const [wsName, setWsName] = useState("");
@@ -21,9 +22,77 @@ export default function Settings() {
   const [desktopNotifs, setDesktopNotifs] = useState(true);
   const [dueReminders, setDueReminders] = useState(true);
 
+  // Security Tab State
+  const [sessions, setSessions] = useState<UserSession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [currPass, setCurrPass] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+  const [passLoading, setPassLoading] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab === "security") {
+      fetchSessions();
+    }
+  }, [activeTab]);
+
+  const fetchSessions = async () => {
+    setLoadingSessions(true);
+    try {
+      const data = await getSessionsApi();
+      setSessions(data);
+    } catch (err: any) {
+      console.error("Failed to load sessions:", err);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const handleRevokeSession = async (sessionId: string) => {
+    try {
+      await revokeSessionApi(sessionId);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      setSuccessMsg("Session revoked successfully.");
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to revoke session");
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (newPass.length < 6) {
+      setErrorMsg("New password must be at least 6 characters long.");
+      return;
+    }
+    if (newPass !== confirmPass) {
+      setErrorMsg("New passwords do not match.");
+      return;
+    }
+
+    setPassLoading(true);
+    try {
+      const res = await changePasswordApi(currPass, newPass);
+      setSuccessMsg(res.message || "Password updated successfully.");
+      setCurrPass("");
+      setNewPass("");
+      setConfirmPass("");
+      fetchSessions();
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to update password.");
+    } finally {
+      setPassLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     if (activeWorkspace) {
@@ -128,6 +197,13 @@ export default function Settings() {
                 onClick={() => setActiveTab("preferences")}
               >
                 Notifications & Alerts
+              </button>
+              <button
+                type="button"
+                className={activeTab === "security" ? "active" : ""}
+                onClick={() => setActiveTab("security")}
+              >
+                Security & Sessions
               </button>
             </div>
           </div>
@@ -354,12 +430,188 @@ export default function Settings() {
                   />
                 </label>
 
-                <div style={{ marginTop: "10px" }}>
-                  <button type="submit" className="new-project">
-                    Save Preferences
+          {/* TAB 4: SECURITY & SESSIONS */}
+          {activeTab === "security" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: "28px", maxWidth: "1080px" }}>
+              
+              {/* CHANGE PASSWORD PANEL */}
+              <div style={{ border: "1px solid #e7e3d8", borderRadius: "10px", padding: "28px", background: "#ffffff" }}>
+                <h2 style={{ fontFamily: "Fraunces, serif", fontSize: "20px", fontWeight: 500, margin: "0 0 6px" }}>
+                  Password & Security
+                </h2>
+                <p style={{ fontSize: "13px", color: "#5a594f", margin: "0 0 24px", lineHeight: 1.5 }}>
+                  {user?.isGoogleUser
+                    ? "Your account was created via Google OAuth. You can set a password below to enable email/password login."
+                    : "Update your password regularly to maintain account security. Changing your password revokes all other device sessions."}
+                </p>
+
+                <form onSubmit={handleChangePassword} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {!user?.isGoogleUser && (
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: "#14161c", marginBottom: "6px" }}>
+                        Current Password
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="••••••••"
+                        value={currPass}
+                        onChange={(e) => setCurrPass(e.target.value)}
+                        required={!user?.isGoogleUser}
+                        style={{
+                          width: "100%",
+                          padding: "10px 14px",
+                          border: "1px solid #e7e3d8",
+                          borderRadius: "6px",
+                          fontFamily: "Inter, sans-serif",
+                          fontSize: "13.5px",
+                          color: "#14161c",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: "#14161c", marginBottom: "6px" }}>
+                      New Password
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="At least 6 characters"
+                      value={newPass}
+                      onChange={(e) => setNewPass(e.target.value)}
+                      required
+                      style={{
+                        width: "100%",
+                        padding: "10px 14px",
+                        border: "1px solid #e7e3d8",
+                        borderRadius: "6px",
+                        fontFamily: "Inter, sans-serif",
+                        fontSize: "13.5px",
+                        color: "#14161c",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: "#14161c", marginBottom: "6px" }}>
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Confirm new password"
+                      value={confirmPass}
+                      onChange={(e) => setConfirmPass(e.target.value)}
+                      required
+                      style={{
+                        width: "100%",
+                        padding: "10px 14px",
+                        border: "1px solid #e7e3d8",
+                        borderRadius: "6px",
+                        fontFamily: "Inter, sans-serif",
+                        fontSize: "13.5px",
+                        color: "#14161c",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginTop: "10px" }}>
+                    <button type="submit" className="new-project" disabled={passLoading}>
+                      {passLoading ? "Updating Password..." : "Update Password"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* ACTIVE SESSIONS PANEL */}
+              <div style={{ border: "1px solid #e7e3d8", borderRadius: "10px", padding: "28px", background: "#ffffff" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "6px" }}>
+                  <h2 style={{ fontFamily: "Fraunces, serif", fontSize: "20px", fontWeight: 500, margin: 0 }}>
+                    Active Device Sessions
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={fetchSessions}
+                    style={{ background: "none", border: "none", color: "#6366f1", fontSize: "12px", cursor: "pointer", fontWeight: 500 }}
+                  >
+                    Refresh
                   </button>
                 </div>
-              </form>
+                <p style={{ fontSize: "13px", color: "#5a594f", margin: "0 0 20px" }}>
+                  Devices logged into your COLLABSPHERE account using Refresh Tokens.
+                </p>
+
+                {loadingSessions ? (
+                  <div style={{ padding: "24px", textAlign: "center", color: "#9a968a", fontSize: "13px" }}>
+                    Loading active sessions...
+                  </div>
+                ) : sessions.length === 0 ? (
+                  <div style={{ padding: "24px", textAlign: "center", color: "#9a968a", fontSize: "13px" }}>
+                    No active sessions found.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {sessions.map((sess) => (
+                      <div
+                        key={sess.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "14px",
+                          border: "1px solid #f0ede4",
+                          borderRadius: "8px",
+                          background: "#fcfbf8",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <div style={{
+                            width: "36px",
+                            height: "36px",
+                            borderRadius: "8px",
+                            background: "#eef2ff",
+                            color: "#4f46e5",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "16px"
+                          }}>
+                            💻
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "13px", fontWeight: 600, color: "#14161c", maxWidth: "240px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {sess.device || "Unknown Browser / Device"}
+                            </div>
+                            <div style={{ fontSize: "11.5px", color: "#9a968a", marginTop: "2px" }}>
+                              IP: {sess.ip || "127.0.0.1"} • Created {new Date(sess.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRevokeSession(sess.id)}
+                          style={{
+                            border: "1px solid #fecaca",
+                            background: "#fef2f2",
+                            color: "#dc2626",
+                            padding: "6px 12px",
+                            borderRadius: "6px",
+                            fontSize: "12px",
+                            fontWeight: 500,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
 

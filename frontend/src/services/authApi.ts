@@ -145,3 +145,51 @@ export async function refreshSessionApi(): Promise<void> {
         throw new Error(`Session refresh failed`);
     }
 }
+
+export interface UserSession {
+    id: string;
+    createdAt: string;
+    expiresAt: string;
+    device?: string | null;
+    ip?: string | null;
+}
+
+export async function getSessionsApi(): Promise<UserSession[]> {
+    const res = await fetchWithAuth(`${API_BASE_URL}/auth/sessions`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(json.error || `Failed to fetch active sessions (HTTP ${res.status})`);
+    }
+    return json.data || [];
+}
+
+export async function revokeSessionApi(sessionId: string): Promise<void> {
+    const res = await fetchWithAuth(`${API_BASE_URL}/auth/sessions/${sessionId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Failed to revoke session (HTTP ${res.status})`);
+    }
+}
+
+export async function changePasswordApi(currentPassword?: string, newPassword?: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetchWithAuth(`${API_BASE_URL}/auth/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(json.error || `Failed to update password (HTTP ${res.status})`);
+    }
+    return json;
+}
+
