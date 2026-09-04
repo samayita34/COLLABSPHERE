@@ -1,0 +1,511 @@
+/* ============================================================
+   ActivityTimeline.css
+   Styles for the ActivityTimeline component used across:
+     - /activity-log   full-page standalone view
+     - ProjectWorkspace "Activity" tab (embedded mode)
+   ============================================================ */
+
+/* ── Root ─────────────────────────────────────────────────── */
+.atl-root {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    font-family: "Inter", "Outfit", -apple-system, sans-serif;
+    color: #14161c;
+}
+
+.atl-embedded {
+    /* Embedded inside a tab pane — no extra outer padding needed */
+    gap: 12px;
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.atl-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.atl-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: #14161c;
+    margin: 0 0 4px;
+}
+
+.atl-subtitle {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0;
+}
+
+.atl-total-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 99px;
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.atl-total-badge--inline {
+    margin-left: auto;
+}
+
+/* ── Category Chips ───────────────────────────────────────── */
+.atl-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.atl-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 13px;
+    border-radius: 99px;
+    border: 1.5px solid #e5e7eb;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.1s;
+    white-space: nowrap;
+}
+
+.atl-chip:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.atl-chip--active {
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* ── Filter bar ───────────────────────────────────────────── */
+.atl-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.atl-search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 200px;
+    max-width: 340px;
+}
+
+.atl-search-icon {
+    position: absolute;
+    left: 11px;
+    font-size: 13px;
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+.atl-search {
+    width: 100%;
+    padding: 7px 32px 7px 32px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #fff;
+    color: #14161c;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+}
+
+.atl-search:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+
+.atl-search::placeholder {
+    color: #9ca3af;
+}
+
+.atl-search-clear {
+    position: absolute;
+    right: 9px;
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+    line-height: 1;
+    transition: color 0.15s;
+}
+.atl-search-clear:hover { color: #374151; }
+
+.atl-date-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.atl-date-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.atl-date-input {
+    padding: 6px 9px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-family: inherit;
+    color: #374151;
+    background: #fff;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.atl-date-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+.atl-clear-btn {
+    padding: 6px 13px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    color: #6b7280;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.atl-clear-btn:hover {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #dc2626;
+}
+
+/* ── Body / Timeline ──────────────────────────────────────── */
+.atl-body {
+    /* Contains either the timeline list or empty/loading states */
+}
+
+.atl-timeline {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Timeline Item ────────────────────────────────────────── */
+.atl-item {
+    display: flex;
+    gap: 0;
+}
+
+/* ── Rail (dot + line) ─────────────────────────────────────── */
+.atl-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    width: 32px;
+    padding-top: 14px;
+}
+
+.atl-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    z-index: 1;
+}
+
+.atl-line {
+    flex: 1;
+    width: 2px;
+    background: #e5e7eb;
+    margin-top: 4px;
+    min-height: 20px;
+    border-radius: 1px;
+}
+
+/* ── Card ─────────────────────────────────────────────────── */
+.atl-card {
+    flex: 1;
+    margin: 8px 0 12px 4px;
+    padding: 12px 14px;
+    border: 1.5px solid #f3f4f6;
+    border-radius: 12px;
+    background: #fff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.atl-card:hover {
+    border-color: #e5e7eb;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.atl-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+/* ── Actor Avatar ─────────────────────────────────────────── */
+.atl-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    overflow: hidden;
+}
+
+.atl-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+/* ── Card Info ────────────────────────────────────────────── */
+.atl-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.atl-actor-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 2px;
+}
+
+.atl-actor-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #111827;
+    white-space: nowrap;
+}
+
+.atl-action-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 99px;
+    border: 1px solid;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    font-family: "IBM Plex Mono", monospace;
+}
+
+.atl-actor-sub {
+    font-size: 11.5px;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Timestamp ────────────────────────────────────────────── */
+.atl-time {
+    font-size: 11.5px;
+    color: #9ca3af;
+    white-space: nowrap;
+    font-family: "IBM Plex Mono", monospace;
+    padding-top: 1px;
+    flex-shrink: 0;
+    cursor: default;
+}
+
+/* ── Card Details Row ─────────────────────────────────────── */
+.atl-card-details {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f3f4f6;
+}
+
+.atl-entity-chip {
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: #f3f4f6;
+    color: #4b5563;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid #e5e7eb;
+    text-transform: capitalize;
+}
+
+.atl-entity-id {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    color: #9ca3af;
+    background: #f9fafb;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+}
+
+.atl-detail-text {
+    font-size: 12px;
+    color: #4b5563;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 360px;
+    flex: 1;
+    cursor: default;
+}
+
+.atl-ip {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    color: #d1d5db;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+/* ── Empty / Error / Loading ─────────────────────────────── */
+.atl-empty {
+    text-align: center;
+    padding: 60px 24px;
+    color: #9ca3af;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.atl-empty-icon {
+    font-size: 40px;
+    margin-bottom: 4px;
+    opacity: 0.6;
+}
+
+.atl-empty h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0;
+}
+
+.atl-empty p {
+    font-size: 13px;
+    max-width: 320px;
+    margin: 0;
+}
+
+.atl-error {
+    text-align: center;
+    padding: 48px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #6b7280;
+}
+
+.atl-error span { font-size: 28px; }
+.atl-error p { font-size: 13.5px; color: #ef4444; margin: 0; }
+
+.atl-retry,
+.atl-load-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 6px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1.5px solid #e5e7eb;
+    background: #fff;
+    color: #374151;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.atl-retry:hover,
+.atl-load-more:hover:not(:disabled) {
+    background: #f9fafb;
+    border-color: #6366f1;
+    color: #4338ca;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.1);
+}
+
+.atl-load-more:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.atl-load-more-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 16px 0 4px;
+}
+
+/* ── Spinner ──────────────────────────────────────────────── */
+@keyframes atl-spin {
+    to { transform: rotate(360deg); }
+}
+
+.atl-spinner {
+    width: 26px;
+    height: 26px;
+    border: 3px solid #e5e7eb;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: atl-spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+.atl-spinner--sm {
+    width: 14px;
+    height: 14px;
+    border-width: 2px;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .atl-filters { flex-direction: column; align-items: stretch; }
+    .atl-search-wrap { max-width: none; }
+    .atl-date-range { flex-wrap: wrap; }
+    .atl-detail-text { max-width: 180px; }
+    .atl-ip { display: none; }
+}

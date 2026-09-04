@@ -172,3 +172,28 @@
     text-align: center;
     color: #64748b;
 }
+
+/* ── New panel wrapper used by the redesigned ActivityLog page ── */
+.activity-log-panel {
+    background: #fff;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 24px 24px 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.activity-log-no-workspace {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 80px 24px;
+    color: #9ca3af;
+    font-size: 14px;
+    text-align: center;
+}
+
+.activity-log-no-workspace span {
+    font-size: 40px;
+    opacity: 0.6;
+}

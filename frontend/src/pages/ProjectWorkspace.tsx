@@ -9,6 +9,7 @@ import { DocumentDetailModal, AddDocumentModal } from "./DocumentModal";
 import { FileBrowser } from "../components/FileBrowser";
 import { ProjectSettingsModal } from "./ProjectSettingsModal";
 import ProjectChat, { type ChatMessage } from "./ProjectChat";
+import ActivityTimeline from "../components/ActivityTimeline";
 import { fetchProjectById, createTaskApi, updateTaskApi, deleteTaskApi, addMemberApi, fetchDocuments, createDocumentApi, fetchChatMessages, sendChatMessageApi, updateDocumentApi, mapApiTaskToFrontend, mapApiChatMessageToFrontend, fetchBoards } from "../services/projectApi";
 import type { TaskPriority, Task, Member, MappedProject as Project, Board } from "../services/projectApi";
 import { useAuth } from "../context/AuthContext";
@@ -43,15 +44,6 @@ interface ProjectDocument {
 
 
 
-interface AuditLogEntry {
-    id: string;
-    action: string;
-    entityType: string;
-    entityId?: string;
-    details?: any;
-    createdAt: string;
-    user?: { id: string; firstName: string; lastName: string; email: string };
-}
 
 const TABS = ["Overview", "Tasks", "Board", "Members", "Documents", "Files", "Chat", "Activity", "Settings"] as const;
 type Tab = (typeof TABS)[number];
@@ -105,9 +97,7 @@ export default function ProjectWorkspace() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [board, setBoard] = useState<Board | null>(null);
 
-    // Activity / Audit log
-    const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-    const [auditLoading, setAuditLoading] = useState(false);
+
     const [taskSearch, setTaskSearch] = useState("");
     const [memberSearch, setMemberSearch] = useState("");
 
@@ -145,20 +135,8 @@ export default function ProjectWorkspace() {
                     if (apiBoards && apiBoards.length > 0) {
                         setBoard(apiBoards[0]); // Primary board
                     }
-                    setError(null);
 
-                    // Fetch recent audit logs for activity trail
-                    const wsId = data.workspaceId || activeWorkspace?.id;
-                    if (wsId) {
-                        fetch(`/api/audit-logs?workspaceId=${wsId}&limit=20`, { credentials: "include" })
-                            .then((r) => r.json())
-                            .then((res) => {
-                                if (res.success && isMounted) {
-                                    setAuditLogs(res.data || []);
-                                }
-                            })
-                            .catch(console.error);
-                    }
+                    setError(null);
                 }
             })
             .catch((err) => {
@@ -1167,97 +1145,21 @@ export default function ProjectWorkspace() {
                         <div className="tab-pane">
                             <div className="pane-toolbar">
                                 <div className="pane-title">
-                                    <h2>Activity Log</h2>
+                                    <h2>Activity Timeline</h2>
                                     <p>Full audit trail of changes across this project and workspace.</p>
                                 </div>
-                                <button
-                                    className="cs-btn cs-btn-secondary"
-                                    onClick={() => {
-                                        if (!activeWorkspace?.id) return;
-                                        setAuditLoading(true);
-                                        fetch(`/api/audit-logs?workspaceId=${activeWorkspace.id}&limit=50`, { credentials: "include" })
-                                            .then(r => r.json())
-                                            .then(res => { if (res.success) setAuditLogs(res.data || []); })
-                                            .catch(console.error)
-                                            .finally(() => setAuditLoading(false));
-                                    }}
-                                    style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                                >
-                                    {auditLoading ? <Loader2 size={13} className="tw-spin" /> : <Activity size={13} />}
-                                    Refresh
-                                </button>
                             </div>
 
-                            {auditLoading && auditLogs.length === 0 ? (
-                                <div className="tw-empty-state">
-                                    <Loader2 size={32} color="#9a968a" className="tw-spin" />
-                                    <p style={{ marginTop: 8 }}>Loading activity...</p>
-                                </div>
-                            ) : auditLogs.length === 0 ? (
-                                <div className="tw-empty-state">
-                                    <Activity size={40} color="#9a968a" />
-                                    <h3>No activity yet</h3>
-                                    <p>Actions like task creation, member changes, and file uploads will appear here.</p>
-                                    <button
-                                        className="cs-btn cs-btn-secondary"
-                                        style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6 }}
-                                        onClick={() => {
-                                            if (!activeWorkspace?.id) return;
-                                            setAuditLoading(true);
-                                            fetch(`/api/audit-logs?workspaceId=${activeWorkspace.id}&limit=50`, { credentials: "include" })
-                                                .then(r => r.json())
-                                                .then(res => { if (res.success) setAuditLogs(res.data || []); })
-                                                .catch(console.error)
-                                                .finally(() => setAuditLoading(false));
-                                        }}
-                                    >
-                                        <Activity size={13} /> Load Activity
-                                    </button>
-                                </div>
+                            {activeWorkspace?.id ? (
+                                <ActivityTimeline
+                                    workspaceId={activeWorkspace.id}
+                                    projectId={project?.id}
+                                    embedded
+                                />
                             ) : (
-                                <div className="tw-timeline">
-                                    {auditLogs.map((log, i) => {
-                                        const actorName = log.user ? `${log.user.firstName} ${log.user.lastName}` : "System";
-                                        const when = new Date(log.createdAt);
-                                        const timeStr = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                                        const dateStr = when.toLocaleDateString([], { month: "short", day: "numeric" });
-                                        const isToday = new Date().toDateString() === when.toDateString();
-
-                                        const label = log.action
-                                            .replace(/_/g, " ")
-                                            .toLowerCase()
-                                            .replace(/\b\w/g, c => c.toUpperCase());
-
-                                        return (
-                                            <div className="tw-timeline-item" key={log.id || i}>
-                                                <div className="tw-timeline-left">
-                                                    <div className="tw-timeline-dot" />
-                                                    {i < auditLogs.length - 1 && <div className="tw-timeline-line" />}
-                                                </div>
-                                                <div className="tw-timeline-body">
-                                                    <div className="tw-timeline-header">
-                                                        <div className="tw-mini-avatar">
-                                                            {actorName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-                                                        </div>
-                                                        <div>
-                                                            <strong>{actorName}</strong>
-                                                            <span className="tw-action-label">{label}</span>
-                                                        </div>
-                                                    </div>
-                                                    {log.details && (
-                                                        <div className="tw-timeline-details">
-                                                            {log.details.name && <span>📄 {log.details.name}</span>}
-                                                            {log.details.title && <span>📋 {log.details.title}</span>}
-                                                        </div>
-                                                    )}
-                                                    <div className="tw-timeline-time">
-                                                        <span className="tw-entity-chip">{log.entityType}</span>
-                                                        <span>{isToday ? `Today at ${timeStr}` : `${dateStr} at ${timeStr}`}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                <div className="tw-empty-state">
+                                    <Activity size={36} color="#9a968a" />
+                                    <p style={{ marginTop: 8 }}>No workspace context available.</p>
                                 </div>
                             )}
                         </div>
