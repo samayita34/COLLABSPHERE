@@ -412,6 +412,18 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ workspac
                         </div>
 
                         <div className="notif-header-actions">
+                            {workspaceId && (
+                                <button
+                                    type="button"
+                                    className={`notif-header-btn ${filterByWorkspace ? "sound-on" : ""}`}
+                                    onClick={() => setFilterByWorkspace((prev) => !prev)}
+                                    title={filterByWorkspace ? "Showing current workspace only (Click to show all)" : "Showing all workspaces (Click to filter to current)"}
+                                    style={{ fontSize: "11px" }}
+                                >
+                                    {filterByWorkspace ? "This WS" : "All WS"}
+                                </button>
+                            )}
+
                             <button
                                 className={`notif-header-btn ${soundEnabled ? "sound-on" : ""}`}
                                 onClick={toggleSound}
