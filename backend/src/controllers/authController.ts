@@ -228,8 +228,10 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
 export const googleLogin = (req: Request, res: Response): void => {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI || "http://localhost:3000/api/auth/google/callback";
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+
     if (!clientId) {
-        res.status(500).json({ error: "Google OAuth is not configured on the server." });
+        res.redirect(`${frontendUrl}/auth/callback?status=error&reason=oauth_not_configured`);
         return;
     }
 
@@ -237,36 +239,83 @@ export const googleLogin = (req: Request, res: Response): void => {
     const codeVerifier = crypto.randomBytes(32).toString("base64url");
     const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
 
-    // Store verifier securely in a temporary HttpOnly cookie (valid for 10 mins)
-    res.cookie("oauth_pkce_verifier", codeVerifier, {
+    // Generate state nonce for CSRF protection
+    const stateNonce = crypto.randomBytes(24).toString("base64url");
+
+    const cookieOpts = {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 10 * 60 * 1000,
+        sameSite: "lax" as const,
+        path: "/api/auth/google",
+        maxAge: 10 * 60 * 1000, // 10 minutes
+    };
+
+    // Store PKCE verifier and state nonce in secure HttpOnly cookies
+    res.cookie("oauth_pkce_verifier", codeVerifier, cookieOpts);
+    res.cookie("oauth_state", stateNonce, cookieOpts);
+
+    const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        scope: "email profile",
+        access_type: "offline",
+        prompt: "consent",
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
+        state: stateNonce,
     });
 
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=email profile&access_type=offline&prompt=consent&code_challenge=${codeChallenge}&code_challenge_method=S256`;
-    res.redirect(authUrl);
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
 };
 
 export const googleCallback = async (req: Request, res: Response): Promise<void> => {
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const cookieClearOpts = { path: "/api/auth/google" };
+
+    const redirectError = (reason: string) => {
+        res.clearCookie("oauth_pkce_verifier", cookieClearOpts);
+        res.clearCookie("oauth_state", cookieClearOpts);
+        res.redirect(`${frontendUrl}/auth/callback?status=error&reason=${encodeURIComponent(reason)}`);
+    };
+
     try {
-        const { code } = req.query;
-        if (!code) {
-            res.status(400).send("No authorization code returned from Google.");
+        const { code, state: returnedState, error: oauthError } = req.query;
+
+        // Handle Google-side errors (e.g. user denied access)
+        if (oauthError) {
+            redirectError(String(oauthError));
             return;
         }
 
-        const codeVerifier = req.cookies.oauth_pkce_verifier;
-        if (!codeVerifier) {
-            res.status(400).send("Missing PKCE code verifier. Session may have expired.");
+        if (!code) {
+            redirectError("no_code");
             return;
         }
+
+        // ── CSRF: Validate state nonce ──────────────────────────────────────
+        const storedState = req.cookies.oauth_state;
+        if (!storedState || !returnedState || storedState !== String(returnedState)) {
+            redirectError("state_mismatch");
+            return;
+        }
+
+        // ── PKCE: Retrieve verifier ─────────────────────────────────────────
+        const codeVerifier = req.cookies.oauth_pkce_verifier;
+        if (!codeVerifier) {
+            redirectError("pkce_expired");
+            return;
+        }
+
+        // Clear both security cookies immediately after validation
+        res.clearCookie("oauth_pkce_verifier", cookieClearOpts);
+        res.clearCookie("oauth_state", cookieClearOpts);
 
         const clientId = process.env.GOOGLE_CLIENT_ID;
         const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
         const redirectUri = process.env.GOOGLE_REDIRECT_URI || "http://localhost:3000/api/auth/google/callback";
 
+        // ── Exchange authorization code for tokens ──────────────────────────
         const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -280,28 +329,28 @@ export const googleCallback = async (req: Request, res: Response): Promise<void>
             }),
         });
 
-        // Clear the PKCE cookie
-        res.clearCookie("oauth_pkce_verifier");
-
         const tokenData = await tokenRes.json();
         if (!tokenData.access_token) {
-            console.error("Google token error:", tokenData);
-            res.status(400).send("Failed to exchange code for Google token.");
+            console.error("Google token exchange error:", tokenData);
+            redirectError("token_exchange_failed");
             return;
         }
 
+        // ── Fetch Google user profile ───────────────────────────────────────
         const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
             headers: { Authorization: `Bearer ${tokenData.access_token}` },
         });
 
         const userData = await userRes.json();
         if (!userData.email) {
-            res.status(400).send("No email provided by Google.");
+            redirectError("no_email");
             return;
         }
 
+        // ── Upsert user (account linking + profile sync) ───────────────────
         const normalizedEmail = userData.email.toLowerCase();
         let user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+        const isNewUser = !user;
 
         if (!user) {
             user = await prisma.user.create({
@@ -319,23 +368,34 @@ export const googleCallback = async (req: Request, res: Response): Promise<void>
             // Account Linking & Profile Synchronization
             user = await prisma.user.update({
                 where: { email: normalizedEmail },
-                data: { 
-                    isGoogleUser: true, 
-                    isEmailVerified: true, 
-                    avatar: user.avatar || userData.picture,
-                    firstName: user.firstName || userData.given_name,
-                    lastName: user.lastName || userData.family_name
+                data: {
+                    isGoogleUser: true,
+                    isEmailVerified: true,
+                    avatar: user.avatar || userData.picture || null,
+                    firstName: user.firstName || userData.given_name || "Google",
+                    lastName: user.lastName || userData.family_name || "User",
                 },
             });
         }
 
+        // ── Create session (sets HttpOnly cookies) ──────────────────────────
         await generateSession(req, res, user);
 
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-        res.redirect(`${frontendUrl}/projects`);
+        // ── Audit log ───────────────────────────────────────────────────────
+        logAuditAction({
+            userId: user.id,
+            action: isNewUser ? "GOOGLE_SIGNUP" : "GOOGLE_LOGIN",
+            entityType: "User",
+            entityId: user.id,
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] as string,
+        }).catch((err) => console.error("Audit log error (Google OAuth):", err));
+
+        // ── Redirect to frontend callback page (not directly to /projects) ──
+        res.redirect(`${frontendUrl}/auth/callback?status=success`);
     } catch (error) {
         console.error("Google callback error:", error);
-        res.status(500).send("Internal Server Error during Google login.");
+        redirectError("server_error");
     }
 };
 

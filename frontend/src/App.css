@@ -406,3 +406,18 @@ input[type="text"]:focus {
     font-size: 22px;
   }
 }
+
+/* Google button redirect spinner */
+@keyframes app-spin {
+  to { transform: rotate(360deg); }
+}
+
+.google-icon--spin {
+  animation: app-spin 0.8s linear infinite;
+  opacity: 0.7;
+}
+
+.google-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

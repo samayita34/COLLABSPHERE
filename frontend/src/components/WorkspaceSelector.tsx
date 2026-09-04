@@ -54,7 +54,7 @@ export function WorkspaceSelector() {
                         </div>
                         <div className="dropdown-actions">
                             <button onClick={() => { setIsCreateModalOpen(true); setIsOpen(false); }}>
-                                + Create Workspace
+                                + Create Workspaces
                             </button>
                         </div>
                     </div>
